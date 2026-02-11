@@ -20,7 +20,7 @@ class Settings(BaseSettings):
 
     # Server
     PORT: int = 8000
-    CORS_ORIGINS: str = "http://localhost:5173"
+    CORS_ORIGINS: str = "http://localhost:5174"
 
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
 
