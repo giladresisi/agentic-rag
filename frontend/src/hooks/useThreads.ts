@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type { Thread } from '@/types/chat';
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || '';
 
 export function useThreads(token: string | null) {
   const [threads, setThreads] = useState<Thread[]>([]);

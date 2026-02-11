@@ -42,7 +42,7 @@ Track your progress through the masterclass. Update this file as you complete mo
 - [x] Python dependencies installed with compatibility fixes
 - [x] Frontend dependencies installed (npm install)
 - [x] Backend server running (http://localhost:8000)
-- [x] Frontend server running (http://localhost:5173)
+- [x] Frontend server running (http://localhost:5174)
 - [x] Unicode encoding issues fixed in backend code
 - [x] Database migration applied to Supabase
   - [x] threads and messages tables created
@@ -104,7 +104,7 @@ websockets>=13.0,<16
 - [x] Backend starts without errors: `uvicorn main:app --reload`
 - [x] FastAPI docs accessible: http://localhost:8000/docs
 - [x] Frontend starts: `npm run dev`
-- [x] Frontend accessible: http://localhost:5173
+- [x] Frontend accessible: http://localhost:5174
 
 **Database & Authentication**
 - [x] Database migration applied to Supabase
@@ -126,7 +126,7 @@ websockets>=13.0,<16
 
 **Servers Running:**
 - Backend: http://localhost:8000 (FastAPI + Uvicorn)
-- Frontend: http://localhost:5173 (React + Vite)
+- Frontend: http://localhost:5174 (React + Vite)
 - API Documentation: http://localhost:8000/docs
 
 **Required Before Testing:**
