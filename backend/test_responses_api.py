@@ -10,7 +10,7 @@ from services.openai_service import openai_service
 # Test credentials
 TEST_EMAIL = "test@..."
 TEST_PASSWORD = "***"
-API_BASE_URL = "http://localhost:8001"
+API_BASE_URL = "http://localhost:8000"
 
 
 def get_auth_token():
@@ -65,6 +65,8 @@ async def test_send_message_api():
     try:
         token, user_id = get_auth_token()
         print(f"Authenticated as user: {user_id}")
+
+        supabase = get_supabase()
 
         # Create a new thread via API (to avoid RLS issues)
         async with httpx.AsyncClient(timeout=30.0) as client:

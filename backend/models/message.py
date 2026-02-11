@@ -19,7 +19,6 @@ class Message(MessageBase):
     id: UUID
     thread_id: UUID
     user_id: UUID
-    openai_message_id: Optional[str]
     role: Literal["user", "assistant"]
     created_at: datetime
 
