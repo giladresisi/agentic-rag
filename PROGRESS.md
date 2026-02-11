@@ -49,24 +49,14 @@ Track your progress through the masterclass. Update this file as you complete mo
   - [x] Row-Level Security enabled
   - [x] RLS policies configured
 
-#### Next Steps - OpenAI Assistant Setup Required
+#### Migration to Responses API Complete
 
-**Create OpenAI Assistant:**
-
-1. Go to https://platform.openai.com/assistants
-2. Click "Create" to make a new Assistant
-3. Configure the Assistant:
-   - Name: "RAG Assistant" (or your preferred name)
-   - Model: gpt-4-turbo or gpt-4o
-   - Enable the `file_search` tool
-4. Copy the Assistant ID (starts with `asst_`)
-5. Add it to `backend/.env`:
-   ```
-   OPENAI_ASSISTANT_ID=asst_your_id_here
-   ```
-6. Restart the backend server
-
-After Assistant is configured, proceed to validation testing.
+**Status:** Migrated from deprecated Assistants API to modern Responses API
+- ✅ Removed OpenAI Assistant dependency
+- ✅ Implemented manual conversation history management
+- ✅ Using stateless completions (store and send chat history)
+- ✅ Database migration applied (removed openai_thread_id column)
+- ✅ All documentation updated
 
 #### Issues Resolved During Setup
 - ❌ Python 3.14 incompatible (pydantic-core requires Rust compilation)
@@ -131,9 +121,8 @@ websockets>=13.0,<16
 
 **Required Before Testing:**
 1. ✅ Apply database migration - COMPLETED
-2. Create OpenAI Assistant and add ID to backend/.env (OPENAI_ASSISTANT_ID)
-3. Enable file_search tool on the OpenAI Assistant
-4. Restart backend server after adding OPENAI_ASSISTANT_ID
+2. ✅ Responses API migration - COMPLETED
+3. Backend server running with OPENAI_API_KEY configured
 
 **Technical Notes:**
 - Python 3.12 required (3.14 has pydantic-core compilation issues)

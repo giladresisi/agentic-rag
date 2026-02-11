@@ -51,18 +51,7 @@ Edit `.env` with your actual values:
 - **SUPABASE_ANON_KEY**: Your Supabase anon/public key
 - **SUPABASE_SERVICE_ROLE_KEY**: Your Supabase service role key
 - **OPENAI_API_KEY**: Your OpenAI API key
-- **OPENAI_ASSISTANT_ID**: Create an assistant via OpenAI dashboard (see below)
 - **LANGSMITH_API_KEY**: Your LangSmith API key
-
-#### Creating the OpenAI Assistant
-
-1. Go to https://platform.openai.com/assistants
-2. Click "Create"
-3. Name: "RAG Assistant"
-4. Instructions: "You are a helpful assistant with access to file search."
-5. Enable the **file_search** tool
-6. Create and copy the assistant ID (starts with `asst_`)
-7. Paste it into your `.env` file
 
 ## Supabase Setup
 
@@ -200,11 +189,10 @@ Use this checklist from the plan to verify everything works:
 - [ ] Frontend logout clears session
 
 ### OpenAI & LangSmith
-- [ ] OpenAI assistant created (store assistant_id in .env)
 - [ ] Can create thread via backend API
 - [ ] Thread ID stored in database
 - [ ] Can send message to thread
-- [ ] Response received from OpenAI
+- [ ] Response received from OpenAI (using Responses API)
 - [ ] LangSmith project shows traces
 - [ ] Traces include input/output and timing
 

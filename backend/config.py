@@ -11,7 +11,7 @@ class Settings(BaseSettings):
 
     # OpenAI
     OPENAI_API_KEY: str
-    OPENAI_ASSISTANT_ID: str
+    OPENAI_VECTOR_STORE_ID: str | None = None
 
     # LangSmith
     LANGSMITH_API_KEY: str

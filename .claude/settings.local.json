@@ -7,7 +7,9 @@
       "Bash(py -3.13:*)",
       "Bash(python3.12:*)",
       "Bash(/c/Python312/python.exe:*)",
-      "Bash(/c/Users/gilad/AppData/Local/Programs/Python/Python312/python.exe:*)"
+      "Bash(/c/Users/gilad/AppData/Local/Programs/Python/Python312/python.exe:*)",
+      "Bash(curl:*)",
+      "Bash(./venv/Scripts/python:*)"
     ]
   }
 }

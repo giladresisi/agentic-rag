@@ -1,6 +1,6 @@
 from openai import OpenAI, AsyncOpenAI
 from config import settings
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List, Dict
 import asyncio
 
 # Initialize OpenAI client
@@ -21,42 +21,57 @@ class OpenAIService:
     """Service for OpenAI Responses API operations."""
 
     @staticmethod
-    def create_thread() -> str:
-        """Create a new OpenAI thread and return its ID."""
-        thread = client.beta.threads.create()
-        return thread.id
+    def build_conversation_history(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+        """Build conversation history in Responses API format.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content' keys
+
+        Returns:
+            List of message dicts in OpenAI format
+        """
+        return [
+            {"role": msg["role"], "content": msg["content"]}
+            for msg in messages
+        ]
 
     @staticmethod
-    async def stream_message(
-        thread_id: str,
-        content: str,
-        assistant_id: str = settings.OPENAI_ASSISTANT_ID
+    async def stream_response(
+        conversation_history: List[Dict[str, str]],
+        model: str = "gpt-4o-mini"
     ) -> AsyncGenerator[str, None]:
-        """
-        Add a user message to a thread and stream the assistant's response.
+        """Stream a response using OpenAI Chat Completions API.
 
-        Yields content deltas as they arrive from OpenAI.
-        """
-        # Add user message to thread
-        await async_client.beta.threads.messages.create(
-            thread_id=thread_id,
-            role="user",
-            content=content
-        )
+        Args:
+            conversation_history: Full conversation history (list of messages)
+            model: Model to use for generation
 
-        # Stream the assistant's response
-        async with async_client.beta.threads.runs.stream(
-            thread_id=thread_id,
-            assistant_id=assistant_id,
-        ) as stream:
-            async for event in stream:
-                # Check for message deltas
-                if event.event == 'thread.message.delta':
-                    delta = event.data.delta
+        Yields:
+            Text deltas from the streaming response
+        """
+        try:
+            # Build request parameters
+            request_params = {
+                "model": model,
+                "messages": conversation_history,
+                "stream": True,
+            }
+
+            # Note: Vector stores with file_search require the Assistants API
+            # For stateless chat completions, RAG must be implemented manually
+            # by retrieving relevant chunks and adding them to the conversation
+
+            stream = await async_client.chat.completions.create(**request_params)
+
+            async for chunk in stream:
+                # Extract content delta from chunk
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
                     if delta.content:
-                        for content_block in delta.content:
-                            if hasattr(content_block, 'text') and content_block.text:
-                                yield content_block.text.value
+                        yield delta.content
+
+        except Exception as e:
+            raise Exception(f"Failed to stream response: {str(e)}")
 
 
 openai_service = OpenAIService()
