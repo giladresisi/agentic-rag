@@ -37,4 +37,4 @@ RAG app with chat (default) and document ingestion interfaces. Config via env va
 4. **Iterate** - Fix any issues found during validation
 
 ## Progress
-Check PROGRESS.md for current module status. Update it as you complete tasks.
+Check PROGRESS.md for current module status. Update it as you complete requests.
