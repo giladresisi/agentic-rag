@@ -5,7 +5,7 @@ import httpx
 async def test():
     # Login
     login_resp = await httpx.AsyncClient().post(
-        'http://localhost:8001/auth/login',
+        'http://localhost:8000/auth/login',
         json={'email': 'test@test.com', 'password': '123456'},
         timeout=10.0
     )
@@ -14,7 +14,7 @@ async def test():
 
     # Create thread
     thread_resp = await httpx.AsyncClient().post(
-        'http://localhost:8001/chat/threads',
+        'http://localhost:8000/chat/threads',
         headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
         json={'title': 'Test Thread'},
         timeout=10.0
@@ -30,7 +30,7 @@ async def test():
     async with httpx.AsyncClient(timeout=30.0) as client:
         async with client.stream(
             'POST',
-            f'http://localhost:8001/chat/threads/{thread_id}/messages',
+            f'http://localhost:8000/chat/threads/{thread_id}/messages',
             headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},
             json={'content': 'Say hello in 2 words'}
         ) as resp:

@@ -67,7 +67,7 @@
 3. **Expected:**
    - Your message appears immediately
    - Assistant response streams in (appears gradually)
-4. **✅ Pass if:** You see streaming response from OpenAI Assistant
+4. **✅ Pass if:** You see streaming response from OpenAI
 
 ### Test 8: Conversation Continuity
 1. In the same thread, send: "What was my previous question?"

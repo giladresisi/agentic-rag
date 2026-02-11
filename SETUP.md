@@ -244,13 +244,15 @@ Use this checklist from the plan to verify everything works:
 
 ### OpenAI errors
 
-**Error: "Assistant not found"**
-- Solution: Verify `OPENAI_ASSISTANT_ID` is correct in `.env`
-- Ensure assistant has `file_search` tool enabled
+**Error: "Invalid vector store ID"**
+- Solution: Verify `OPENAI_VECTOR_STORE_ID` is correct in `.env`
+- Ensure vector store exists in your OpenAI account with uploaded files
+- Vector store ID is optional - if not set, responses work without file_search
 
 **No streaming response**
 - Solution: Check LangSmith traces to see if OpenAI is being called
 - Verify `LANGSMITH_TRACING=true` in `.env`
+- Ensure OPENAI_API_KEY is valid
 
 ## Next Steps
 
@@ -263,11 +265,11 @@ Once everything is working:
 
 ### Backend
 ```bash
-# Start server
+# Start server (default port 8000)
 uvicorn main:app --reload
 
-# Run with custom port
-uvicorn main:app --reload --port 8001
+# Run with explicit port specification
+uvicorn main:app --reload --port 8000
 
 # Check Python version
 python --version

@@ -1,16 +1,13 @@
-from openai import OpenAI, AsyncOpenAI
+from openai import AsyncOpenAI
 from config import settings
 from typing import AsyncGenerator, List, Dict
-import asyncio
 
 # Initialize OpenAI client
-client = OpenAI(api_key=settings.OPENAI_API_KEY)
 async_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 # Optional: Wrap with LangSmith if available
 try:
     from langsmith.wrappers import wrap_openai
-    client = wrap_openai(client)
     async_client = wrap_openai(async_client)
     print("[OK] LangSmith wrapper applied to OpenAI client")
 except ImportError:
@@ -40,7 +37,7 @@ class OpenAIService:
         conversation_history: List[Dict[str, str]],
         model: str = "gpt-4o-mini"
     ) -> AsyncGenerator[str, None]:
-        """Stream a response using OpenAI Chat Completions API.
+        """Stream a response using OpenAI Responses API.
 
         Args:
             conversation_history: Full conversation history (list of messages)
@@ -50,27 +47,46 @@ class OpenAIService:
             Text deltas from the streaming response
         """
         try:
-            # Build request parameters
+            # Build request parameters for Responses API
             request_params = {
                 "model": model,
-                "messages": conversation_history,
-                "stream": True,
+                "input": conversation_history,
+                "store": False,  # Stateless - no data retention
             }
 
-            # Note: Vector stores with file_search require the Assistants API
-            # For stateless chat completions, RAG must be implemented manually
-            # by retrieving relevant chunks and adding them to the conversation
+            # Add file_search tool if vector store is configured
+            if settings.OPENAI_VECTOR_STORE_ID:
+                request_params["tools"] = [
+                    {
+                        "type": "file_search",
+                        "vector_store_ids": [settings.OPENAI_VECTOR_STORE_ID]
+                    }
+                ]
+                print(f"[INFO] Using vector store: {settings.OPENAI_VECTOR_STORE_ID}")
 
-            stream = await async_client.chat.completions.create(**request_params)
+            # Stream response using Responses API
+            print(f"[DEBUG] Calling responses.stream() with params: {list(request_params.keys())}")
+            async with async_client.responses.stream(**request_params) as stream:
+                async for event in stream:
+                    # Check event type
+                    event_type = getattr(event, 'type', None) or getattr(event, 'event', None)
 
-            async for chunk in stream:
-                # Extract content delta from chunk
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if delta.content:
-                        yield delta.content
+                    # Handle text delta events
+                    if event_type == "response.output_text.delta":
+                        delta = getattr(event, 'delta', None)
+                        if delta:
+                            yield delta
+                    # Handle done event
+                    elif event_type == "response.done":
+                        print("[DEBUG] Response stream completed")
+                    # Handle errors
+                    elif event_type == "error":
+                        raise Exception(f"OpenAI API error: {event}")
 
         except Exception as e:
+            print(f"[ERROR] Response streaming failed: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
             raise Exception(f"Failed to stream response: {str(e)}")
 
 
