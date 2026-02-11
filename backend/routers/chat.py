@@ -9,7 +9,9 @@ from typing import List
 import json
 from datetime import datetime
 
+print("[STARTUP] Loading chat router module...")
 router = APIRouter()
+print("[STARTUP] Chat router initialized")
 
 
 @router.post("/threads", response_model=ThreadResponse)
@@ -20,13 +22,9 @@ async def create_thread(
     """Create a new chat thread."""
     supabase = get_supabase()
 
-    # Create OpenAI thread
-    openai_thread_id = openai_service.create_thread()
-
     # Save to database
     response = supabase.table("threads").insert({
         "user_id": current_user["id"],
-        "openai_thread_id": openai_thread_id,
         "title": thread_data.title
     }).execute()
 
@@ -38,33 +36,41 @@ async def create_thread(
     return ThreadResponse(
         id=str(thread["id"]),
         title=thread["title"],
-        openai_thread_id=thread["openai_thread_id"],
-        created_at=thread["created_at"],
-        updated_at=thread["updated_at"]
+        created_at=str(thread["created_at"]),
+        updated_at=str(thread["updated_at"])
     )
 
 
 @router.get("/threads", response_model=List[ThreadResponse])
 async def list_threads(current_user: dict = Depends(get_current_user)):
     """List all threads for the current user."""
-    supabase = get_supabase()
+    try:
+        supabase = get_supabase()
 
-    response = supabase.table("threads")\
-        .select("*")\
-        .eq("user_id", current_user["id"])\
-        .order("created_at", desc=True)\
-        .execute()
+        response = supabase.table("threads")\
+            .select("*")\
+            .eq("user_id", current_user["id"])\
+            .order("created_at", desc=True)\
+            .execute()
 
-    return [
-        ThreadResponse(
-            id=str(thread["id"]),
-            title=thread["title"],
-            openai_thread_id=thread["openai_thread_id"],
-            created_at=thread["created_at"],
-            updated_at=thread["updated_at"]
-        )
-        for thread in response.data
-    ]
+        print(f"DEBUG - Found {len(response.data)} threads for user {current_user['id']}")
+        if response.data:
+            print(f"DEBUG - First thread: {response.data[0]}")
+
+        return [
+            ThreadResponse(
+                id=str(thread["id"]),
+                title=thread["title"],
+                created_at=str(thread["created_at"]),
+                updated_at=str(thread["updated_at"])
+            )
+            for thread in response.data
+        ]
+    except Exception as e:
+        print(f"ERROR in list_threads: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to list threads: {str(e)}")
 
 
 @router.get("/threads/{thread_id}/messages", response_model=List[MessageResponse])
@@ -99,7 +105,7 @@ async def get_thread_messages(
             thread_id=str(msg["thread_id"]),
             role=msg["role"],
             content=msg["content"],
-            created_at=msg["created_at"]
+            created_at=str(msg["created_at"])
         )
         for msg in messages_response.data
     ]
@@ -114,7 +120,7 @@ async def send_message(
     """Send a message and stream the response via SSE."""
     supabase = get_supabase()
 
-    # Verify thread ownership and get OpenAI thread ID
+    # Verify thread ownership
     thread_response = supabase.table("threads")\
         .select("*")\
         .eq("id", thread_id)\
@@ -126,7 +132,24 @@ async def send_message(
         raise HTTPException(status_code=404, detail="Thread not found")
 
     thread = thread_response.data
-    openai_thread_id = thread["openai_thread_id"]
+
+    # Fetch conversation history for this thread
+    history_response = supabase.table("messages")\
+        .select("role, content")\
+        .eq("thread_id", thread_id)\
+        .order("created_at")\
+        .execute()
+
+    # Build conversation history
+    conversation_history = openai_service.build_conversation_history(
+        history_response.data
+    )
+
+    # Add current user message to history
+    conversation_history.append({
+        "role": "user",
+        "content": message_data.content
+    })
 
     # Save user message
     user_message_response = supabase.table("messages").insert({
@@ -142,17 +165,22 @@ async def send_message(
     # Stream assistant response
     async def event_generator():
         full_response = ""
+        chunk_count = 0
 
         try:
-            async for delta in openai_service.stream_message(
-                openai_thread_id,
-                message_data.content
+            print(f"DEBUG - Starting to stream response for thread {thread_id}")
+            async for delta in openai_service.stream_response(
+                conversation_history
             ):
+                chunk_count += 1
                 full_response += delta
+                print(f"DEBUG - Chunk {chunk_count}: {repr(delta)}")
                 yield {
                     "event": "message",
                     "data": json.dumps({"type": "content_delta", "delta": delta})
                 }
+
+            print(f"DEBUG - Streaming complete. Total chunks: {chunk_count}, Response length: {len(full_response)}")
 
             # Save assistant message
             supabase.table("messages").insert({
@@ -162,6 +190,8 @@ async def send_message(
                 "content": full_response
             }).execute()
 
+            print(f"DEBUG - Assistant message saved")
+
             # Update thread timestamp
             supabase.table("threads")\
                 .update({"updated_at": datetime.utcnow().isoformat()})\
@@ -169,6 +199,7 @@ async def send_message(
                 .execute()
 
             yield {"event": "message", "data": "[DONE]"}
+            print(f"DEBUG - Sent [DONE] event")
 
         except Exception as e:
             yield {

@@ -18,7 +18,6 @@ class Thread(ThreadBase):
     """Full thread model from database."""
     id: UUID
     user_id: UUID
-    openai_thread_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -30,6 +29,5 @@ class ThreadResponse(BaseModel):
     """Thread response model."""
     id: str
     title: str
-    openai_thread_id: str
     created_at: str
     updated_at: str

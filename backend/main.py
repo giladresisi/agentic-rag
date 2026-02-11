@@ -11,11 +11,20 @@ from starlette.requests import Request
 
 class LoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        print(f"REQUEST: {request.method} {request.url}")
-        print(f"Origin header: {request.headers.get('origin', 'MISSING')}")
-        response = await call_next(request)
-        print(f"Response status: {response.status_code}")
-        return response
+        import sys
+        print(f"REQUEST: {request.method} {request.url}", flush=True)
+        sys.stdout.flush()
+        print(f"Origin header: {request.headers.get('origin', 'MISSING')}", flush=True)
+        sys.stdout.flush()
+        try:
+            response = await call_next(request)
+            print(f"Response status: {response.status_code}", flush=True)
+            sys.stdout.flush()
+            return response
+        except Exception as e:
+            print(f"ERROR in middleware: {e}", flush=True)
+            sys.stdout.flush()
+            raise
 
 app.add_middleware(LoggingMiddleware)
 

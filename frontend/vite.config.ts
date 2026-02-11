@@ -12,11 +12,11 @@ export default defineConfig({
   server: {
     proxy: {
       '/auth': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8001',
         changeOrigin: true,
       },
       '/chat': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8001',
         changeOrigin: true,
       },
     },

@@ -1,7 +1,6 @@
 export interface Thread {
   id: string;
   title: string;
-  openai_thread_id: string;
   created_at: string;
   updated_at: string;
 }

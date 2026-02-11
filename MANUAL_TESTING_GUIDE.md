@@ -4,7 +4,7 @@
 - ✅ Backend running: http://localhost:8000
 - ✅ Frontend running: http://localhost:5174
 - ✅ Database migration applied
-- ✅ OPENAI_ASSISTANT_ID configured in backend/.env
+- ✅ OPENAI_API_KEY configured in backend/.env
 
 ## Authentication Testing
 
@@ -111,8 +111,8 @@ npx playwright test auth.spec.ts::should enforce protected routes
 - Check browser console (F12) for network errors
 
 ### Chat Not Responding
-- Verify OPENAI_ASSISTANT_ID is set in backend/.env
 - Check OPENAI_API_KEY is valid
+- Verify using OpenAI Responses API (not deprecated Assistants API)
 - Check backend logs for OpenAI API errors
 
 ### Messages Not Persisting
