@@ -1,3 +1,7 @@
+# Initialize LangSmith tracing FIRST - before any other imports
+# This must happen before routers are imported (they import openai_service)
+import services.langsmith_service  # noqa: F401
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings

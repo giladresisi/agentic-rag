@@ -45,13 +45,17 @@ Copy the example file and fill in your credentials:
 cp .env.example .env
 ```
 
-Edit `.env` with your actual values:
+Edit `backend/.env` with your actual values:
 
 - **SUPABASE_URL**: Your Supabase project URL
 - **SUPABASE_ANON_KEY**: Your Supabase anon/public key
 - **SUPABASE_SERVICE_ROLE_KEY**: Your Supabase service role key
 - **OPENAI_API_KEY**: Your OpenAI API key
 - **LANGSMITH_API_KEY**: Your LangSmith API key
+- **LANGSMITH_PROJECT**: `default` (or your LangSmith project name - must match exactly)
+- **LANGSMITH_TRACING**: `true`
+
+**Important:** The `LANGSMITH_PROJECT` value must match the project name shown in your LangSmith dashboard exactly (case-sensitive).
 
 ## Supabase Setup
 
@@ -226,7 +230,7 @@ Use this checklist from the plan to verify everything works:
 - Solution: Ensure you're in the `backend` directory when running uvicorn
 
 **CORS errors**
-- Solution: Check `CORS_ORIGINS` in backend `.env` matches frontend URL
+- Solution: Check `CORS_ORIGINS` in `backend/.env` matches frontend URL (default: `http://localhost:5174`)
 
 ### Frontend won't start
 
@@ -251,8 +255,14 @@ Use this checklist from the plan to verify everything works:
 
 **No streaming response**
 - Solution: Check LangSmith traces to see if OpenAI is being called
-- Verify `LANGSMITH_TRACING=true` in `.env`
+- Verify `LANGSMITH_TRACING=true` in backend `.env`
 - Ensure OPENAI_API_KEY is valid
+
+**LangSmith traces not appearing**
+- Solution: Verify `LANGSMITH_PROJECT` in backend `.env` matches your LangSmith project name exactly
+- Default project name is usually `default` (check your LangSmith dashboard)
+- Traces may take 10-30 seconds to appear after requests
+- Check "All Projects" view in LangSmith if you're not sure which project is correct
 
 ## Next Steps
 

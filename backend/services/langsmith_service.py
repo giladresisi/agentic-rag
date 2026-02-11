@@ -8,13 +8,21 @@ def setup_langsmith():
     Note: LangSmith is optional. If not configured, tracing will be disabled.
     """
     try:
+        # Check if API key is configured
+        if not settings.LANGSMITH_API_KEY:
+            print("⚠ LangSmith API key not set - tracing disabled")
+            os.environ["LANGCHAIN_TRACING_V2"] = "false"
+            return
+
+        # Set environment variables
         os.environ["LANGCHAIN_TRACING_V2"] = str(settings.LANGSMITH_TRACING).lower()
         os.environ["LANGCHAIN_API_KEY"] = settings.LANGSMITH_API_KEY
         os.environ["LANGCHAIN_PROJECT"] = settings.LANGSMITH_PROJECT
-        print("✓ LangSmith tracing enabled")
+        os.environ["LANGCHAIN_ENDPOINT"] = "https://api.smith.langchain.com"
+
+        print(f"✓ LangSmith tracing enabled (project: {settings.LANGSMITH_PROJECT})")
     except Exception as e:
-        print(f"⚠ LangSmith not configured (optional): {e}")
-        # Disable tracing if configuration fails
+        print(f"⚠ LangSmith configuration failed: {e}")
         os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 # Initialize on import
