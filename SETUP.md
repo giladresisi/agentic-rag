@@ -159,13 +159,13 @@ Expected output:
 ```
   VITE v5.x.x  ready in xxx ms
 
-  ➜  Local:   http://localhost:5173/
+  ➜  Local:   http://localhost:5174/
   ➜  Network: use --host to expose
 ```
 
 ### 3. Test the Application
 
-1. Open http://localhost:5173
+1. Open http://localhost:5174
 2. Click "Sign Up" to create an account
 3. Fill in email/password and submit
 4. You should be redirected to the chat interface
@@ -182,7 +182,7 @@ Use this checklist from the plan to verify everything works:
 - [ ] `uvicorn backend.main:app --reload` starts without errors
 - [ ] FastAPI docs accessible at http://localhost:8000/docs
 - [ ] `npm run dev` starts frontend without errors
-- [ ] Frontend accessible at http://localhost:5173
+- [ ] Frontend accessible at http://localhost:5174
 - [ ] Tailwind styles render correctly
 
 ### Database & Auth

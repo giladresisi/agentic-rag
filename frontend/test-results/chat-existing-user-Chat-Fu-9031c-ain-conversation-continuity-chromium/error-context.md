@@ -1,0 +1,107 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - button "New Thread" [ref=e7] [cursor=pointer]:
+      - img [ref=e8]
+      - text: New Thread
+    - generic [ref=e10]:
+      - generic [ref=e11] [cursor=pointer]:
+        - generic [ref=e12]:
+          - img [ref=e13]
+          - generic [ref=e15]: New Chat
+        - button [ref=e16]:
+          - img [ref=e17]
+      - generic [ref=e20] [cursor=pointer]:
+        - generic [ref=e21]:
+          - img [ref=e22]
+          - generic [ref=e24]: New Chat
+        - button [ref=e25]:
+          - img [ref=e26]
+      - generic [ref=e29] [cursor=pointer]:
+        - generic [ref=e30]:
+          - img [ref=e31]
+          - generic [ref=e33]: New Chat
+        - button [ref=e34]:
+          - img [ref=e35]
+      - generic [ref=e38] [cursor=pointer]:
+        - generic [ref=e39]:
+          - img [ref=e40]
+          - generic [ref=e42]: New Chat
+        - button [ref=e43]:
+          - img [ref=e44]
+      - generic [ref=e47] [cursor=pointer]:
+        - generic [ref=e48]:
+          - img [ref=e49]
+          - generic [ref=e51]: New Chat
+        - button [ref=e52]:
+          - img [ref=e53]
+      - generic [ref=e56] [cursor=pointer]:
+        - generic [ref=e57]:
+          - img [ref=e58]
+          - generic [ref=e60]: New Chat
+        - button [ref=e61]:
+          - img [ref=e62]
+      - generic [ref=e65] [cursor=pointer]:
+        - generic [ref=e66]:
+          - img [ref=e67]
+          - generic [ref=e69]: New Chat
+        - button [ref=e70]:
+          - img [ref=e71]
+      - generic [ref=e74] [cursor=pointer]:
+        - generic [ref=e75]:
+          - img [ref=e76]
+          - generic [ref=e78]: New Chat
+        - button [ref=e79]:
+          - img [ref=e80]
+      - generic [ref=e83] [cursor=pointer]:
+        - generic [ref=e84]:
+          - img [ref=e85]
+          - generic [ref=e87]: New Chat
+        - button [ref=e88]:
+          - img [ref=e89]
+      - generic [ref=e92] [cursor=pointer]:
+        - generic [ref=e93]:
+          - img [ref=e94]
+          - generic [ref=e96]: New Chat
+        - button [ref=e97]:
+          - img [ref=e98]
+      - generic [ref=e101] [cursor=pointer]:
+        - generic [ref=e102]:
+          - img [ref=e103]
+          - generic [ref=e105]: New Chat
+        - button [ref=e106]:
+          - img [ref=e107]
+      - generic [ref=e110] [cursor=pointer]:
+        - generic [ref=e111]:
+          - img [ref=e112]
+          - generic [ref=e114]: New Chat
+        - button [ref=e115]:
+          - img [ref=e116]
+      - generic [ref=e119] [cursor=pointer]:
+        - generic [ref=e120]:
+          - img [ref=e121]
+          - generic [ref=e123]: New Chat
+        - button [ref=e124]:
+          - img [ref=e125]
+  - generic [ref=e128]:
+    - banner [ref=e129]:
+      - heading "New Chat" [level=1] [ref=e130]
+      - generic [ref=e131]:
+        - generic [ref=e132]: test@test.com
+        - button "Logout" [ref=e133] [cursor=pointer]:
+          - img [ref=e134]
+          - text: Logout
+    - generic [ref=e138]:
+      - generic [ref=e139]:
+        - paragraph [ref=e141]: My favorite color is blue.
+        - img [ref=e143]
+      - generic [ref=e146]:
+        - img [ref=e148]
+        - paragraph [ref=e152]: That's great! Blue is a popular and versatile color often associated with calmness, stability, and trust. If you'd like, I can recommend some things in blue or share more about its symbolism.
+    - generic [ref=e155]:
+      - textbox "Type your message..." [disabled] [ref=e156]
+      - button [disabled]:
+        - img
+```
