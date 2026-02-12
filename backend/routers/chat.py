@@ -3,15 +3,30 @@ from sse_starlette.sse import EventSourceResponse
 from middleware.auth_middleware import get_current_user
 from services.supabase_service import get_supabase
 from services.openai_service import openai_service
+from services.provider_service import provider_service
 from models.thread import ThreadCreate, ThreadResponse
 from models.message import MessageCreate, MessageResponse
 from typing import List
 import json
 from datetime import datetime
+from config import settings
 
 print("[STARTUP] Loading chat router module...")
 router = APIRouter()
 print("[STARTUP] Chat router initialized")
+
+
+@router.get("/providers")
+async def get_providers():
+    """Get available LLM provider presets."""
+    return {
+        "providers": provider_service.get_providers(),
+        "defaults": {
+            "provider": settings.DEFAULT_PROVIDER,
+            "model": settings.DEFAULT_MODEL,
+            "base_url": settings.DEFAULT_BASE_URL
+        }
+    }
 
 
 @router.post("/threads", response_model=ThreadResponse)
@@ -162,6 +177,20 @@ async def send_message(
     if not user_message_response.data:
         raise HTTPException(status_code=500, detail="Failed to save message")
 
+    # Validate provider configuration
+    print(f"DEBUG - Validating provider config: provider={message_data.provider}, model={message_data.model}")
+    is_valid, error_msg = provider_service.validate_provider_config(
+        provider=message_data.provider,
+        model=message_data.model,
+        base_url=message_data.base_url,
+        api_key=message_data.api_key,
+        has_default_api_key=bool(settings.OPENAI_API_KEY)
+    )
+    if not is_valid:
+        print(f"ERROR - Provider validation failed: {error_msg}")
+        raise HTTPException(status_code=400, detail=error_msg)
+    print(f"DEBUG - Provider validation passed")
+
     # Stream assistant response
     async def event_generator():
         full_response = ""
@@ -169,8 +198,31 @@ async def send_message(
 
         try:
             print(f"DEBUG - Starting to stream response for thread {thread_id}")
+            print(f"DEBUG - Provider: {message_data.provider}, Model: {message_data.model}")
+
+            # Determine base_url and api_key
+            base_url = message_data.base_url
+            api_key = message_data.api_key
+
+            # If no base_url provided, get from provider preset
+            if not base_url:
+                provider_config = provider_service.get_provider_config(message_data.provider)
+                if provider_config:
+                    base_url = provider_config.get("base_url")
+
+            # If no api_key provided, use default for providers that require it
+            if not api_key:
+                provider_config = provider_service.get_provider_config(message_data.provider)
+                if provider_config and provider_config.get("requires_api_key"):
+                    api_key = settings.OPENAI_API_KEY
+
+            print(f"DEBUG - Final config: base_url={base_url}, api_key={'SET' if api_key else 'NOT SET'}")
+
             async for delta in openai_service.stream_response(
-                conversation_history
+                conversation_history,
+                model=message_data.model,
+                base_url=base_url,
+                api_key=api_key
             ):
                 chunk_count += 1
                 full_response += delta

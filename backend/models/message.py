@@ -11,7 +11,11 @@ class MessageBase(BaseModel):
 
 class MessageCreate(MessageBase):
     """Model for creating a new message."""
-    pass
+    # Provider configuration (optional - uses defaults if not provided)
+    provider: str = "openai"
+    model: str = "gpt-4o-mini"
+    base_url: Optional[str] = None
+    api_key: Optional[str] = None
 
 
 class Message(MessageBase):

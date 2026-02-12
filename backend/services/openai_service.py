@@ -4,8 +4,8 @@ from typing import AsyncGenerator, List, Dict
 import os
 import time
 
-# Initialize OpenAI client
-async_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+# Initialize default OpenAI client
+default_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 # Initialize LangSmith tracing
 langsmith_enabled = False
@@ -29,8 +29,8 @@ try:
         print(f"[ERROR] Your LangSmith API key might be invalid or expired")
         raise
 
-    # Wrap OpenAI client for automatic tracing
-    async_client = wrap_openai(async_client)
+    # Wrap default OpenAI client for automatic tracing
+    default_client = wrap_openai(default_client)
 
     langsmith_enabled = True
     print("=" * 60)
@@ -66,11 +66,11 @@ except ImportError as e:
 
 
 class OpenAIService:
-    """Service for OpenAI Responses API operations."""
+    """Service for OpenAI-compatible Chat Completions API operations."""
 
     @staticmethod
     def build_conversation_history(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """Build conversation history in Responses API format.
+        """Build conversation history in Chat Completions format.
 
         Args:
             messages: List of message dicts with 'role' and 'content' keys
@@ -84,21 +84,63 @@ class OpenAIService:
         ]
 
     @staticmethod
+    def _get_client(base_url: str | None = None, api_key: str | None = None) -> AsyncOpenAI:
+        """Get OpenAI client with custom configuration.
+
+        Args:
+            base_url: Optional custom base URL
+            api_key: Optional custom API key
+
+        Returns:
+            Configured AsyncOpenAI client
+        """
+        # Use custom config if provided, otherwise use default client
+        if base_url or api_key:
+            client_kwargs = {}
+            if base_url:
+                client_kwargs["base_url"] = base_url
+            if api_key:
+                client_kwargs["api_key"] = api_key
+            else:
+                # Use default API key if only base_url is custom
+                client_kwargs["api_key"] = settings.OPENAI_API_KEY
+
+            client = AsyncOpenAI(**client_kwargs)
+
+            # Wrap with LangSmith if enabled
+            if langsmith_enabled:
+                try:
+                    client = wrap_openai(client)
+                except Exception as e:
+                    print(f"[WARN] Failed to wrap custom client with LangSmith: {e}")
+
+            return client
+
+        return default_client
+
+    @staticmethod
     async def stream_response(
         conversation_history: List[Dict[str, str]],
-        model: str = "gpt-4o-mini"
+        model: str = "gpt-4o-mini",
+        base_url: str | None = None,
+        api_key: str | None = None
     ) -> AsyncGenerator[str, None]:
-        """Stream a response using OpenAI Responses API.
+        """Stream a response using OpenAI Chat Completions API.
 
         Args:
             conversation_history: Full conversation history (list of messages)
             model: Model to use for generation
+            base_url: Optional custom base URL for provider
+            api_key: Optional custom API key
 
         Yields:
             Text deltas from the streaming response
         """
         full_response = ""
         trace_closed = False
+
+        # Get client with custom config if provided
+        client = OpenAIService._get_client(base_url, api_key)
 
         # Create LangSmith run if tracing is enabled
         run_id = None
@@ -109,11 +151,12 @@ class OpenAIService:
                 run_id = uuid.uuid4()
                 langsmith_client.create_run(
                     id=run_id,
-                    name="openai_responses_stream",
+                    name="openai_chat_completions_stream",
                     run_type="llm",
                     inputs={
                         "messages": conversation_history,
                         "model": model,
+                        "base_url": base_url,
                     },
                     project_name=os.getenv('LANGCHAIN_PROJECT'),
                     start_time=datetime.now(timezone.utc),
@@ -123,54 +166,25 @@ class OpenAIService:
                 run_id = None
 
         try:
-            # Build request parameters for Responses API
-            request_params = {
-                "model": model,
-                "input": conversation_history,
-                "store": False,  # Stateless - no data retention
-            }
+            # Call Chat Completions API with streaming
+            stream = await client.chat.completions.create(
+                model=model,
+                messages=conversation_history,
+                stream=True,
+                temperature=0.7,
+            )
 
-            # Add file_search tool if vector store is configured
-            if settings.OPENAI_VECTOR_STORE_ID:
-                request_params["tools"] = [
-                    {
-                        "type": "file_search",
-                        "vector_store_ids": [settings.OPENAI_VECTOR_STORE_ID]
-                    }
-                ]
+            # Process streaming response
+            async for chunk in stream:
+                # Extract content delta from chunk
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta.content:
+                        full_response += delta.content
+                        yield delta.content
 
-            async with async_client.responses.stream(**request_params) as stream:
-                async for event in stream:
-                    # Check event type
-                    event_type = getattr(event, 'type', None) or getattr(event, 'event', None)
-
-                    # Handle text delta events
-                    if event_type == "response.output_text.delta":
-                        delta = getattr(event, 'delta', None)
-                        if delta:
-                            full_response += delta
-                            yield delta
-                    # Handle completion event
-                    elif event_type == "response.completed":
-                        # Close LangSmith trace
-                        if langsmith_enabled and langsmith_client and run_id:
-                            try:
-                                from datetime import datetime, timezone
-                                langsmith_client.update_run(
-                                    run_id=run_id,
-                                    outputs={"content": full_response},
-                                    end_time=datetime.now(timezone.utc),
-                                )
-                                trace_closed = True
-                            except Exception as e:
-                                print(f"[ERROR] Failed to close LangSmith run: {e}")
-
-                    # Handle errors
-                    elif event_type == "error":
-                        raise Exception(f"OpenAI API error: {event}")
-
-            # Fallback: close trace if not already closed
-            if langsmith_enabled and langsmith_client and run_id and not trace_closed:
+            # Close LangSmith trace on success
+            if langsmith_enabled and langsmith_client and run_id:
                 try:
                     from datetime import datetime, timezone
                     langsmith_client.update_run(
@@ -178,6 +192,7 @@ class OpenAIService:
                         outputs={"content": full_response},
                         end_time=datetime.now(timezone.utc),
                     )
+                    trace_closed = True
                 except Exception as e:
                     print(f"[ERROR] Failed to close LangSmith run: {e}")
 
@@ -194,7 +209,7 @@ class OpenAIService:
                 except:
                     pass
 
-            print(f"[ERROR] Response streaming failed: {type(e).__name__}: {e}")
+            print(f"[ERROR] Chat Completions streaming failed: {type(e).__name__}: {e}")
             raise Exception(f"Failed to stream response: {str(e)}")
 
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Message } from '@/types/chat';
+import type { Message, ProviderConfig } from '@/types/chat';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
 
@@ -51,7 +51,7 @@ export function useChat(threadId: string | null, token: string | null) {
     fetchMessages();
   }, [threadId, token]);
 
-  const sendMessage = async (content: string) => {
+  const sendMessage = async (content: string, providerConfig?: ProviderConfig) => {
     if (!threadId || !token) throw new Error('Not authenticated or no thread selected');
 
     // Capture the current thread ID to validate later
@@ -76,6 +76,19 @@ export function useChat(threadId: string | null, token: string | null) {
     abortControllerRef.current = abortController;
 
     try {
+      // Build request body with provider config
+      const requestBody: any = { content };
+      if (providerConfig) {
+        requestBody.provider = providerConfig.provider;
+        requestBody.model = providerConfig.model;
+        if (providerConfig.base_url) {
+          requestBody.base_url = providerConfig.base_url;
+        }
+        if (providerConfig.api_key) {
+          requestBody.api_key = providerConfig.api_key;
+        }
+      }
+
       const response = await fetch(
         `${API_URL}/chat/threads/${currentThreadId}/messages`,
         {
@@ -85,7 +98,7 @@ export function useChat(threadId: string | null, token: string | null) {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
           },
-          body: JSON.stringify({ content }),
+          body: JSON.stringify(requestBody),
           signal: abortController.signal,
         }
       );

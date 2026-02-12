@@ -14,9 +14,13 @@ class Settings(BaseSettings):
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str
 
-    # OpenAI
+    # OpenAI (default provider)
     OPENAI_API_KEY: str
-    OPENAI_VECTOR_STORE_ID: str | None = None
+
+    # Provider defaults (fallback values)
+    DEFAULT_PROVIDER: str = "openai"
+    DEFAULT_MODEL: str = "gpt-4o-mini"
+    DEFAULT_BASE_URL: str = "https://api.openai.com/v1"
 
     # LangSmith (optional - for observability)
     LANGSMITH_API_KEY: str | None = None
