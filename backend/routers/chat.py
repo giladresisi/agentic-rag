@@ -261,7 +261,6 @@ async def send_message(
         provider=message_data.provider,
         model=message_data.model,
         base_url=message_data.base_url,
-        api_key=message_data.api_key,
         has_default_api_key=bool(settings.OPENAI_API_KEY)
     )
     if not is_valid:
@@ -275,7 +274,7 @@ async def send_message(
         try:
             # Determine base_url and api_key
             base_url = message_data.base_url
-            api_key = message_data.api_key
+            api_key = None
 
             # If no base_url provided, get from provider preset
             if not base_url:
@@ -283,11 +282,10 @@ async def send_message(
                 if provider_config:
                     base_url = provider_config.get("base_url")
 
-            # If no api_key provided, use default for providers that require it
-            if not api_key:
-                provider_config = provider_service.get_provider_config(message_data.provider)
-                if provider_config and provider_config.get("requires_api_key"):
-                    api_key = settings.OPENAI_API_KEY
+            # Use server-side api_key for providers that require it
+            provider_config = provider_service.get_provider_config(message_data.provider)
+            if provider_config and provider_config.get("requires_api_key"):
+                api_key = settings.OPENAI_API_KEY
 
             async for delta in openai_service.stream_response(
                 conversation_history,

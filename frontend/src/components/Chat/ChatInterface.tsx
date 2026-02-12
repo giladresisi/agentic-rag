@@ -5,19 +5,17 @@ import { useChat } from '@/hooks/useChat';
 import { ThreadSidebar } from './ThreadSidebar';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
-import { ProviderSelector } from './ProviderSelector';
-import { Button } from '@/components/ui/button';
-import { LogOut, Settings } from 'lucide-react';
-import type { ProviderConfig } from '@/types/chat';
+import { SettingsModal } from '@/components/Settings/SettingsModal';
+import { useModelConfig } from '@/hooks/useModelConfig';
 
 export function ChatInterface() {
   const { user, token, logout } = useAuth();
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
-  const [showProviderSettings, setShowProviderSettings] = useState(false);
-  const [providerConfig, setProviderConfig] = useState<ProviderConfig>({
-    provider: 'openai',
-    model: 'gpt-4o-mini',
-  });
+  const modelConfig = useModelConfig(
+    { provider: 'openai', model: 'gpt-4o-mini' },
+    { provider: 'openai', model: 'text-embedding-3-small' }
+  );
+  const [showSettings, setShowSettings] = useState(false);
   const titleGeneratedForThreads = useRef<Set<string>>(new Set());
 
   const { threads, createThread, deleteThread, generateThreadTitle } = useThreads(token);
@@ -51,7 +49,7 @@ export function ChatInterface() {
 
   const handleSendMessage = async (content: string) => {
     try {
-      await sendMessage(content, providerConfig);
+      await sendMessage(content, modelConfig.chatConfig.current);
 
       // Generate title for thread after first message (non-blocking)
       if (currentThreadId && !titleGeneratedForThreads.current.has(currentThreadId)) {
@@ -81,40 +79,18 @@ export function ChatInterface() {
         onSelectThread={setCurrentThreadId}
         onCreateThread={handleCreateThread}
         onDeleteThread={handleDeleteThread}
+        user={user}
+        onSettingsClick={() => setShowSettings(true)}
+        onLogout={logout}
       />
       <div className="flex-1 flex flex-col">
-        <header className="border-b p-4 flex justify-between items-center">
+        <header className="border-b p-4">
           <h1 className="text-xl font-semibold">
             {currentThreadId
               ? threads.find(t => t.id === currentThreadId)?.title || 'Chat'
               : 'Agentic RAG Masterclass'}
           </h1>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground">
-              {providerConfig.provider} / {providerConfig.model}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowProviderSettings(!showProviderSettings)}
-            >
-              <Settings className="w-4 h-4" />
-            </Button>
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" size="sm" onClick={logout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </div>
         </header>
-        {showProviderSettings && (
-          <div className="border-b p-4">
-            <ProviderSelector
-              value={providerConfig}
-              onChange={setProviderConfig}
-            />
-          </div>
-        )}
         {currentThreadId ? (
           <>
             <MessageList
@@ -135,6 +111,16 @@ export function ChatInterface() {
           </div>
         )}
       </div>
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        chatConfig={modelConfig.chatConfig.pending}
+        embeddingsConfig={modelConfig.embeddingsConfig.pending}
+        onChatConfigChange={modelConfig.updateChatConfig}
+        onEmbeddingsConfigChange={modelConfig.updateEmbeddingsConfig}
+        onConfirm={modelConfig.confirmChanges}
+        hasChanges={modelConfig.hasChanges}
+      />
     </div>
   );
 }

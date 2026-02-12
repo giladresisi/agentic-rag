@@ -3,6 +3,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Thread } from '@/types/chat';
 import { Plus, MessageSquare, Trash2, FileText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { UserProfileMenu } from '@/components/Layout/UserProfileMenu';
 
 interface ThreadSidebarProps {
   threads: Thread[];
@@ -10,6 +11,9 @@ interface ThreadSidebarProps {
   onSelectThread: (threadId: string) => void;
   onCreateThread: () => void;
   onDeleteThread: (threadId: string) => void;
+  user: { email: string } | null;
+  onSettingsClick: () => void;
+  onLogout: () => void;
 }
 
 export function ThreadSidebar({
@@ -18,6 +22,9 @@ export function ThreadSidebar({
   onSelectThread,
   onCreateThread,
   onDeleteThread,
+  user,
+  onSettingsClick,
+  onLogout,
 }: ThreadSidebarProps) {
   const location = useLocation();
   const isChat = location.pathname === '/chat';
@@ -92,6 +99,15 @@ export function ThreadSidebar({
           ))}
         </div>
       </ScrollArea>
+
+      {/* User profile at bottom */}
+      <div className="border-t">
+        <UserProfileMenu
+          user={user}
+          onSettingsClick={onSettingsClick}
+          onLogout={onLogout}
+        />
+      </div>
     </div>
   );
 }
