@@ -57,7 +57,7 @@ Should already be applied (removes `openai_thread_id` from threads table)
 #### 4. **New Files Created**
 - `apply_migrations.md` - Instructions for applying migrations
 - `REFACTOR_SUMMARY.md` - This file!
-- `.agent/plans/3.responses-api-refactor.md` - Refactoring plan
+- `.agents/plans/3.responses-api-refactor.md` - Refactoring plan
 
 ### ✅ Frontend - No Changes Required
 - Frontend code uses "assistant" as message role (correct, not Assistants API)
