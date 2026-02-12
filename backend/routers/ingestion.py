@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
 from middleware.auth_middleware import get_current_user
-from services.supabase_service import get_supabase
+from services.supabase_service import get_supabase_admin
 from services.embedding_service import embedding_service
 from models.document import DocumentResponse, ChunkResponse
 from typing import List
@@ -23,7 +23,7 @@ async def process_document(document_id: str, user_id: str, file_path: str):
     4. Save chunks to database
     5. Update document status
     """
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     try:
         # Parse document
@@ -81,7 +81,7 @@ async def upload_document(
     current_user: dict = Depends(get_current_user)
 ):
     """Upload and process a document."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Validate file type
     file_ext = Path(file.filename).suffix.lower()
@@ -186,7 +186,7 @@ async def upload_document(
 @router.get("/documents", response_model=List[DocumentResponse])
 async def list_documents(current_user: dict = Depends(get_current_user)):
     """List all documents for the current user."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     try:
         response = supabase.table("documents")\
@@ -220,7 +220,7 @@ async def get_document(
     current_user: dict = Depends(get_current_user)
 ):
     """Get a specific document."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     try:
         response = supabase.table("documents")\
@@ -258,7 +258,7 @@ async def get_document_chunks(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all chunks for a document."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Verify document ownership
     try:
@@ -307,7 +307,7 @@ async def delete_document(
     current_user: dict = Depends(get_current_user)
 ):
     """Delete a document and all its chunks."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Get document to retrieve storage path
     try:
