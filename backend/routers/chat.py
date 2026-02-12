@@ -1,8 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from sse_starlette.sse import EventSourceResponse
 from middleware.auth_middleware import get_current_user
-from services.supabase_service import get_supabase
-from services.openai_service import openai_service
+from services.supabase_service import get_supabase_admin
+from services.openai_service import openai_service, default_client
 from services.provider_service import provider_service
 from models.thread import ThreadCreate, ThreadResponse
 from models.message import MessageCreate, MessageResponse
@@ -33,7 +33,7 @@ async def create_thread(
     current_user: dict = Depends(get_current_user)
 ):
     """Create a new chat thread."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Save to database
     response = supabase.table("threads").insert({
@@ -58,7 +58,7 @@ async def create_thread(
 async def list_threads(current_user: dict = Depends(get_current_user)):
     """List all threads for the current user."""
     try:
-        supabase = get_supabase()
+        supabase = get_supabase_admin()
 
         response = supabase.table("threads")\
             .select("*")\
@@ -85,7 +85,7 @@ async def generate_thread_title(
     current_user: dict = Depends(get_current_user)
 ):
     """Generate a title for a thread based on the first user message."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Verify thread ownership
     thread_response = supabase.table("threads")\
@@ -114,7 +114,7 @@ async def generate_thread_title(
 
     # Generate title using LLM
     try:
-        response = openai_service.client.chat.completions.create(
+        response = await default_client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -130,14 +130,23 @@ async def generate_thread_title(
             max_tokens=20
         )
 
+        # Validate response
+        if not response.choices or not response.choices[0].message.content:
+            raise ValueError("Empty response from LLM")
+
         generated_title = response.choices[0].message.content.strip()
 
         # Remove quotes if present
         if generated_title.startswith('"') and generated_title.endswith('"'):
             generated_title = generated_title[1:-1]
 
+        # Fallback if title is still empty
+        if not generated_title:
+            generated_title = first_message[:50] + ("..." if len(first_message) > 50 else "")
+
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to generate title: {str(e)}")
+        # Fallback to first 50 chars of message if title generation fails
+        generated_title = first_message[:50] + ("..." if len(first_message) > 50 else "")
 
     # Update thread title
     update_response = supabase.table("threads")\
@@ -164,7 +173,7 @@ async def get_thread_messages(
     current_user: dict = Depends(get_current_user)
 ):
     """Get all messages in a thread."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Verify thread ownership
     thread_response = supabase.table("threads")\
@@ -203,7 +212,7 @@ async def send_message(
     current_user: dict = Depends(get_current_user)
 ):
     """Send a message and stream the response via SSE."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Verify thread ownership
     thread_response = supabase.table("threads")\
@@ -324,7 +333,7 @@ async def delete_thread(
     current_user: dict = Depends(get_current_user)
 ):
     """Delete a thread and all its messages."""
-    supabase = get_supabase()
+    supabase = get_supabase_admin()
 
     # Verify ownership
     thread_response = supabase.table("threads")\

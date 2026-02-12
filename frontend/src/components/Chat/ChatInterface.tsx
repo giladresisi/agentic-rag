@@ -7,8 +7,7 @@ import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ProviderSelector } from './ProviderSelector';
 import { Button } from '@/components/ui/button';
-import { LogOut, Settings, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { LogOut, Settings } from 'lucide-react';
 import type { ProviderConfig } from '@/types/chat';
 
 export function ChatInterface() {
@@ -54,17 +53,19 @@ export function ChatInterface() {
     try {
       await sendMessage(content, providerConfig);
 
-      // Generate title for thread after first message
+      // Generate title for thread after first message (non-blocking)
       if (currentThreadId && !titleGeneratedForThreads.current.has(currentThreadId)) {
         const currentThread = threads.find(t => t.id === currentThreadId);
         if (currentThread && currentThread.title === 'New Chat') {
-          try {
-            await generateThreadTitle(currentThreadId);
-            titleGeneratedForThreads.current.add(currentThreadId);
-          } catch (error) {
-            console.error('Failed to generate thread title:', error);
-            // Silently fail - not critical to the user experience
-          }
+          // Fire off title generation in the background without awaiting
+          generateThreadTitle(currentThreadId)
+            .then(() => {
+              titleGeneratedForThreads.current.add(currentThreadId);
+            })
+            .catch((error) => {
+              console.error('Failed to generate thread title:', error);
+              // Silently fail - not critical to the user experience
+            });
         }
       }
     } catch (error) {
@@ -99,12 +100,6 @@ export function ChatInterface() {
             >
               <Settings className="w-4 h-4" />
             </Button>
-            <Link to="/ingestion">
-              <Button variant="outline" size="sm">
-                <FileText className="w-4 h-4 mr-2" />
-                Documents
-              </Button>
-            </Link>
             <span className="text-sm text-muted-foreground">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="w-4 h-4 mr-2" />

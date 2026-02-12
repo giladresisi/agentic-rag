@@ -24,13 +24,23 @@ export function useIngestion(token: string | null) {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch documents');
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to fetch documents');
+        } else {
+          throw new Error(`API error: ${response.status} ${response.statusText}. Make sure the backend server is running at ${API_URL || 'http://localhost:8000'}`);
+        }
       }
 
       const data = await response.json();
       setDocuments(data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch documents');
+      if (err instanceof Error && err.message.includes('<!doctype')) {
+        setError(`Backend API not available. Make sure the server is running at ${API_URL || 'http://localhost:8000'}`);
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to fetch documents');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -98,16 +108,22 @@ export function useIngestion(token: string | null) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to upload document');
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.detail || 'Failed to upload document');
+        } else {
+          throw new Error(`API error: ${response.status} ${response.statusText}. Make sure the backend server is running at ${API_URL || 'http://localhost:8000'}`);
+        }
       }
 
       // Document will be added via Realtime subscription
       // Refresh to ensure consistency
       await fetchDocuments();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to upload document');
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : 'Failed to upload document';
+      setError(errorMessage);
+      throw new Error(errorMessage);
     } finally {
       setIsUploading(false);
     }
