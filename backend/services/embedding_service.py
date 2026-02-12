@@ -34,12 +34,10 @@ class EmbeddingService:
 
             # For simple text-based formats, read directly
             if file_ext in ['.txt', '.md', '.html']:
-                print(f"[PARSE] Using direct text parsing for {file_ext} file")
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return f.read()
 
             # For complex formats, use docling
-            print(f"[PARSE] Using docling for {file_ext} file")
             from docling.document_converter import DocumentConverter
 
             # Initialize converter
