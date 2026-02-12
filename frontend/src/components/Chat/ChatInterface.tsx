@@ -7,7 +7,8 @@ import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
 import { ProviderSelector } from './ProviderSelector';
 import { Button } from '@/components/ui/button';
-import { LogOut, Settings } from 'lucide-react';
+import { LogOut, Settings, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import type { ProviderConfig } from '@/types/chat';
 
 export function ChatInterface() {
@@ -82,6 +83,12 @@ export function ChatInterface() {
             >
               <Settings className="w-4 h-4" />
             </Button>
+            <Link to="/ingestion">
+              <Button variant="outline" size="sm">
+                <FileText className="w-4 h-4 mr-2" />
+                Documents
+              </Button>
+            </Link>
             <span className="text-sm text-muted-foreground">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="w-4 h-4 mr-2" />

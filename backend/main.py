@@ -5,7 +5,7 @@ import services.langsmith_service  # noqa: F401
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
-from routers import auth, chat
+from routers import auth, chat, ingestion
 
 app = FastAPI(title="Agentic RAG Masterclass API", version="1.0.0")
 
@@ -24,6 +24,7 @@ app.add_middleware(
 # Routers
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
+app.include_router(ingestion.router, prefix="/ingestion", tags=["ingestion"])
 
 
 @app.get("/")

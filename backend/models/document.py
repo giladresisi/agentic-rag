@@ -7,8 +7,8 @@ from typing import Optional
 class DocumentBase(BaseModel):
     """Base document model."""
     filename: str
-    file_type: str
-    file_size: int
+    content_type: str
+    file_size_bytes: int
 
 
 class UploadDocumentRequest(DocumentBase):
@@ -22,8 +22,10 @@ class Document(DocumentBase):
     user_id: UUID
     storage_path: str
     status: str
+    chunk_count: int
+    error_message: Optional[str] = None
     created_at: datetime
-    processed_at: Optional[datetime] = None
+    updated_at: datetime
 
     class Config:
         from_attributes = True
@@ -33,11 +35,12 @@ class DocumentResponse(BaseModel):
     """Document response model."""
     id: str
     filename: str
-    file_type: str
-    file_size: int
+    content_type: str
+    file_size_bytes: int
+    chunk_count: int
     status: str
     created_at: str
-    processed_at: Optional[str] = None
+    updated_at: str
 
 
 class ChunkBase(BaseModel):
