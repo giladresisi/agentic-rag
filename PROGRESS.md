@@ -139,12 +139,12 @@ websockets>=13.0,<16
 
 ### Module 2: BYO Retrieval + Memory
 
-**Status:** `[-]` In Progress - Database Infrastructure Complete, Integration Pending
+**Status:** `[-]` In Progress - Implementation Complete, Testing Pending
 
-#### Plan 5: Document Ingestion Pipeline (Partial Completion)
+#### Plan 5: Document Ingestion Pipeline (Implementation Complete)
 
 **Execution Method:** Team-based parallel execution (4 agents)
-**Status:** Stopped mid-execution - Phase 1 & 2 complete, Phase 3 & 4 pending
+**Status:** All phases complete - Ready for validation
 
 #### Completed Tasks
 
@@ -153,8 +153,8 @@ websockets>=13.0,<16
 - [x] Created migration 006: Documents and chunks tables with vector embeddings
 - [x] Created storage setup documentation
 - [x] Migration guide created (APPLY_INGESTION_MIGRATIONS.md)
-- [ ] **Pending:** Apply migrations to new Supabase project (manual step)
-- [ ] **Pending:** Create 'documents' storage bucket (manual step)
+- [x] Applied migrations to Supabase project (manual step)
+- [x] Created 'documents' storage bucket (manual step)
 
 **Phase 2: Backend Processing (Agent 2 - Backend-Processing)**
 - [x] Added docling==0.4.0 dependency to requirements.txt
@@ -174,27 +174,33 @@ websockets>=13.0,<16
 - [x] Removed all debug logs from backend/routers/chat.py (17 lines)
 - [x] Removed all debug logs from backend/main.py (23 lines)
 
-#### Pending Tasks
-
 **Phase 3: Backend API (Agent 3 - Backend-API)**
-- [ ] Create backend/routers/ingestion.py (upload, list, delete endpoints)
-- [ ] Update backend/main.py to include ingestion router
+- [x] Created backend/routers/ingestion.py with all endpoints:
+  - POST /ingestion/upload - Upload and background processing
+  - GET /ingestion/documents - List user documents
+  - GET /ingestion/documents/{id} - Get document details
+  - GET /ingestion/documents/{id}/chunks - Get chunks
+  - DELETE /ingestion/documents/{id} - Delete document
+- [x] Updated backend/main.py to include ingestion router
+- [x] Updated document models to match migration schema
+- [x] File validation (type, size), storage, realtime updates
 
 **Phase 4: Integration**
-- [ ] Update frontend/src/App.tsx (add /ingestion route)
-- [ ] Add navigation link to ingestion interface
+- [x] Updated frontend/src/App.tsx to add /ingestion route
+- [x] Added navigation link to ingestion interface (Documents button in ChatInterface)
 
 #### Supabase Region Migration
 
 **Issue Discovered:** Original Supabase project in region without pgvector support
 
-**Solution Created:**
+**Solution Completed:**
 - [x] Created comprehensive migration guide (SUPABASE_REGION_MIGRATION.md)
 - [x] Documented supported regions: us-east-1, us-east-2, us-west-2, eu-central-1, ap-southeast-2
 - [x] Updated storage policy creation method (SQL Editor, not UI)
-- [ ] **Pending:** User to create new project in supported region
-- [ ] **Pending:** User to apply all 6 migrations (001-006)
-- [ ] **Pending:** User to update .env files with new credentials
+- [x] Created new project in supported region
+- [x] Applied all 6 migrations (001-006)
+- [x] Updated .env files with new credentials
+- [x] Created 'documents' storage bucket with RLS policies
 
 #### Lessons Learned
 
@@ -232,25 +238,16 @@ websockets>=13.0,<16
 - Keep functional code (CORS processing) separate from debug output
 - Clean logs improve performance and reduce noise in production
 
-#### Next Steps
+#### Next Steps - Validation & Testing
 
-1. **Complete Supabase Migration:**
-   - Create new project in supported region (us-east-1, us-east-2, or us-west-2)
-   - Apply all migrations (001-006) via SQL Editor
-   - Create storage bucket with RLS policies
-   - Update .env files with new credentials
-   - Test chat functionality on new project
-
-2. **Complete Plan 5 Implementation:**
-   - Create ingestion router (backend/routers/ingestion.py)
-   - Integrate router in main.py
-   - Add /ingestion route to frontend App.tsx
-   - Add navigation link
-   - End-to-end testing of document upload
-
-3. **Validation:**
-   - Test file upload (.txt, .pdf, .docx, .html, .md)
-   - Verify chunking and embedding generation
-   - Confirm pgvector storage and similarity search
-   - Test realtime status updates in UI
-   - Verify RLS policies enforce user isolation
+**Plan 5 Validation Checklist:**
+- [ ] Start backend server (verify ingestion router loads)
+- [ ] Start frontend server
+- [ ] Test file upload (.txt, .pdf, .docx, .html, .md)
+- [ ] Verify chunking and embedding generation
+- [ ] Confirm pgvector storage (check chunks table)
+- [ ] Test realtime status updates in UI
+- [ ] Verify RLS policies enforce user isolation
+- [ ] Test navigation between Chat and Ingestion interfaces
+- [ ] Test document deletion (verify cascade to chunks)
+- [ ] Verify error handling (large files, unsupported types)
