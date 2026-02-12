@@ -134,3 +134,123 @@ websockets>=13.0,<16
 **After Module 1 Validation:**
 - Next: Module 2 (transition to Chat Completions API for provider flexibility)
 - Decision required: Replace or maintain dual support for Responses API
+
+---
+
+### Module 2: BYO Retrieval + Memory
+
+**Status:** `[-]` In Progress - Database Infrastructure Complete, Integration Pending
+
+#### Plan 5: Document Ingestion Pipeline (Partial Completion)
+
+**Execution Method:** Team-based parallel execution (4 agents)
+**Status:** Stopped mid-execution - Phase 1 & 2 complete, Phase 3 & 4 pending
+
+#### Completed Tasks
+
+**Phase 1: Database Infrastructure (Agent 1 - Database)**
+- [x] Created migration 005: Enable pgvector extension
+- [x] Created migration 006: Documents and chunks tables with vector embeddings
+- [x] Created storage setup documentation
+- [x] Migration guide created (APPLY_INGESTION_MIGRATIONS.md)
+- [ ] **Pending:** Apply migrations to new Supabase project (manual step)
+- [ ] **Pending:** Create 'documents' storage bucket (manual step)
+
+**Phase 2: Backend Processing (Agent 2 - Backend-Processing)**
+- [x] Added docling==0.4.0 dependency to requirements.txt
+- [x] Installed docling and all dependencies (torch, onnxruntime, opencv-python)
+- [x] Updated backend/config.py with embedding settings
+- [x] Created backend/models/document.py (Document, Chunk, request/response models)
+- [x] Created backend/services/embedding_service.py (parsing, chunking, embeddings)
+
+**Phase 2: Frontend UI (Agent 4 - Frontend)**
+- [x] Created frontend/src/types/ingestion.ts (Document, Chunk, IngestionStatus types)
+- [x] Created frontend/src/hooks/useIngestion.ts (with Realtime subscriptions)
+- [x] Created frontend/src/components/Ingestion/DocumentUpload.tsx (drag-drop, validation)
+- [x] Created frontend/src/components/Ingestion/DocumentList.tsx (status indicators, realtime)
+- [x] Created frontend/src/components/Ingestion/IngestionInterface.tsx (layout composition)
+
+**Code Quality**
+- [x] Removed all debug logs from backend/routers/chat.py (17 lines)
+- [x] Removed all debug logs from backend/main.py (23 lines)
+
+#### Pending Tasks
+
+**Phase 3: Backend API (Agent 3 - Backend-API)**
+- [ ] Create backend/routers/ingestion.py (upload, list, delete endpoints)
+- [ ] Update backend/main.py to include ingestion router
+
+**Phase 4: Integration**
+- [ ] Update frontend/src/App.tsx (add /ingestion route)
+- [ ] Add navigation link to ingestion interface
+
+#### Supabase Region Migration
+
+**Issue Discovered:** Original Supabase project in region without pgvector support
+
+**Solution Created:**
+- [x] Created comprehensive migration guide (SUPABASE_REGION_MIGRATION.md)
+- [x] Documented supported regions: us-east-1, us-east-2, us-west-2, eu-central-1, ap-southeast-2
+- [x] Updated storage policy creation method (SQL Editor, not UI)
+- [ ] **Pending:** User to create new project in supported region
+- [ ] **Pending:** User to apply all 6 migrations (001-006)
+- [ ] **Pending:** User to update .env files with new credentials
+
+#### Lessons Learned
+
+**1. Supabase Region Compatibility**
+- Not all Supabase regions support pgvector extension
+- Check region capabilities before project creation
+- Dashboard shows definitive list of supported regions
+- Migration to new region requires recreating project from scratch
+- No automated migration path - must manually apply all migrations
+
+**2. Storage Policy Creation Methods**
+- Supabase Storage UI policy form has syntax issues with complex policies
+- SQL Editor is more reliable for creating storage policies
+- Policy syntax: use (storage.foldername(name))[1] for user isolation
+- Alternative: use LIKE pattern matching (name LIKE auth.uid()::text || '/%')
+- Always create all 3 policies: INSERT (upload), SELECT (read), DELETE
+
+**3. Team-Based Parallel Execution**
+- Effective for complex plans with clear phase dependencies
+- Phase 1 (Database) → Phase 2 (Backend + Frontend parallel) → Phase 3 (API) → Phase 4 (Integration)
+- Frontend can start early using mock data, integrate real API later
+- Team shutdown requires graceful shutdown of all agents before cleanup
+- Mid-execution stops leave partial implementation - track completed phases
+
+**4. Migration Application Process**
+- Supabase migrations must be applied manually via SQL Editor
+- Cannot be automated through CLI or API in free tier
+- Apply migrations in strict sequential order (001 → 002 → 003 → 004 → 005 → 006)
+- Verify each migration before proceeding to next
+- Storage bucket creation separate from SQL migrations
+
+**5. Debug Log Management**
+- Remove debug logs before committing to maintain clean codebase
+- Request logging middleware useful for development, not production
+- Keep functional code (CORS processing) separate from debug output
+- Clean logs improve performance and reduce noise in production
+
+#### Next Steps
+
+1. **Complete Supabase Migration:**
+   - Create new project in supported region (us-east-1, us-east-2, or us-west-2)
+   - Apply all migrations (001-006) via SQL Editor
+   - Create storage bucket with RLS policies
+   - Update .env files with new credentials
+   - Test chat functionality on new project
+
+2. **Complete Plan 5 Implementation:**
+   - Create ingestion router (backend/routers/ingestion.py)
+   - Integrate router in main.py
+   - Add /ingestion route to frontend App.tsx
+   - Add navigation link
+   - End-to-end testing of document upload
+
+3. **Validation:**
+   - Test file upload (.txt, .pdf, .docx, .html, .md)
+   - Verify chunking and embedding generation
+   - Confirm pgvector storage and similarity search
+   - Test realtime status updates in UI
+   - Verify RLS policies enforce user isolation

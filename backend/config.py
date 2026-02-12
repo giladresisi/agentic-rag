@@ -27,6 +27,13 @@ class Settings(BaseSettings):
     LANGSMITH_PROJECT: str = "default"
     LANGSMITH_TRACING: bool = True
 
+    # Embeddings
+    EMBEDDING_MODEL: str = "text-embedding-3-small"
+    CHUNK_SIZE: int = 1000
+    CHUNK_OVERLAP: int = 200
+    MAX_FILE_SIZE_MB: int = 10
+    SUPPORTED_FILE_TYPES: str = "pdf,docx,html,md,txt"
+
     # Server
     PORT: int = 8000
     CORS_ORIGINS: str = "http://localhost:5173"
@@ -42,17 +49,10 @@ class Settings(BaseSettings):
 print("\n" + "=" * 60)
 print("LOADING SETTINGS FROM .ENV")
 print("=" * 60)
-print(f"Looking for .env at: {BASE_DIR / '.env'}")
-print(f".env exists: {(BASE_DIR / '.env').exists()}")
 
 try:
     settings = Settings()
     print(f"✓ Settings loaded successfully")
-    print(f"✓ SUPABASE_URL: {'SET' if settings.SUPABASE_URL else 'NOT SET'}")
-    print(f"✓ OPENAI_API_KEY: {'SET' if settings.OPENAI_API_KEY else 'NOT SET'}")
-    print(f"✓ LANGSMITH_API_KEY: {'SET' if settings.LANGSMITH_API_KEY else 'NOT SET'}")
-    print(f"✓ LANGSMITH_PROJECT: {settings.LANGSMITH_PROJECT}")
-    print(f"✓ LANGSMITH_TRACING: {settings.LANGSMITH_TRACING}")
     print("=" * 60 + "\n")
 except Exception as e:
     print(f"✗ Error loading settings: {e}")

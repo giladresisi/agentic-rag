@@ -11,9 +11,7 @@ import json
 from datetime import datetime
 from config import settings
 
-print("[STARTUP] Loading chat router module...")
 router = APIRouter()
-print("[STARTUP] Chat router initialized")
 
 
 @router.get("/providers")
@@ -68,10 +66,6 @@ async def list_threads(current_user: dict = Depends(get_current_user)):
             .order("created_at", desc=True)\
             .execute()
 
-        print(f"DEBUG - Found {len(response.data)} threads for user {current_user['id']}")
-        if response.data:
-            print(f"DEBUG - First thread: {response.data[0]}")
-
         return [
             ThreadResponse(
                 id=str(thread["id"]),
@@ -82,9 +76,6 @@ async def list_threads(current_user: dict = Depends(get_current_user)):
             for thread in response.data
         ]
     except Exception as e:
-        print(f"ERROR in list_threads: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Failed to list threads: {str(e)}")
 
 
@@ -178,7 +169,6 @@ async def send_message(
         raise HTTPException(status_code=500, detail="Failed to save message")
 
     # Validate provider configuration
-    print(f"DEBUG - Validating provider config: provider={message_data.provider}, model={message_data.model}")
     is_valid, error_msg = provider_service.validate_provider_config(
         provider=message_data.provider,
         model=message_data.model,
@@ -187,9 +177,7 @@ async def send_message(
         has_default_api_key=bool(settings.OPENAI_API_KEY)
     )
     if not is_valid:
-        print(f"ERROR - Provider validation failed: {error_msg}")
         raise HTTPException(status_code=400, detail=error_msg)
-    print(f"DEBUG - Provider validation passed")
 
     # Stream assistant response
     async def event_generator():
@@ -197,9 +185,6 @@ async def send_message(
         chunk_count = 0
 
         try:
-            print(f"DEBUG - Starting to stream response for thread {thread_id}")
-            print(f"DEBUG - Provider: {message_data.provider}, Model: {message_data.model}")
-
             # Determine base_url and api_key
             base_url = message_data.base_url
             api_key = message_data.api_key
@@ -216,8 +201,6 @@ async def send_message(
                 if provider_config and provider_config.get("requires_api_key"):
                     api_key = settings.OPENAI_API_KEY
 
-            print(f"DEBUG - Final config: base_url={base_url}, api_key={'SET' if api_key else 'NOT SET'}")
-
             async for delta in openai_service.stream_response(
                 conversation_history,
                 model=message_data.model,
@@ -226,13 +209,10 @@ async def send_message(
             ):
                 chunk_count += 1
                 full_response += delta
-                print(f"DEBUG - Chunk {chunk_count}: {repr(delta)}")
                 yield {
                     "event": "message",
                     "data": json.dumps({"type": "content_delta", "delta": delta})
                 }
-
-            print(f"DEBUG - Streaming complete. Total chunks: {chunk_count}, Response length: {len(full_response)}")
 
             # Save assistant message
             supabase.table("messages").insert({
@@ -242,8 +222,6 @@ async def send_message(
                 "content": full_response
             }).execute()
 
-            print(f"DEBUG - Assistant message saved")
-
             # Update thread timestamp
             supabase.table("threads")\
                 .update({"updated_at": datetime.utcnow().isoformat()})\
@@ -251,7 +229,6 @@ async def send_message(
                 .execute()
 
             yield {"event": "message", "data": "[DONE]"}
-            print(f"DEBUG - Sent [DONE] event")
 
         except Exception as e:
             yield {

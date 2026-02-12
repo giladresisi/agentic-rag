@@ -10,3 +10,4 @@ sse-starlette==1.8.2
 email-validator==2.3.0
 websockets>=13.0,<16
 langsmith==0.1.147
+docling==0.4.0

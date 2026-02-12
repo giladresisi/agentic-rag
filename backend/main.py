@@ -9,37 +9,9 @@ from routers import auth, chat
 
 app = FastAPI(title="Agentic RAG Masterclass API", version="1.0.0")
 
-# Add request logging middleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request
-
-class LoggingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
-        import sys
-        print(f"REQUEST: {request.method} {request.url}", flush=True)
-        sys.stdout.flush()
-        print(f"Origin header: {request.headers.get('origin', 'MISSING')}", flush=True)
-        sys.stdout.flush()
-        try:
-            response = await call_next(request)
-            print(f"Response status: {response.status_code}", flush=True)
-            sys.stdout.flush()
-            return response
-        except Exception as e:
-            print(f"ERROR in middleware: {e}", flush=True)
-            sys.stdout.flush()
-            raise
-
-app.add_middleware(LoggingMiddleware)
-
 # CORS middleware
 origins = settings.CORS_ORIGINS.split(",")
-print(f"DEBUG - CORS_ORIGINS from env: {settings.CORS_ORIGINS}")
-print(f"DEBUG - Parsed origins list: {origins}")
-
-# Strip whitespace from each origin
 origins = [origin.strip() for origin in origins]
-print(f"DEBUG - Cleaned origins: {origins}")
 
 app.add_middleware(
     CORSMiddleware,
