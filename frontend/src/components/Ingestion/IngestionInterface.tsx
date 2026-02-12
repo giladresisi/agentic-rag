@@ -4,8 +4,8 @@ import { useIngestion } from '@/hooks/useIngestion';
 import { DocumentUpload } from './DocumentUpload';
 import { DocumentList } from './DocumentList';
 import { Button } from '@/components/ui/button';
-import { LogOut, MessageSquare, AlertCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { LogOut, MessageSquare, AlertCircle, FileText } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
 export function IngestionInterface() {
   const { user, token, logout } = useAuth();
@@ -36,15 +36,47 @@ export function IngestionInterface() {
     }
   };
 
+  const location = useLocation();
+  const isChat = location.pathname === '/chat';
+
   return (
     <div className="flex h-screen">
       {/* Left Sidebar - Document List */}
-      <div className="w-80 border-r flex flex-col">
+      <div className="w-80 border-r bg-muted/10 flex flex-col">
+        {/* Mode Toggle */}
+        <div className="p-4 border-b">
+          <div className="grid grid-cols-2 gap-2">
+            <Link to="/chat" className="w-full">
+              <Button
+                variant={isChat ? 'default' : 'outline'}
+                size="sm"
+                className="w-full"
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Chat
+              </Button>
+            </Link>
+            <Link to="/ingestion" className="w-full">
+              <Button
+                variant={!isChat ? 'default' : 'outline'}
+                size="sm"
+                className="w-full"
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Documents
+              </Button>
+            </Link>
+          </div>
+        </div>
+
+        {/* Document Library Header */}
         <div className="p-4 border-b">
           <h2 className="font-semibold text-sm text-muted-foreground">
             Document Library
           </h2>
         </div>
+
+        {/* Document List */}
         <div className="flex-1 overflow-hidden p-4">
           <DocumentList
             documents={documents}
@@ -60,12 +92,6 @@ export function IngestionInterface() {
         <header className="border-b p-4 flex justify-between items-center">
           <h1 className="text-xl font-semibold">Document Ingestion</h1>
           <div className="flex items-center gap-2">
-            <Link to="/chat">
-              <Button variant="outline" size="sm">
-                <MessageSquare className="w-4 h-4 mr-2" />
-                Chat
-              </Button>
-            </Link>
             <span className="text-sm text-muted-foreground">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="w-4 h-4 mr-2" />

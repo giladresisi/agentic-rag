@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Thread } from '@/types/chat';
-import { Plus, MessageSquare, Trash2 } from 'lucide-react';
+import { Plus, MessageSquare, Trash2, FileText } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
 
 interface ThreadSidebarProps {
   threads: Thread[];
@@ -18,14 +19,46 @@ export function ThreadSidebar({
   onCreateThread,
   onDeleteThread,
 }: ThreadSidebarProps) {
+  const location = useLocation();
+  const isChat = location.pathname === '/chat';
+
   return (
     <div className="w-64 border-r bg-muted/10 flex flex-col h-full">
+      {/* Mode Toggle */}
       <div className="p-4 border-b">
-        <Button onClick={onCreateThread} className="w-full">
+        <div className="grid grid-cols-2 gap-2">
+          <Link to="/chat" className="w-full">
+            <Button
+              variant={isChat ? 'default' : 'outline'}
+              size="sm"
+              className="w-full"
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              Chat
+            </Button>
+          </Link>
+          <Link to="/ingestion" className="w-full">
+            <Button
+              variant={!isChat ? 'default' : 'outline'}
+              size="sm"
+              className="w-full"
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Documents
+            </Button>
+          </Link>
+        </div>
+      </div>
+
+      {/* New Thread Button */}
+      <div className="p-4 border-b">
+        <Button onClick={onCreateThread} className="w-full" size="sm">
           <Plus className="w-4 h-4 mr-2" />
           New Thread
         </Button>
       </div>
+
+      {/* Thread List */}
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-2">
           {threads.map((thread) => (
