@@ -62,12 +62,15 @@ export function useIngestion(token: string | null) {
           table: 'documents',
         },
         (payload) => {
+          console.log('[REALTIME] Received update:', payload.eventType, payload.new);
+
           // Handle INSERT
           if (payload.eventType === 'INSERT') {
             setDocuments((prev) => [payload.new as Document, ...prev]);
           }
           // Handle UPDATE
           else if (payload.eventType === 'UPDATE') {
+            console.log('[REALTIME] Updating document:', payload.new.id, 'to status:', payload.new.status);
             setDocuments((prev) =>
               prev.map((doc) =>
                 doc.id === payload.new.id ? (payload.new as Document) : doc
@@ -82,7 +85,9 @@ export function useIngestion(token: string | null) {
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('[REALTIME] Subscription status:', status);
+      });
 
     return () => {
       channel.unsubscribe();
