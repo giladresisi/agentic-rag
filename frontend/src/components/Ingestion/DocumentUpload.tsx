@@ -27,18 +27,21 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
   const validateFile = (file: File): string | null => {
     // Check file size
     if (file.size > MAX_FILE_SIZE_BYTES) {
-      return `File size must be less than ${MAX_FILE_SIZE_MB}MB`;
+      return `File "${file.name}" is too large (${(file.size / 1024 / 1024).toFixed(1)}MB). Maximum size: ${MAX_FILE_SIZE_MB}MB`;
     }
 
     // Check file type by extension
     const extension = '.' + file.name.split('.').pop()?.toLowerCase();
+    console.log('[VALIDATION] File:', file.name, 'Extension:', extension, 'Supported:', SUPPORTED_TYPES);
+
     if (!SUPPORTED_TYPES.includes(extension)) {
-      return `Unsupported file type. Supported types: ${SUPPORTED_TYPES.join(', ')}`;
+      return `File "${file.name}" has unsupported type ${extension}. Supported: ${SUPPORTED_TYPES.join(', ')}`;
     }
 
     // Check MIME type if available
     if (file.type && !SUPPORTED_MIME_TYPES.includes(file.type)) {
-      return `Unsupported file type. Supported types: ${SUPPORTED_TYPES.join(', ')}`;
+      console.log('[VALIDATION] MIME type rejected:', file.type, 'for file:', file.name);
+      return `File "${file.name}" has unsupported MIME type "${file.type}". Supported: ${SUPPORTED_TYPES.join(', ')}`;
     }
 
     return null;
