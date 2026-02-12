@@ -9,7 +9,7 @@
 ## Meta Information
 
 ### Plan Reference
-- **Plan file:** `.agent/plans/4.chat-completions-migration.md`
+- **Plan file:** `.agents/plans/4.chat-completions-migration.md`
 - **Plan complexity:** ⚠️ Medium
 - **Parallel execution support:** Yes (designed for 3-agent team)
 - **Execution mode:** Single agent (sequential)
@@ -570,4 +570,4 @@ The Chat Completions API migration successfully achieves all core objectives:
 **Report generated:** 2026-02-12
 **Agent:** Claude Sonnet 4.5
 **Execution mode:** core_piv_loop:execute
-**Plan file:** `.agent/plans/4.chat-completions-migration.md`
+**Plan file:** `.agents/plans/4.chat-completions-migration.md`

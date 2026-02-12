@@ -20,7 +20,7 @@ RAG app with chat (default) and document ingestion interfaces. Config via env va
 - Ingestion is manual file upload only - no connectors or automated pipelines
 
 ## Planning
-- Save all plans to `.agent/plans/` folder
+- Save all plans to `.agents/plans/` folder
 - Naming convention: `{sequence}.{plan-name}.md` (e.g., `1.auth-setup.md`, `2.document-ingestion.md`)
 - Plans should be detailed enough to execute without ambiguity
 - Each task in the plan must include at least one validation test to verify it works
@@ -31,7 +31,7 @@ RAG app with chat (default) and document ingestion interfaces. Config via env va
   - 🔴 **Complex** - Break into sub-plans before executing
 
 ## Development Flow
-1. **Plan** - Create a detailed plan and save it to `.agent/plans/`
+1. **Plan** - Create a detailed plan and save it to `.agents/plans/`
 2. **Build** - Execute the plan to implement the feature
 3. **Validate** - Test and verify the implementation works correctly. Use browser testing where applicable via an appropriate MCP
 4. **Iterate** - Fix any issues found during validation
