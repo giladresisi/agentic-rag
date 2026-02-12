@@ -62,10 +62,16 @@ async def process_document(document_id: str, user_id: str, file_path: str):
         }).eq("id", document_id).execute()
 
     except Exception as e:
+        # Log error for debugging
+        error_msg = str(e)
+        print(f"[ERROR] Document processing failed for {document_id}: {error_msg}")
+        import traceback
+        print(traceback.format_exc())
+
         # Update document status to failed
         supabase.table("documents").update({
             "status": "failed",
-            "error_message": str(e)
+            "error_message": error_msg
         }).eq("id", document_id).execute()
 
     finally:
@@ -178,6 +184,7 @@ async def upload_document(
         file_size_bytes=document["file_size_bytes"],
         chunk_count=document["chunk_count"],
         status=document["status"],
+        error_message=document.get("error_message"),
         created_at=str(document["created_at"]),
         updated_at=str(document["updated_at"])
     )
@@ -204,6 +211,7 @@ async def list_documents(current_user: dict = Depends(get_current_user)):
                 file_size_bytes=doc["file_size_bytes"],
                 chunk_count=doc.get("chunk_count", 0),
                 status=doc["status"],
+                error_message=doc.get("error_message"),
                 created_at=str(doc["created_at"]),
                 updated_at=str(doc["updated_at"])
             ))
@@ -242,6 +250,7 @@ async def get_document(
             file_size_bytes=doc["file_size_bytes"],
             chunk_count=doc.get("chunk_count", 0),
             status=doc["status"],
+            error_message=doc.get("error_message"),
             created_at=str(doc["created_at"]),
             updated_at=str(doc["updated_at"])
         )
