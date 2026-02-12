@@ -10,6 +10,7 @@ interface SettingsModalProps {
   onChatConfigChange: (config: ProviderConfig) => void;
   onEmbeddingsConfigChange: (config: ProviderConfig) => void;
   onConfirm: () => void;
+  onCancel: () => void;
   hasChanges: boolean;
 }
 
@@ -21,6 +22,7 @@ export function SettingsModal({
   onChatConfigChange,
   onEmbeddingsConfigChange,
   onConfirm,
+  onCancel,
   hasChanges,
 }: SettingsModalProps) {
   if (!isOpen) return null;
@@ -31,6 +33,7 @@ export function SettingsModal({
   };
 
   const handleCancel = () => {
+    onCancel();
     onClose();
   };
 
