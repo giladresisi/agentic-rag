@@ -1,0 +1,128 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e7]:
+      - link "Chat" [ref=e8] [cursor=pointer]:
+        - /url: /chat
+        - button "Chat" [ref=e9]:
+          - img [ref=e10]
+          - text: Chat
+      - link "Documents" [ref=e12] [cursor=pointer]:
+        - /url: /ingestion
+        - button "Documents" [ref=e13]:
+          - img [ref=e14]
+          - text: Documents
+    - button "New Thread" [ref=e18] [cursor=pointer]:
+      - img [ref=e19]
+      - text: New Thread
+    - generic [ref=e21]:
+      - generic [ref=e22] [cursor=pointer]:
+        - generic [ref=e23]:
+          - img [ref=e24]
+          - generic [ref=e26]: Test Thread 1770909921335
+        - button [ref=e27]:
+          - img [ref=e28]
+      - generic [ref=e31] [cursor=pointer]:
+        - generic [ref=e32]:
+          - img [ref=e33]
+          - generic [ref=e35]: Test Thread 1770909918185
+        - button [ref=e36]:
+          - img [ref=e37]
+      - generic [ref=e40] [cursor=pointer]:
+        - generic [ref=e41]:
+          - img [ref=e42]
+          - generic [ref=e44]: Test Thread 1770909911703
+        - button [ref=e45]:
+          - img [ref=e46]
+      - generic [ref=e49] [cursor=pointer]:
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - generic [ref=e53]: Test Thread 1770909909059
+        - button [ref=e54]:
+          - img [ref=e55]
+      - generic [ref=e58] [cursor=pointer]:
+        - generic [ref=e59]:
+          - img [ref=e60]
+          - generic [ref=e62]: Hello! How's it going?
+        - button [ref=e63]:
+          - img [ref=e64]
+      - generic [ref=e67] [cursor=pointer]:
+        - generic [ref=e68]:
+          - img [ref=e69]
+          - generic [ref=e71]: New Chat
+        - button [ref=e72]:
+          - img [ref=e73]
+      - generic [ref=e76] [cursor=pointer]:
+        - generic [ref=e77]:
+          - img [ref=e78]
+          - generic [ref=e80]: Greetings and Introductions
+        - button [ref=e81]:
+          - img [ref=e82]
+      - generic [ref=e85] [cursor=pointer]:
+        - generic [ref=e86]:
+          - img [ref=e87]
+          - generic [ref=e89]: New Chat
+        - button [ref=e90]:
+          - img [ref=e91]
+    - button "T User test@..." [ref=e96] [cursor=pointer]:
+      - generic [ref=e97]: T
+      - generic [ref=e98]:
+        - generic [ref=e99]: User
+        - generic [ref=e100]: test@...
+  - generic [ref=e101]:
+    - banner [ref=e102]:
+      - heading "Agentic RAG Masterclass" [level=1] [ref=e103]
+    - paragraph [ref=e105]: Select a thread or create a new one to start chatting
+  - generic [ref=e107]:
+    - generic [ref=e108]:
+      - heading "Settings" [level=2] [ref=e109]
+      - paragraph [ref=e110]: Configure model providers for chat and embeddings
+    - generic [ref=e111]:
+      - generic [ref=e112]:
+        - generic [ref=e113]:
+          - heading "Chat Model" [level=3] [ref=e114]
+          - paragraph [ref=e115]: Model used for chat conversations and LLM completions
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - text: Provider
+            - combobox [ref=e118]:
+              - option "OpenAI"
+              - option "OpenRouter" [selected]
+              - option "Ollama (Local)"
+              - option "LM Studio (Local)"
+              - option "Custom"
+          - generic [ref=e119]:
+            - text: Model
+            - combobox [ref=e120]:
+              - option "anthropic/claude-3.5-sonnet" [selected]
+              - option "anthropic/claude-3-opus"
+              - option "openai/gpt-4o"
+              - option "openai/gpt-4o-mini"
+              - option "meta-llama/llama-3.1-405b-instruct"
+              - option "google/gemini-pro-1.5"
+      - generic [ref=e122]:
+        - generic [ref=e123]:
+          - heading "Embeddings Model" [level=3] [ref=e124]
+          - paragraph [ref=e125]: Model used for document embeddings and vector search
+        - generic [ref=e126]:
+          - generic [ref=e127]:
+            - text: Provider
+            - combobox [ref=e128]:
+              - option "OpenAI" [selected]
+              - option "OpenRouter"
+              - option "Ollama (Local)"
+              - option "LM Studio (Local)"
+              - option "Custom"
+          - generic [ref=e129]:
+            - text: Model
+            - combobox [ref=e130]:
+              - option "gpt-4o" [selected]
+              - option "gpt-4o-mini"
+              - option "gpt-4-turbo"
+              - option "gpt-3.5-turbo"
+    - generic [ref=e131]:
+      - button "Cancel" [ref=e132] [cursor=pointer]
+      - button "Confirm" [ref=e133] [cursor=pointer]
+```

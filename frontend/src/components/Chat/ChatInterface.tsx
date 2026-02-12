@@ -119,6 +119,7 @@ export function ChatInterface() {
         onChatConfigChange={modelConfig.updateChatConfig}
         onEmbeddingsConfigChange={modelConfig.updateEmbeddingsConfig}
         onConfirm={modelConfig.confirmChanges}
+        onCancel={modelConfig.cancelChanges}
         hasChanges={modelConfig.hasChanges}
       />
     </div>

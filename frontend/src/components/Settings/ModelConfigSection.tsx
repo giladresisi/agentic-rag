@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useProviders } from '@/hooks/useProviders';
 import type { ProviderConfig } from '@/types/chat';
 import { Input } from '@/components/ui/input';
@@ -15,6 +15,7 @@ export function ModelConfigSection({ title, description, config, onChange }: Mod
   const [selectedProvider, setSelectedProvider] = useState(config.provider);
   const [selectedModel, setSelectedModel] = useState(config.model);
   const [customBaseUrl, setCustomBaseUrl] = useState(config.base_url || '');
+  const isInitialMount = useRef(true);
 
   useEffect(() => {
     setSelectedProvider(config.provider);
@@ -35,12 +36,18 @@ export function ModelConfigSection({ title, description, config, onChange }: Mod
   }, [selectedProvider, providers]);
 
   useEffect(() => {
+    // Skip calling onChange on initial mount to prevent hasChanges from being true
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+
     onChange({
       provider: selectedProvider,
       model: selectedModel,
       base_url: customBaseUrl || undefined,
     });
-  }, [selectedProvider, selectedModel, customBaseUrl]);
+  }, [selectedProvider, selectedModel, customBaseUrl, onChange]);
 
   if (isLoading || !providers) {
     return <div className="text-sm text-muted-foreground">Loading...</div>;
