@@ -85,23 +85,39 @@ async def upload_document(
 
     # Validate file type
     file_ext = Path(file.filename).suffix.lower()
-    supported_types = [f".{ext.strip()}" for ext in settings.SUPPORTED_FILE_TYPES.split(",")]
-    if file_ext not in supported_types:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unsupported file type. Supported: {', '.join(supported_types)}"
-        )
+    # Parse supported types - handle various formats
+    supported_types = []
+    raw_value = settings.SUPPORTED_FILE_TYPES.strip()
+    # Remove JSON array brackets if present
+    raw_value = raw_value.strip('[').strip(']')
+    for ext in raw_value.split(","):
+        # Remove quotes, brackets, and whitespace
+        ext = ext.strip().strip('"').strip("'").strip()
+        # Ensure it starts with a dot
+        if ext and not ext.startswith("."):
+            ext = f".{ext}"
+        if ext:  # Only add non-empty extensions
+            supported_types.append(ext)
 
     # Read file content
     content = await file.read()
     file_size = len(content)
+
+    # Log upload attempt
+    print(f"[UPLOAD] Received file: {file.filename}, content_type: {file.content_type}, size: {file_size} bytes, extension: {file_ext}")
+
+    if file_ext not in supported_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file type '{file_ext}' for file '{file.filename}'. Supported: {', '.join(supported_types)}"
+        )
 
     # Validate file size
     max_size_bytes = settings.MAX_FILE_SIZE_MB * 1024 * 1024
     if file_size > max_size_bytes:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size: {settings.MAX_FILE_SIZE_MB}MB"
+            detail=f"File '{file.filename}' is too large ({file_size / 1024 / 1024:.1f}MB). Maximum size: {settings.MAX_FILE_SIZE_MB}MB"
         )
 
     # Create storage path (user_id/filename)

@@ -111,6 +111,7 @@ export function useIngestion(token: string | null) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
+          console.error('[UPLOAD ERROR]', errorData);
           throw new Error(errorData.detail || 'Failed to upload document');
         } else {
           throw new Error(`API error: ${response.status} ${response.statusText}. Make sure the backend server is running at ${API_URL || 'http://localhost:8000'}`);

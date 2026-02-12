@@ -11,3 +11,5 @@ email-validator==2.3.0
 websockets>=13.0,<16
 langsmith==0.1.147
 docling==0.4.0
+pytest==8.3.4
+httpx==0.27.2
