@@ -32,7 +32,6 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
 
     // Check file type by extension
     const extension = '.' + file.name.split('.').pop()?.toLowerCase();
-    console.log('[VALIDATION] File:', file.name, 'Extension:', extension, 'Supported:', SUPPORTED_TYPES);
 
     if (!SUPPORTED_TYPES.includes(extension)) {
       return `File "${file.name}" has unsupported type ${extension}. Supported: ${SUPPORTED_TYPES.join(', ')}`;
@@ -40,7 +39,6 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
 
     // Check MIME type if available
     if (file.type && !SUPPORTED_MIME_TYPES.includes(file.type)) {
-      console.log('[VALIDATION] MIME type rejected:', file.type, 'for file:', file.name);
       return `File "${file.name}" has unsupported MIME type "${file.type}". Supported: ${SUPPORTED_TYPES.join(', ')}`;
     }
 

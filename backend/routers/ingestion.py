@@ -26,30 +26,20 @@ async def process_document(document_id: str, user_id: str, file_path: str):
     supabase = get_supabase_admin()
 
     try:
-        print(f"[PROCESS] Starting processing for document {document_id}")
-
         # Parse document
-        print(f"[PROCESS] Step 1/5: Parsing document from {file_path}")
         text_content = await embedding_service.parse_document(file_path)
 
         if not text_content or not text_content.strip():
             raise Exception("No text content extracted from document")
 
-        print(f"[PROCESS] Step 2/5: Extracted {len(text_content)} characters")
-
         # Chunk text
-        print(f"[PROCESS] Step 3/5: Chunking text")
         chunks = embedding_service.chunk_text(text_content)
 
         if not chunks:
             raise Exception("No chunks created from text content")
 
-        print(f"[PROCESS] Step 4/5: Created {len(chunks)} chunks, generating embeddings")
-
         # Generate embeddings
         embeddings = await embedding_service.generate_embeddings(chunks)
-
-        print(f"[PROCESS] Step 5/5: Generated {len(embeddings)} embeddings, saving to database")
 
         # Save chunks to database
         chunk_records = []
@@ -65,24 +55,15 @@ async def process_document(document_id: str, user_id: str, file_path: str):
         # Insert chunks
         supabase.table("chunks").insert(chunk_records).execute()
 
-        print(f"[PROCESS] Saved {len(chunk_records)} chunks to database")
-
         # Update document status to completed
         supabase.table("documents").update({
             "status": "completed",
             "chunk_count": len(chunks)
         }).eq("id", document_id).execute()
 
-        print(f"[PROCESS] Document {document_id} completed successfully")
-
     except Exception as e:
-        # Log error for debugging
-        error_msg = str(e)
-        print(f"[ERROR] Document processing failed for {document_id}: {error_msg}")
-        import traceback
-        print(traceback.format_exc())
-
         # Update document status to failed
+        error_msg = str(e)
         supabase.table("documents").update({
             "status": "failed",
             "error_message": error_msg
@@ -122,9 +103,6 @@ async def upload_document(
     # Read file content
     content = await file.read()
     file_size = len(content)
-
-    # Log upload attempt
-    print(f"[UPLOAD] Received file: {file.filename}, content_type: {file.content_type}, size: {file_size} bytes, extension: {file_ext}")
 
     if file_ext not in supported_types:
         raise HTTPException(

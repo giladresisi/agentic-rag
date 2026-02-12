@@ -52,8 +52,6 @@ export function useIngestion(token: string | null) {
     // Subscribe to Realtime updates on documents table
     if (!token) return;
 
-    console.log('[REALTIME] Setting up subscription for documents table');
-
     const channel = supabase
       .channel('document-updates')
       .on(
@@ -64,15 +62,12 @@ export function useIngestion(token: string | null) {
           table: 'documents',
         },
         (payload) => {
-          console.log('[REALTIME] Received update:', payload.eventType, payload.new);
-
           // Handle INSERT
           if (payload.eventType === 'INSERT') {
             setDocuments((prev) => [payload.new as Document, ...prev]);
           }
           // Handle UPDATE
           else if (payload.eventType === 'UPDATE') {
-            console.log('[REALTIME] Updating document:', payload.new.id, 'to status:', payload.new.status);
             setDocuments((prev) =>
               prev.map((doc) =>
                 doc.id === payload.new.id ? (payload.new as Document) : doc
@@ -87,22 +82,9 @@ export function useIngestion(token: string | null) {
           }
         }
       )
-      .subscribe((status, err) => {
-        if (status === 'SUBSCRIBED') {
-          console.log('[REALTIME] ✓ Successfully subscribed to document updates');
-        } else if (status === 'CHANNEL_ERROR') {
-          console.error('[REALTIME] ✗ Channel error:', err);
-        } else if (status === 'TIMED_OUT') {
-          console.error('[REALTIME] ✗ Subscription timed out');
-        } else if (status === 'CLOSED') {
-          console.log('[REALTIME] Subscription closed');
-        } else {
-          console.log('[REALTIME] Subscription status:', status, err);
-        }
-      });
+      .subscribe();
 
     return () => {
-      console.log('[REALTIME] Unsubscribing from document updates');
       channel.unsubscribe();
     };
   }, [token]);
@@ -129,7 +111,6 @@ export function useIngestion(token: string | null) {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
           const errorData = await response.json();
-          console.error('[UPLOAD ERROR]', errorData);
           throw new Error(errorData.detail || 'Failed to upload document');
         } else {
           throw new Error(`API error: ${response.status} ${response.statusText}. Make sure the backend server is running at ${API_URL || 'http://localhost:8000'}`);
