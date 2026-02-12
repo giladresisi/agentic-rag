@@ -52,6 +52,8 @@ export function useIngestion(token: string | null) {
     // Subscribe to Realtime updates on documents table
     if (!token) return;
 
+    console.log('[REALTIME] Setting up subscription for documents table');
+
     const channel = supabase
       .channel('document-updates')
       .on(
@@ -85,11 +87,22 @@ export function useIngestion(token: string | null) {
           }
         }
       )
-      .subscribe((status) => {
-        console.log('[REALTIME] Subscription status:', status);
+      .subscribe((status, err) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('[REALTIME] ✓ Successfully subscribed to document updates');
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('[REALTIME] ✗ Channel error:', err);
+        } else if (status === 'TIMED_OUT') {
+          console.error('[REALTIME] ✗ Subscription timed out');
+        } else if (status === 'CLOSED') {
+          console.log('[REALTIME] Subscription closed');
+        } else {
+          console.log('[REALTIME] Subscription status:', status, err);
+        }
       });
 
     return () => {
+      console.log('[REALTIME] Unsubscribing from document updates');
       channel.unsubscribe();
     };
   }, [token]);
