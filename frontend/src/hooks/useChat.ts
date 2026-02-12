@@ -181,7 +181,10 @@ export function useChat(threadId: string | null, token: string | null) {
       abortControllerRef.current = null;
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') {
-        // Request was aborted - this is expected when switching threads
+        // Request was aborted - reset state and allow new messages
+        setIsStreaming(false);
+        setStreamingContent('');
+        abortControllerRef.current = null;
         return;
       }
       setError(err instanceof Error ? err.message : 'Failed to send message');
