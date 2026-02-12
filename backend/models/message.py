@@ -15,7 +15,6 @@ class MessageCreate(MessageBase):
     provider: str = "openai"
     model: str = "gpt-4o-mini"
     base_url: Optional[str] = None
-    api_key: Optional[str] = None
 
 
 class Message(MessageBase):

@@ -26,7 +26,6 @@ export interface ProviderConfig {
   provider: string;
   model: string;
   base_url?: string;
-  api_key?: string;
 }
 
 export interface ProviderPreset {

@@ -84,7 +84,6 @@ class ProviderService:
         provider: str,
         model: str,
         base_url: str | None = None,
-        api_key: str | None = None,
         has_default_api_key: bool = True
     ) -> tuple[bool, str]:
         """Validate provider configuration.
@@ -93,7 +92,6 @@ class ProviderService:
             provider: Provider identifier
             model: Model name
             base_url: Optional custom base URL
-            api_key: Optional API key
             has_default_api_key: Whether a default API key is available
 
         Returns:
@@ -105,9 +103,9 @@ class ProviderService:
             return False, f"Unknown provider: {provider}"
 
         # Validate API key requirement
-        # Only fail if provider requires API key AND no key provided AND no default available
-        if config["requires_api_key"] and not api_key and not has_default_api_key:
-            return False, f"Provider '{provider}' requires an API key"
+        # Only fail if provider requires API key AND no default available
+        if config["requires_api_key"] and not has_default_api_key:
+            return False, f"Provider '{provider}' requires an API key (must be configured on server)"
 
         # Model validation is now permissive - allow any model name
         # Providers will return their own errors if model is invalid

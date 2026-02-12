@@ -4,8 +4,11 @@ import { useIngestion } from '@/hooks/useIngestion';
 import { DocumentUpload } from './DocumentUpload';
 import { DocumentList } from './DocumentList';
 import { Button } from '@/components/ui/button';
-import { LogOut, MessageSquare, AlertCircle, FileText } from 'lucide-react';
+import { MessageSquare, AlertCircle, FileText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { SettingsModal } from '@/components/Settings/SettingsModal';
+import { useModelConfig } from '@/hooks/useModelConfig';
+import { UserProfileMenu } from '@/components/Layout/UserProfileMenu';
 
 export function IngestionInterface() {
   const { user, token, logout } = useAuth();
@@ -18,6 +21,11 @@ export function IngestionInterface() {
     deleteDocument,
   } = useIngestion(token);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const modelConfig = useModelConfig(
+    { provider: 'openai', model: 'gpt-4o-mini' },
+    { provider: 'openai', model: 'text-embedding-3-small' }
+  );
+  const [showSettings, setShowSettings] = useState(false);
 
   const handleUpload = async (file: File) => {
     try {
@@ -84,20 +92,22 @@ export function IngestionInterface() {
             isLoading={isLoading}
           />
         </div>
+
+        {/* User profile at bottom */}
+        <div className="border-t">
+          <UserProfileMenu
+            user={user}
+            onSettingsClick={() => setShowSettings(true)}
+            onLogout={logout}
+          />
+        </div>
       </div>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col">
         {/* Header */}
-        <header className="border-b p-4 flex justify-between items-center">
+        <header className="border-b p-4">
           <h1 className="text-xl font-semibold">Document Ingestion</h1>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">{user?.email}</span>
-            <Button variant="outline" size="sm" onClick={logout}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Logout
-            </Button>
-          </div>
         </header>
 
         {/* Main Content */}
@@ -142,6 +152,16 @@ export function IngestionInterface() {
           </div>
         </div>
       </div>
+      <SettingsModal
+        isOpen={showSettings}
+        onClose={() => setShowSettings(false)}
+        chatConfig={modelConfig.chatConfig.pending}
+        embeddingsConfig={modelConfig.embeddingsConfig.pending}
+        onChatConfigChange={modelConfig.updateChatConfig}
+        onEmbeddingsConfigChange={modelConfig.updateEmbeddingsConfig}
+        onConfirm={modelConfig.confirmChanges}
+        hasChanges={modelConfig.hasChanges}
+      />
     </div>
   );
 }

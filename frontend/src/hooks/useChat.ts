@@ -84,9 +84,6 @@ export function useChat(threadId: string | null, token: string | null) {
         if (providerConfig.base_url) {
           requestBody.base_url = providerConfig.base_url;
         }
-        if (providerConfig.api_key) {
-          requestBody.api_key = providerConfig.api_key;
-        }
       }
 
       const response = await fetch(
