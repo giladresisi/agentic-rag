@@ -76,12 +76,32 @@ export function useThreads(token: string | null) {
     setThreads(prev => prev.filter(t => t.id !== threadId));
   };
 
+  const generateThreadTitle = async (threadId: string): Promise<Thread> => {
+    if (!token) throw new Error('Not authenticated');
+
+    const response = await fetch(`${API_URL}/chat/threads/${threadId}/generate-title`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to generate thread title');
+    }
+
+    const updatedThread = await response.json();
+    setThreads(prev => prev.map(t => t.id === threadId ? updatedThread : t));
+    return updatedThread;
+  };
+
   return {
     threads,
     isLoading,
     error,
     createThread,
     deleteThread,
+    generateThreadTitle,
     refreshThreads: fetchThreads,
   };
 }

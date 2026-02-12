@@ -1,14 +1,16 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Send } from 'lucide-react';
+import { Send, Square } from 'lucide-react';
 
 interface MessageInputProps {
   onSendMessage: (content: string) => void;
+  onStop?: () => void;
   disabled?: boolean;
+  isStreaming?: boolean;
 }
 
-export function MessageInput({ onSendMessage, disabled }: MessageInputProps) {
+export function MessageInput({ onSendMessage, onStop, disabled, isStreaming }: MessageInputProps) {
   const [input, setInput] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -16,6 +18,12 @@ export function MessageInput({ onSendMessage, disabled }: MessageInputProps) {
     if (input.trim() && !disabled) {
       onSendMessage(input.trim());
       setInput('');
+    }
+  };
+
+  const handleStop = () => {
+    if (onStop) {
+      onStop();
     }
   };
 
@@ -29,9 +37,21 @@ export function MessageInput({ onSendMessage, disabled }: MessageInputProps) {
           disabled={disabled}
           className="flex-1"
         />
-        <Button type="submit" disabled={disabled || !input.trim()}>
-          <Send className="w-4 h-4" />
-        </Button>
+        {isStreaming ? (
+          <Button
+            type="button"
+            onClick={handleStop}
+            variant="outline"
+            size="icon"
+            title="Stop generating"
+          >
+            <Square className="w-4 h-4" />
+          </Button>
+        ) : (
+          <Button type="submit" disabled={disabled || !input.trim()}>
+            <Send className="w-4 h-4" />
+          </Button>
+        )}
       </div>
     </form>
   );

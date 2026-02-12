@@ -79,6 +79,85 @@ async def list_threads(current_user: dict = Depends(get_current_user)):
         raise HTTPException(status_code=500, detail=f"Failed to list threads: {str(e)}")
 
 
+@router.post("/threads/{thread_id}/generate-title", response_model=ThreadResponse)
+async def generate_thread_title(
+    thread_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Generate a title for a thread based on the first user message."""
+    supabase = get_supabase()
+
+    # Verify thread ownership
+    thread_response = supabase.table("threads")\
+        .select("*")\
+        .eq("id", thread_id)\
+        .eq("user_id", current_user["id"])\
+        .single()\
+        .execute()
+
+    if not thread_response.data:
+        raise HTTPException(status_code=404, detail="Thread not found")
+
+    # Get the first user message
+    messages_response = supabase.table("messages")\
+        .select("*")\
+        .eq("thread_id", thread_id)\
+        .eq("role", "user")\
+        .order("created_at")\
+        .limit(1)\
+        .execute()
+
+    if not messages_response.data:
+        raise HTTPException(status_code=400, detail="No messages in thread")
+
+    first_message = messages_response.data[0]["content"]
+
+    # Generate title using LLM
+    try:
+        response = openai_service.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": "Generate a concise, 3-7 word title for a conversation that starts with the following user message. Return only the title, nothing else."
+                },
+                {
+                    "role": "user",
+                    "content": first_message
+                }
+            ],
+            temperature=0.7,
+            max_tokens=20
+        )
+
+        generated_title = response.choices[0].message.content.strip()
+
+        # Remove quotes if present
+        if generated_title.startswith('"') and generated_title.endswith('"'):
+            generated_title = generated_title[1:-1]
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to generate title: {str(e)}")
+
+    # Update thread title
+    update_response = supabase.table("threads")\
+        .update({"title": generated_title})\
+        .eq("id", thread_id)\
+        .execute()
+
+    if not update_response.data:
+        raise HTTPException(status_code=500, detail="Failed to update thread title")
+
+    updated_thread = update_response.data[0]
+
+    return ThreadResponse(
+        id=str(updated_thread["id"]),
+        title=updated_thread["title"],
+        created_at=str(updated_thread["created_at"]),
+        updated_at=str(updated_thread["updated_at"])
+    )
+
+
 @router.get("/threads/{thread_id}/messages", response_model=List[MessageResponse])
 async def get_thread_messages(
     thread_id: str,

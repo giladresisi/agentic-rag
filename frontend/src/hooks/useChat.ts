@@ -191,6 +191,12 @@ export function useChat(threadId: string | null, token: string | null) {
     }
   };
 
+  const stopMessage = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  };
+
   return {
     messages,
     isLoading,
@@ -198,6 +204,7 @@ export function useChat(threadId: string | null, token: string | null) {
     streamingContent,
     error,
     sendMessage,
+    stopMessage,
     refreshMessages: fetchMessages,
   };
 }

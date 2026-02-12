@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Message } from '@/types/chat';
-import { User, Bot } from 'lucide-react';
+import { User, Bot, Loader } from 'lucide-react';
 
 interface MessageListProps {
   messages: Message[];
@@ -49,6 +49,19 @@ export function MessageList({ messages, streamingContent, isStreaming }: Message
             )}
           </div>
         ))}
+        {isStreaming && !streamingContent && (
+          <div className="flex gap-3 justify-start">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+              <Bot className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <div className="rounded-lg px-4 py-2 bg-muted">
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader className="h-4 w-4 animate-spin" />
+                <span className="text-sm">Generating response...</span>
+              </div>
+            </div>
+          </div>
+        )}
         {isStreaming && streamingContent && (
           <div className="flex gap-3 justify-start">
             <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
