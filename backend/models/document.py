@@ -39,6 +39,7 @@ class DocumentResponse(BaseModel):
     file_size_bytes: int
     chunk_count: int
     status: str
+    error_message: Optional[str] = None
     created_at: str
     updated_at: str
 
