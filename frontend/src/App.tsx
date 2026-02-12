@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import { LoginForm } from './components/Auth/LoginForm';
 import { SignUpForm } from './components/Auth/SignUpForm';
 import { ChatInterface } from './components/Chat/ChatInterface';
+import { IngestionInterface } from './components/Ingestion/IngestionInterface';
 import { MainLayout } from './components/Layout/MainLayout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -75,6 +76,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ChatInterface />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/ingestion"
+            element={
+              <ProtectedRoute>
+                <IngestionInterface />
               </ProtectedRoute>
             }
           />
