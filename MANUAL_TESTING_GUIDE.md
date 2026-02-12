@@ -2,14 +2,14 @@
 
 ## Prerequisites
 - ✅ Backend running: http://localhost:8000
-- ✅ Frontend running: http://localhost:5174
+- ✅ Frontend running: http://localhost:5173
 - ✅ Database migration applied
 - ✅ OPENAI_API_KEY configured in backend/.env
 
 ## Authentication Testing
 
 ### Test 1: Sign Up New User
-1. Open http://localhost:5174
+1. Open http://localhost:5173
 2. You should be redirected to `/login` (protected route enforcement ✅)
 3. Click "Sign up" link at the bottom
 4. Fill in:
@@ -43,7 +43,7 @@
 
 ### Test 5: Row-Level Security (RLS)
 1. Open a **second browser** (or incognito window)
-2. Go to http://localhost:5174
+2. Go to http://localhost:5173
 3. Sign up as a different user:
    - Email: `testuser2@example.com`
    - Password: `TestPassword123!`

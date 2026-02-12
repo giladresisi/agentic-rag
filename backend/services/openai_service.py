@@ -18,50 +18,11 @@ try:
 
     langsmith_client = LangSmithClient()
 
-    # Verify API key is valid
-    try:
-        print("[DEBUG] Testing LangSmith API key...")
-        # This will make a simple API call to verify credentials
-        projects = list(langsmith_client.list_projects(limit=1))
-        print(f"✓ LangSmith API key is VALID (found {len(projects)} project(s))")
-    except Exception as e:
-        print(f"✗ LangSmith API key test FAILED: {e}")
-        print(f"[ERROR] Your LangSmith API key might be invalid or expired")
-        raise
-
     # Wrap default OpenAI client for automatic tracing
     default_client = wrap_openai(default_client)
-
     langsmith_enabled = True
-    print("=" * 60)
-    print("✓ LangSmith OpenAI wrapper applied successfully")
-    print(f"✓ LangSmith tracing: {os.getenv('LANGCHAIN_TRACING_V2', 'not set')}")
-    print(f"✓ LangSmith project: {os.getenv('LANGCHAIN_PROJECT', 'not set')}")
-    print(f"✓ LangSmith API key: {'SET' if os.getenv('LANGCHAIN_API_KEY') else 'NOT SET'}")
 
-    # Test trace on startup
-    try:
-        import uuid
-        project_name = os.getenv('LANGCHAIN_PROJECT')
-        run_id = uuid.uuid4()
-        langsmith_client.create_run(
-            name="backend_startup_test",
-            run_type="chain",
-            inputs={"test": "connection"},
-            project_name=project_name,
-            id=run_id,
-        )
-        langsmith_client.update_run(
-            run_id=run_id,
-            outputs={"status": "success", "message": "Backend started successfully"}
-        )
-        print(f"✓ LangSmith connection test successful (project: {project_name})")
-    except Exception as e:
-        print(f"⚠ LangSmith connection test failed: {e}")
-
-    print("=" * 60)
-except ImportError as e:
-    print(f"[WARN] LangSmith not available - continuing without tracing: {e}")
+except ImportError:
     ls_traceable = lambda *args, **kwargs: lambda f: f  # No-op decorator
 
 
@@ -111,8 +72,8 @@ class OpenAIService:
             if langsmith_enabled:
                 try:
                     client = wrap_openai(client)
-                except Exception as e:
-                    print(f"[WARN] Failed to wrap custom client with LangSmith: {e}")
+                except Exception:
+                    pass  # Continue without tracing for custom client
 
             return client
 
@@ -161,8 +122,7 @@ class OpenAIService:
                     project_name=os.getenv('LANGCHAIN_PROJECT'),
                     start_time=datetime.now(timezone.utc),
                 )
-            except Exception as e:
-                print(f"[WARN] Failed to create LangSmith run: {e}")
+            except Exception:
                 run_id = None
 
         try:
@@ -193,8 +153,8 @@ class OpenAIService:
                         end_time=datetime.now(timezone.utc),
                     )
                     trace_closed = True
-                except Exception as e:
-                    print(f"[ERROR] Failed to close LangSmith run: {e}")
+                except Exception:
+                    pass
 
         except Exception as e:
             # Close trace with error
@@ -209,7 +169,6 @@ class OpenAIService:
                 except:
                     pass
 
-            print(f"[ERROR] Chat Completions streaming failed: {type(e).__name__}: {e}")
             raise Exception(f"Failed to stream response: {str(e)}")
 
 
