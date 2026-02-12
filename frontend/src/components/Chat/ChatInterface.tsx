@@ -5,12 +5,19 @@ import { useChat } from '@/hooks/useChat';
 import { ThreadSidebar } from './ThreadSidebar';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { ProviderSelector } from './ProviderSelector';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, Settings } from 'lucide-react';
+import type { ProviderConfig } from '@/types/chat';
 
 export function ChatInterface() {
   const { user, token, logout } = useAuth();
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
+  const [showProviderSettings, setShowProviderSettings] = useState(false);
+  const [providerConfig, setProviderConfig] = useState<ProviderConfig>({
+    provider: 'openai',
+    model: 'gpt-4o-mini',
+  });
 
   const { threads, createThread, deleteThread } = useThreads(token);
   const {
@@ -42,7 +49,7 @@ export function ChatInterface() {
 
   const handleSendMessage = async (content: string) => {
     try {
-      await sendMessage(content);
+      await sendMessage(content, providerConfig);
     } catch (error) {
       console.error('Failed to send message:', error);
     }
@@ -64,7 +71,17 @@ export function ChatInterface() {
               ? threads.find(t => t.id === currentThreadId)?.title || 'Chat'
               : 'Agentic RAG Masterclass'}
           </h1>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">
+              {providerConfig.provider} / {providerConfig.model}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowProviderSettings(!showProviderSettings)}
+            >
+              <Settings className="w-4 h-4" />
+            </Button>
             <span className="text-sm text-muted-foreground">{user?.email}</span>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="w-4 h-4 mr-2" />
@@ -72,6 +89,14 @@ export function ChatInterface() {
             </Button>
           </div>
         </header>
+        {showProviderSettings && (
+          <div className="border-b p-4">
+            <ProviderSelector
+              value={providerConfig}
+              onChange={setProviderConfig}
+            />
+          </div>
+        )}
         {currentThreadId ? (
           <>
             <MessageList

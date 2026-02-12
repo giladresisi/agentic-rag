@@ -3,6 +3,9 @@ export interface Thread {
   title: string;
   created_at: string;
   updated_at: string;
+  provider?: string;
+  model?: string;
+  base_url?: string;
 }
 
 export interface Message {
@@ -17,4 +20,27 @@ export interface StreamEvent {
   type: 'content_delta' | 'done' | 'error';
   delta?: string;
   error?: string;
+}
+
+export interface ProviderConfig {
+  provider: string;
+  model: string;
+  base_url?: string;
+  api_key?: string;
+}
+
+export interface ProviderPreset {
+  name: string;
+  base_url: string;
+  requires_api_key: boolean;
+  models: string[];
+}
+
+export interface ProvidersResponse {
+  providers: Record<string, ProviderPreset>;
+  defaults: {
+    provider: string;
+    model: string;
+    base_url: string;
+  };
 }
