@@ -27,13 +27,13 @@ class ChatService:
         "type": "function",
         "function": {
             "name": "retrieve_documents",
-            "description": "Search and retrieve relevant document chunks from the user's knowledge base to help answer questions. Use this when you need specific information from uploaded documents.",
+            "description": "Search and retrieve relevant document chunks from the user's uploaded documents. ALWAYS use this tool when the user asks about their documents or specific information. This tool performs semantic search across the user's knowledge base.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "The search query to find relevant document chunks"
+                        "description": "A detailed search query describing what to find. Be specific and include key terms from the user's question. Examples: 'document content and main topics', 'specifications and features', 'introduction and overview'. Avoid single generic words like 'summary' or 'overview'."
                     }
                 },
                 "required": ["query"]
@@ -79,6 +79,23 @@ class ChatService:
         full_response = ""
         trace_closed = False
         sources = None
+
+        # Add system prompt if not present to encourage tool use and prevent hallucinations
+        # Make a copy to avoid modifying the original list
+        conversation_history = list(conversation_history)
+        if not conversation_history or conversation_history[0].get("role") != "system":
+            system_message = {
+                "role": "system",
+                "content": """You are a helpful assistant with access to the user's uploaded documents.
+
+IMPORTANT RULES:
+1. When users ask about their documents, ALWAYS use the retrieve_documents tool first
+2. If the tool returns NO results or empty content, say: "I don't see any relevant information in your uploaded documents for that query. Could you rephrase your question or provide more context?"
+3. NEVER make up or fabricate document content - only use information actually returned by the retrieve_documents tool
+4. If no documents are found, DO NOT invent document titles, topics, or content
+5. Base your answers ONLY on the retrieved document chunks provided by the tool"""
+            }
+            conversation_history.insert(0, system_message)
 
         # Create LangSmith run if tracing is enabled
         run_id = None
@@ -152,10 +169,14 @@ class ChatService:
                         args = json.loads(tool_call["function"]["arguments"])
                         query = args.get("query", "")
 
+                        print(f"[TOOL CALL] Query from LLM: {query}")
+
                         chunks = await retrieval_service.retrieve_relevant_chunks(
                             query=query,
                             user_id=user_id
                         )
+
+                        print(f"[TOOL CALL] Retrieved {len(chunks)} chunks")
 
                         context_text = "\n\n".join([
                             f"Document: {chunk['document_name']}\n{chunk['content']}"
