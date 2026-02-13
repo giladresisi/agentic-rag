@@ -28,6 +28,7 @@ export function ModelConfigSection({
   const isInitialMount = useRef(true);
   const lastSentConfig = useRef<string>('');
   const ignoreNextConfigUpdate = useRef(false);
+  const previousProvider = useRef(config.provider);
 
   useEffect(() => {
     // Skip updates that came from our own onChange calls
@@ -40,11 +41,17 @@ export function ModelConfigSection({
     setSelectedModel(config.model);
     setCustomBaseUrl(config.base_url || '');
     setDimensions(config.dimensions || '');
+    previousProvider.current = config.provider;
   }, [config]);
 
   // When provider changes, reset or auto-select values
+  // Only run when user manually changes provider, not on initial load
   useEffect(() => {
     if (isInitialMount.current) return;
+
+    // Only reset if provider actually changed from previous value
+    if (selectedProvider === previousProvider.current) return;
+    previousProvider.current = selectedProvider;
 
     if (providers && selectedProvider) {
       const providerConfig = providers.providers[selectedProvider];
@@ -225,9 +232,12 @@ export function ModelConfigSection({
               type="text"
               value={customBaseUrl}
               onChange={(e) => setCustomBaseUrl(e.target.value)}
-              placeholder="http://localhost:1234/v1"
+              placeholder="http://localhost:1234"
               disabled={disabled}
             />
+            <p className="text-xs text-muted-foreground">
+              /v1 will be automatically appended
+            </p>
           </div>
         )}
       </div>
