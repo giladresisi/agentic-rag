@@ -15,7 +15,7 @@ if [ -n "$PIDS" ]; then
     echo "Killing existing processes..."
     for PID in $PIDS; do
         echo "  Killing PID $PID..."
-        taskkill //F //PID $PID 2>/dev/null || true
+        taskkill -F -PID $PID 2>/dev/null || true
     done
     echo ""
     echo "Waiting 2 seconds for processes to terminate..."
@@ -30,7 +30,7 @@ REMAINING=$(netstat -ano | grep ':8000' | grep 'LISTENING' | wc -l)
 if [ $REMAINING -gt 0 ]; then
     echo "[WARNING] Port 8000 still has $REMAINING processes!"
     echo "You may need to manually kill Python processes:"
-    echo "  taskkill /F /IM python.exe"
+    echo "  taskkill -F -IM python.exe"
     echo ""
     exit 1
 fi
