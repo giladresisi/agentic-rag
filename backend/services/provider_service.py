@@ -232,22 +232,62 @@ class ProviderService:
 
         Returns:
             List of embedding vectors
+
+        Raises:
+            ValueError: If provider/model is invalid or texts are empty
+            RuntimeError: If API call fails (network, auth, rate limit, etc.)
         """
         if not texts:
             return []
 
-        client = ProviderService._get_client(provider, base_url)
+        try:
+            client = ProviderService._get_client(provider, base_url)
 
-        # Log embedding request
-        effective_url = base_url or PROVIDER_PRESETS.get(provider.lower(), {}).get("base_url", "default")
-        print(f"[EMBEDDINGS] Provider: {provider} | Model: {model} | URL: {effective_url} | Texts: {len(texts)}")
+            # Log embedding request
+            effective_url = base_url or PROVIDER_PRESETS.get(provider.lower(), {}).get("base_url", "default")
+            print(f"[EMBEDDINGS] Provider: {provider} | Model: {model} | URL: {effective_url} | Texts: {len(texts)}")
 
-        response = await client.embeddings.create(
-            model=model,
-            input=texts,
-        )
+            response = await client.embeddings.create(
+                model=model,
+                input=texts,
+            )
 
-        return [item.embedding for item in response.data]
+            # Validate response
+            if not response.data or len(response.data) == 0:
+                raise RuntimeError(f"Provider {provider} returned empty embeddings response")
+
+            embeddings = [item.embedding for item in response.data]
+
+            # Validate embeddings
+            if len(embeddings) != len(texts):
+                raise RuntimeError(
+                    f"Provider {provider} returned {len(embeddings)} embeddings but expected {len(texts)}"
+                )
+
+            # Validate dimensions are consistent
+            if embeddings:
+                first_dim = len(embeddings[0])
+                if not all(len(emb) == first_dim for emb in embeddings):
+                    raise RuntimeError(f"Provider {provider} returned embeddings with inconsistent dimensions")
+
+            return embeddings
+
+        except ValueError as e:
+            # Re-raise validation errors (from _get_client URL validation)
+            raise
+        except Exception as e:
+            # Wrap all other errors with context
+            error_msg = str(e)
+            if "rate_limit" in error_msg.lower() or "429" in error_msg:
+                raise RuntimeError(f"Rate limit exceeded for {provider}: {error_msg}")
+            elif "authentication" in error_msg.lower() or "401" in error_msg or "403" in error_msg:
+                raise RuntimeError(f"Authentication failed for {provider}: Check API key")
+            elif "model" in error_msg.lower() or "404" in error_msg:
+                raise RuntimeError(f"Model '{model}' not found for {provider}: {error_msg}")
+            elif "timeout" in error_msg.lower() or "timed out" in error_msg.lower():
+                raise RuntimeError(f"Request timeout for {provider}: {error_msg}")
+            else:
+                raise RuntimeError(f"Embedding creation failed for {provider}: {error_msg}")
 
     @staticmethod
     async def stream_chat_completion(
