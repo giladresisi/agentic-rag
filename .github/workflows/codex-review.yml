@@ -1,0 +1,155 @@
+name: Codex Review (Read Only)
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request_review_comment:
+    types: [created]
+
+jobs:
+  codex-review:
+    if: |
+      (
+        github.event_name == 'issue_comment' ||
+        github.event_name == 'pull_request_review_comment'
+      ) &&
+      contains(github.event.comment.body, '@codex-review') &&
+      contains(fromJSON('["giladresisi"]'), github.event.comment.user.login)
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Get PR number
+        run: |
+          if [ "${{ github.event_name }}" == "issue_comment" ]; then
+            echo "PR_NUM=${{ github.event.issue.number }}" >> $GITHUB_ENV
+          else
+            echo "PR_NUM=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+          fi
+
+      - name: Fetch PR details and diff
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr view $PR_NUM --json title,body,comments,files --jq '{title,body,comments: [.comments[] | {author: .author.login, body: .body}], files: [.files[] | {path: .path, additions: .additions, deletions: .deletions}]}' > /tmp/pr-details.json
+          gh pr diff $PR_NUM > /tmp/pr-diff.txt
+
+      - name: Load instructions
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_DETAILS=$(cat /tmp/pr-details.json)
+          PR_DIFF=$(cat /tmp/pr-diff.txt)
+
+          TEMPLATE=$(cat .github/workflows/prompts/code-review-github.md)
+          TEMPLATE="${TEMPLATE//\$REPOSITORY/${{ github.repository }}}"
+          TEMPLATE="${TEMPLATE//\$PR_NUMBER/$PR_NUM}"
+          TEMPLATE="${TEMPLATE//\$TRIGGERED_BY/${{ github.event.comment.user.login }}}"
+          TEMPLATE="${TEMPLATE//\$IF_COMMENT_ON_PR/}"
+          TEMPLATE="${TEMPLATE//\$ENDIF_COMMENT_ON_PR/}"
+
+          echo "# GitHub Context" > /tmp/codex_review_prompt.txt
+          echo "- Repository: ${{ github.repository }}" >> /tmp/codex_review_prompt.txt
+          echo "- PR Number: $PR_NUM" >> /tmp/codex_review_prompt.txt
+          echo "- Triggered by: ${{ github.event.comment.user.login }}" >> /tmp/codex_review_prompt.txt
+          echo "" >> /tmp/codex_review_prompt.txt
+          echo "## Pull Request Details" >> /tmp/codex_review_prompt.txt
+          echo '```json' >> /tmp/codex_review_prompt.txt
+          echo "$PR_DETAILS" >> /tmp/codex_review_prompt.txt
+          echo '```' >> /tmp/codex_review_prompt.txt
+          echo "" >> /tmp/codex_review_prompt.txt
+          echo "## Pull Request Diff" >> /tmp/codex_review_prompt.txt
+          echo '```diff' >> /tmp/codex_review_prompt.txt
+          echo "$PR_DIFF" >> /tmp/codex_review_prompt.txt
+          echo '```' >> /tmp/codex_review_prompt.txt
+          echo "" >> /tmp/codex_review_prompt.txt
+          echo "$TEMPLATE" >> /tmp/codex_review_prompt.txt
+
+      - name: Run Codex Review
+        id: codex
+        uses: openai/codex-action@v1
+        timeout-minutes: 15
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt-file: /tmp/codex_review_prompt.txt
+          output-file: /tmp/codex_review_output.md
+          sandbox: read-only
+
+      - name: Post review comment
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const prNumber = process.env.PR_NUM;
+
+            let reviewBody = '';
+            try {
+              if (fs.existsSync('/tmp/codex_review_output.md')) {
+                reviewBody = fs.readFileSync('/tmp/codex_review_output.md', 'utf8');
+              } else {
+                reviewBody = '## Code Review by Codex\n\nReview completed. No output generated.';
+              }
+            } catch (error) {
+              reviewBody = '## Code Review by Codex\n\nError reading review output: ' + error.message;
+            }
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: parseInt(prNumber),
+              body: reviewBody
+            });
+
+  unauthorized:
+    if: |
+      (
+        github.event_name == 'issue_comment' ||
+        github.event_name == 'pull_request_review_comment'
+      ) &&
+      contains(github.event.comment.body, '@codex-review') &&
+      !contains(fromJSON('["giladresisi"]'), github.event.comment.user.login)
+
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `❌ @${context.actor} - Not authorized`
+            };
+
+            if (context.eventName === 'issue_comment') {
+              await github.rest.issues.createComment({
+                ...comment,
+                issue_number: context.issue.number
+              });
+            } else if (context.eventName === 'pull_request_review_comment') {
+              await github.rest.pulls.createReplyForReviewComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+                comment_id: context.payload.comment.id,
+                body: comment.body
+              });
+            }
