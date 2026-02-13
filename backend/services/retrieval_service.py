@@ -47,17 +47,21 @@ class RetrievalService:
             embeddings = await embedding_service.generate_embeddings([query])
             query_embedding = embeddings[0]
 
-            # Call match_chunks RPC function via Supabase
+            # Get embedding dimensions
+            embedding_dimensions = len(query_embedding)
+
+            # Call match_chunks_v2 RPC function via Supabase
             # Use admin client to bypass RLS - function enforces user_id filtering
             supabase = get_supabase_admin()
 
             response = supabase.rpc(
-                'match_chunks',
+                'match_chunks_v2',
                 {
                     'query_embedding': query_embedding,
                     'match_threshold': similarity_threshold,
                     'match_count': limit,
-                    'user_id_filter': user_id
+                    'user_id_filter': user_id,
+                    'dimension_filter': embedding_dimensions
                 }
             ).execute()
 
