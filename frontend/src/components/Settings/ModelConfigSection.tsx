@@ -24,7 +24,7 @@ export function ModelConfigSection({
   const [selectedProvider, setSelectedProvider] = useState(config.provider);
   const [selectedModel, setSelectedModel] = useState(config.model);
   const [customBaseUrl, setCustomBaseUrl] = useState(config.base_url || '');
-  const [dimensions, setDimensions] = useState(config.dimensions || 1536);
+  const [dimensions, setDimensions] = useState<number | ''>(config.dimensions || '');
   const isInitialMount = useRef(true);
   const lastSentConfig = useRef<string>('');
   const ignoreNextConfigUpdate = useRef(false);
@@ -39,10 +39,10 @@ export function ModelConfigSection({
     setSelectedProvider(config.provider);
     setSelectedModel(config.model);
     setCustomBaseUrl(config.base_url || '');
-    setDimensions(config.dimensions || 1536);
+    setDimensions(config.dimensions || '');
   }, [config]);
 
-  // When provider changes, auto-select first model and update base URL
+  // When provider changes, reset or auto-select values
   useEffect(() => {
     if (isInitialMount.current) return;
 
@@ -50,27 +50,30 @@ export function ModelConfigSection({
       const providerConfig = providers.providers[selectedProvider];
       if (!providerConfig) return;
 
-      if (isEmbedding) {
-        // For embeddings, select first embedding model if available
-        if (providerConfig.embedding_models.length > 0) {
-          const firstEmbedding = providerConfig.embedding_models[0];
-          setSelectedModel(firstEmbedding.name);
-          setDimensions(firstEmbedding.dimensions);
+      if (selectedProvider === 'openai') {
+        // For OpenAI, auto-select first model
+        if (isEmbedding) {
+          if (providerConfig.embedding_models.length > 0) {
+            const firstEmbedding = providerConfig.embedding_models[0];
+            setSelectedModel(firstEmbedding.name);
+            setDimensions(firstEmbedding.dimensions);
+          }
+        } else {
+          if (providerConfig.chat_models.length > 0) {
+            setSelectedModel(providerConfig.chat_models[0]);
+          }
         }
-        // If no models available (LM Studio), keep current model
+        // Auto-populate base URL
+        if (providerConfig.base_url) {
+          setCustomBaseUrl(providerConfig.base_url);
+        }
       } else {
-        // For chat, select first chat model if available
-        if (providerConfig.chat_models.length > 0) {
-          setSelectedModel(providerConfig.chat_models[0]);
+        // For non-OpenAI providers, reset to empty
+        setSelectedModel('');
+        setCustomBaseUrl(selectedProvider === 'lmstudio' ? '' : providerConfig.base_url || '');
+        if (isEmbedding) {
+          setDimensions(''); // Reset to empty
         }
-        // If no models available (LM Studio), keep current model
-      }
-
-      // Auto-populate base URL for OpenAI/OpenRouter, clear for LM Studio
-      if (selectedProvider === 'lmstudio') {
-        setCustomBaseUrl('');
-      } else if (providerConfig.base_url) {
-        setCustomBaseUrl(providerConfig.base_url);
       }
     }
   }, [selectedProvider, providers, isEmbedding]);
@@ -83,7 +86,7 @@ export function ModelConfigSection({
       base_url: customBaseUrl || undefined,
     };
 
-    if (isEmbedding) {
+    if (isEmbedding && dimensions !== '') {
       updatedConfig.dimensions = dimensions;
     }
 
@@ -112,6 +115,14 @@ export function ModelConfigSection({
   const currentProviderConfig = providers.providers[selectedProvider];
   const isLmStudio = selectedProvider === 'lmstudio';
   const isOpenAI = selectedProvider === 'openai';
+
+  // For chat: only OpenAI uses dropdown, others use text input
+  // For embeddings: OpenAI uses dropdown, others use text input
+  const shouldShowDropdown = isOpenAI && (
+    isEmbedding
+      ? currentProviderConfig?.embedding_models.length > 0
+      : currentProviderConfig?.chat_models.length > 0
+  );
 
   // Determine which models to show based on isEmbedding
   const modelList = isEmbedding
@@ -166,7 +177,7 @@ export function ModelConfigSection({
 
         <div className="space-y-2">
           <label className="text-sm font-medium">Model</label>
-          {modelList.length > 0 ? (
+          {shouldShowDropdown ? (
             <select
               value={selectedModel}
               onChange={(e) => handleModelChange(e.target.value)}
@@ -199,7 +210,7 @@ export function ModelConfigSection({
             <Input
               type="number"
               value={dimensions}
-              onChange={(e) => setDimensions(parseInt(e.target.value) || 1536)}
+              onChange={(e) => setDimensions(e.target.value === '' ? '' : parseInt(e.target.value))}
               placeholder="1536"
               disabled={disabled}
             />
