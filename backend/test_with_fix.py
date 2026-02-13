@@ -1,16 +1,14 @@
 """Test with the fix applied (threshold 0.4 + system prompt)."""
 import asyncio
 from dotenv import load_dotenv
+
+# CRITICAL: Load environment variables BEFORE importing config
+# Otherwise .env values won't be reflected in settings
+load_dotenv()
+
 from services.supabase_service import get_supabase_admin
 from services.chat_service import chat_service
-
-# Force reload of config
-import importlib
-import config
-importlib.reload(config)
 from config import settings
-
-load_dotenv()
 
 async def test():
     print("=" * 60)

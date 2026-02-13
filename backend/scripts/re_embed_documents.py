@@ -21,6 +21,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from config import settings
 from services.supabase_service import get_supabase_admin
 from services.embedding_service import embedding_service
+from services.provider_service import provider_service
 
 
 async def re_embed_document(supabase, document: dict, provider: str, model: str, dimensions: int):
@@ -57,11 +58,19 @@ async def re_embed_document(supabase, document: dict, provider: str, model: str,
             print(f"  WARNING: No chunks created from {filename}, skipping")
             return False
 
-        # Generate embeddings with current embedding service
-        # Note: This uses the default OpenAI client for now.
-        # Once provider_service is implemented (Task 3.1), this should use
-        # provider_service.create_embeddings(provider, model, chunks)
-        embeddings = await embedding_service.generate_embeddings(chunks)
+        # Generate embeddings using the specified provider and model
+        print(f"  Generating embeddings with {provider}/{model}...")
+        embeddings = await provider_service.create_embeddings(
+            provider=provider,
+            model=model,
+            texts=chunks
+        )
+
+        # Verify actual dimensions match expected dimensions
+        actual_dimensions = len(embeddings[0]) if embeddings else 0
+        if actual_dimensions != dimensions:
+            print(f"  WARNING: Expected {dimensions} dimensions but got {actual_dimensions}. Using actual dimensions.")
+            dimensions = actual_dimensions
 
         # Delete old chunks
         supabase.table("chunks").delete().eq("document_id", doc_id).execute()
