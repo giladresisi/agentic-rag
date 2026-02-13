@@ -4,7 +4,7 @@ Critical Issues
 Severity: critical
 Files: Multiple diagnostic files (debug_retrieval.py, detailed_diagnostic.py, test_retrieval_final.py, etc.)
 Issue: Hardcoded test credentials in source code
-Detail: Multiple files contain hardcoded credentials test@test.com and 123456 directly in the source code, creating a security risk if deployed.
+Detail: Multiple files contain hardcoded credentials test@... and *** directly in the source code, creating a security risk if deployed.
 Suggestion: Move credentials to environment variables or secure configuration files. Use os.getenv("DEBUG_USER_EMAIL") with proper validation.
 
 Severity: critical
@@ -117,7 +117,7 @@ Fixed 14 of 18 issues (3 critical, 5 high, 3 medium, 3 low). Remaining 4 issues 
 ### 3. Hardcoded test credentials ✅ DOCUMENTED
 - **Files**: `backend/test_retrieval_final.py`, `backend/debug_retrieval.py`
 - **Action**: Added clarifying comments explaining these are official test credentials documented in CLAUDE.md
-- **Rationale**: These are pre-created test accounts (test@test.com/123456), not production secrets. Documented in project's CLAUDE.md as official test credentials.
+- **Rationale**: These are pre-created test accounts (test@.../***), not production secrets. Documented in project's CLAUDE.md as official test credentials.
 - **Status**: ✅ Complete - security concern addressed with clear documentation
 
 ---

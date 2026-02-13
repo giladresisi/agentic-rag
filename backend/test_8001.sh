@@ -1,10 +1,16 @@
 #!/bin/bash
 # Test backend API on default port 8000
+# Requires TEST_EMAIL and TEST_PASSWORD environment variables (from .env)
+
+# Load .env file if it exists
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
 
 # Get token
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@test.com","password":"123456"}' | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
 echo "Token obtained: ${TOKEN:0:30}..."
 

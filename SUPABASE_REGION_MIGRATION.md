@@ -16,7 +16,7 @@ Before starting, gather this information from your **current** project:
 
 - [ ] Current project URL: `https://[project-id].supabase.co`
 - [ ] Current anon key (for reference)
-- [ ] Test user credentials: test@test.com / 123456
+- [ ] Test user credentials: test@.../ ***
 
 ---
 
@@ -195,8 +195,8 @@ USING (
 1. In Supabase Dashboard, go to **Authentication** > **Users**
 2. Click **Add user** > **Create new user**
 3. Fill in:
-   - **Email:** test@test.com
-   - **Password:** 123456
+   - **Email:** test@...
+   - **Password:** ***
    - **Auto Confirm User:** ✅ Checked
 4. Click **Create user**
 
@@ -276,7 +276,7 @@ npm run dev
 ### Step 12: Test Authentication
 
 1. Open browser to http://localhost:5173
-2. Try logging in with test@test.com / 123456
+2. Try logging in with test@... / ***
 3. Verify you're redirected to /chat
 4. Check browser console for errors
 
@@ -361,7 +361,7 @@ Use this to track your progress:
 - [ ] Verified pgvector extension is enabled
 - [ ] Created 'documents' storage bucket
 - [ ] Added all 3 storage RLS policies
-- [ ] Created test user (test@test.com)
+- [ ] Created test user (test@...)
 - [ ] Updated `backend/.env` with new credentials
 - [ ] Updated `frontend/.env` with new credentials
 - [ ] Restarted backend server

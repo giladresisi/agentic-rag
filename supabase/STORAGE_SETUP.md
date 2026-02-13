@@ -94,7 +94,7 @@ After setup, verify the bucket is working:
 
 1. Check the bucket exists in the Storage UI
 2. Verify all three policies are active
-3. Test upload with the test user (test@test.com)
+3. Test upload with the test user (test@...)
 4. Confirm the file appears in the Storage browser
 5. Verify access restrictions (users cannot see other users' files)
 

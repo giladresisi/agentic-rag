@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// Use existing test account
-const TEST_EMAIL = 'test@test.com';
-const TEST_PASSWORD = '123456';
+import { TEST_EMAIL, TEST_PASSWORD } from './utils';
 
 test.describe('Settings Modal - Plan 7', () => {
   // Log in before each test
@@ -16,7 +13,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should display user profile button at bottom of sidebar', async ({ page }) => {
     // Look for user profile button with email
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await expect(profileButton).toBeVisible({ timeout: 10000 });
 
     // Verify it shows user initial
@@ -28,7 +25,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should open profile menu with Settings and Logout options', async ({ page }) => {
     // Click profile button
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await expect(profileButton).toBeVisible({ timeout: 10000 });
     await profileButton.click();
 
@@ -48,7 +45,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should open settings modal when clicking Settings', async ({ page }) => {
     // Click profile button
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await expect(profileButton).toBeVisible({ timeout: 10000 });
     await profileButton.click();
     await page.waitForTimeout(500);
@@ -73,7 +70,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should show provider and model dropdowns in settings modal', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -89,7 +86,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should enable Confirm button when changes are made', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -113,7 +110,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should revert changes when Cancel is clicked', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -149,7 +146,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should close modal and apply changes when Confirm is clicked', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -182,7 +179,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should have separate chat and embeddings model configurations', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -205,7 +202,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should not show API key fields (server-side only)', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -224,7 +221,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should have exactly 3 providers: OpenAI, OpenRouter, LM Studio', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -247,7 +244,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should show dropdown for OpenRouter chat models (predefined list)', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
@@ -271,7 +268,7 @@ test.describe('Settings Modal - Plan 7', () => {
 
   test('should show text input for LM Studio (no predefined models)', async ({ page }) => {
     // Open settings modal
-    const profileButton = page.locator('button:has-text("test@test.com")');
+    const profileButton = page.locator(`button:has-text("${TEST_EMAIL}")`);
     await profileButton.click();
     await page.waitForTimeout(500);
     await page.getByRole('button', { name: /settings/i }).click();
