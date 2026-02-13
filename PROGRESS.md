@@ -19,7 +19,7 @@ Track progress through the RAG Masterclass modules.
 - [x] OpenAI Responses API migration (stateless completions)
 - [x] All core functionality validated with Playwright tests
 
-**Test Credentials:** test@test.com / 123456
+**Test Credentials:** Stored in .env (TEST_EMAIL, TEST_PASSWORD)
 
 **Known Issues:**
 - 10 pre-existing test failures in auth/chat suites (route protection, JWT persistence, thread creation)

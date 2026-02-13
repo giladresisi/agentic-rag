@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// Use existing test account
-const TEST_EMAIL = 'test@test.com';
-const TEST_PASSWORD = '123456';
+import { TEST_EMAIL, TEST_PASSWORD } from './utils';
 
 test.describe('Chat Functionality with Existing User', () => {
   // Log in before each test

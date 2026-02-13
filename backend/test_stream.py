@@ -1,14 +1,14 @@
 """
-from test_utils import TEST_EMAIL, TEST_PASSWORD
 Test SSE streaming endpoint manually
 """
 import requests
 import json
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 
 # Get auth token first
 login_response = requests.post('http://localhost:8000/auth/login', json={
-    'email': 'test@test.com',
-    'password': '123456'
+    'email': TEST_EMAIL,
+    'password': TEST_PASSWORD
 })
 token = login_response.json()['access_token']
 print(f"✓ Logged in, token: {token[:20]}...")

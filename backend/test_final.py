@@ -29,7 +29,7 @@ async def test():
     })
     user_id = auth_response.user.id
 
-    print(f"[OK] Authenticated as test@test.com")
+    print(f"[OK] Authenticated as test@...")
 
     conversation_history = [
         {"role": "user", "content": "Tell me about the content in my document."}
