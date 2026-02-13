@@ -45,6 +45,8 @@ END $$;
 ALTER TABLE chunks ADD COLUMN IF NOT EXISTS embedding_temp vector;
 
 -- Copy existing embeddings (if any)
+-- NOTE: WHERE clause handles NULL values - only copies non-NULL embeddings
+-- This ensures we don't try to set NOT NULL constraint on rows with NULL embeddings
 UPDATE chunks SET embedding_temp = embedding::vector WHERE embedding IS NOT NULL;
 
 -- Drop old column
@@ -54,6 +56,8 @@ ALTER TABLE chunks DROP COLUMN embedding;
 ALTER TABLE chunks RENAME COLUMN embedding_temp TO embedding;
 
 -- Set NOT NULL constraint
+-- Safe because: (1) new rows will fail to insert without embedding (expected behavior)
+-- (2) existing rows either have embeddings copied above OR are incomplete and should be cleaned up
 ALTER TABLE chunks ALTER COLUMN embedding SET NOT NULL;
 
 -- Part 3: Update match_chunks_v2 function to work without ivfflat

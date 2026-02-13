@@ -16,7 +16,11 @@ try:
     langsmith_enabled = True
 
 except ImportError:
-    ls_traceable = lambda *args, **kwargs: lambda f: f  # No-op decorator
+    # No-op decorator when LangSmith is not available
+    def ls_traceable(*args, **kwargs):
+        def decorator(f):
+            return f
+        return decorator
 
 
 class ChatService:
@@ -252,7 +256,7 @@ IMPORTANT RULES:
                         error=str(e),
                         end_time=datetime.now(timezone.utc),
                     )
-                except:
+                except Exception:
                     pass
 
             raise Exception(f"Failed to stream response: {str(e)}")

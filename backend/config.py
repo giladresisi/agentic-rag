@@ -62,7 +62,7 @@ print("=" * 60)
 
 try:
     settings = Settings()
-    print(f"[OK] Settings loaded successfully")
+    print("[OK] Settings loaded successfully")
     print("=" * 60 + "\n")
 except Exception as e:
     print(f"[ERROR] Error loading settings: {e}")
