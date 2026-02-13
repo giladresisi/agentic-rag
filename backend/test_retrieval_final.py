@@ -20,6 +20,8 @@ from test_utils import cleanup_test_documents_and_storage
 
 load_dotenv()
 
+# Test credentials documented in CLAUDE.md
+# These are pre-created test accounts, not production secrets
 TEST_USER_EMAIL = "test@..."
 TEST_USER_PASSWORD = "***"
 
@@ -33,6 +35,7 @@ async def main():
     log("FINAL COMPREHENSIVE RETRIEVAL TEST")
     log("="*70)
 
+    failures = []  # Track test failures
     supabase = get_supabase_admin()
 
     # Auth
@@ -114,6 +117,7 @@ Keep documentation up to date. Include README files, API docs, and inline commen
     else:
         log(f"[FAIL] No sources returned")
         log(f"    Response: {response1[:100]}...")
+        failures.append("Clear query failed to retrieve sources")
 
     # Test 4: Unclear Query
     log("\n[4] Testing UNCLEAR query transformation...")
@@ -189,15 +193,21 @@ Keep documentation up to date. Include README files, API docs, and inline commen
     log("\n" + "="*70)
     log("TEST COMPLETE")
     log("="*70)
-    log("\nAll fixes validated:")
-    log("  1. Storage cleanup: tracked + orphaned files")
-    log("  2. Query transformation: clear queries work")
-    log("  3. Unclear query handling: LLM attempts transformation")
-    log("  4. No hallucination: admits when no info found")
-    log("  5. Threshold: 0.25 balances recall vs precision")
-    log("\nSystem is ready for production use.")
 
-    return 0
+    if failures:
+        log(f"\n[FAILED] {len(failures)} test(s) failed:")
+        for i, failure in enumerate(failures, 1):
+            log(f"  {i}. {failure}")
+        return 1
+    else:
+        log("\n[SUCCESS] All fixes validated:")
+        log("  1. Storage cleanup: tracked + orphaned files")
+        log("  2. Query transformation: clear queries work")
+        log("  3. Unclear query handling: LLM attempts transformation")
+        log("  4. No hallucination: admits when no info found")
+        log("  5. Threshold: 0.25 balances recall vs precision")
+        log("\nSystem is ready for production use.")
+        return 0
 
 
 if __name__ == "__main__":

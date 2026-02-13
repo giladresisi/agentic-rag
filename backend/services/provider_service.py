@@ -3,6 +3,8 @@
 from openai import AsyncOpenAI
 from typing import Dict, List, Any, AsyncGenerator, Optional
 from config import settings
+from urllib.parse import urlparse
+import ipaddress
 
 # Provider presets with base URLs, chat models, and embedding models
 PROVIDER_PRESETS: Dict[str, Any] = {
@@ -44,6 +46,53 @@ PROVIDER_PRESETS: Dict[str, Any] = {
 
 class ProviderService:
     """Service for managing LLM provider configurations."""
+
+    @staticmethod
+    def _validate_base_url(url: str, provider: str) -> tuple[bool, str]:
+        """Validate base URL to prevent SSRF attacks.
+
+        Args:
+            url: The base URL to validate
+            provider: Provider identifier (lmstudio allows localhost)
+
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        try:
+            parsed = urlparse(url)
+
+            # Require valid scheme
+            if parsed.scheme not in ['http', 'https']:
+                return False, "URL must use http or https scheme"
+
+            # LM Studio is allowed to use localhost
+            if provider.lower() == "lmstudio":
+                # Allow localhost/127.0.0.1 for local LM Studio
+                if parsed.hostname in ['localhost', '127.0.0.1', '::1']:
+                    return True, ""
+
+            # For non-LM Studio providers, enforce HTTPS and block private IPs
+            if parsed.scheme != 'https':
+                return False, "External providers must use HTTPS"
+
+            # Block private IP ranges and localhost
+            if parsed.hostname:
+                try:
+                    ip = ipaddress.ip_address(parsed.hostname)
+                    if ip.is_private or ip.is_loopback or ip.is_link_local:
+                        return False, "Private IP addresses are not allowed"
+                except ValueError:
+                    # Not an IP address, it's a hostname - allowed
+                    pass
+
+                # Block localhost hostnames
+                if parsed.hostname.lower() in ['localhost', '127.0.0.1', '::1']:
+                    return False, "Localhost is not allowed for external providers"
+
+            return True, ""
+
+        except Exception as e:
+            return False, f"Invalid URL format: {str(e)}"
 
     @staticmethod
     def get_providers() -> Dict[str, Any]:
@@ -132,6 +181,9 @@ class ProviderService:
 
         Returns:
             Configured AsyncOpenAI client
+
+        Raises:
+            ValueError: If base URL validation fails
         """
         provider = provider.lower()
         api_key = ProviderService._get_api_key_for_provider(provider)
@@ -139,6 +191,12 @@ class ProviderService:
 
         # Determine base URL: explicit override > provider preset
         url = base_url or config.get("base_url")
+
+        # Validate base URL if provided (skip validation for None/empty)
+        if url:
+            is_valid, error_msg = ProviderService._validate_base_url(url, provider)
+            if not is_valid:
+                raise ValueError(f"Invalid base URL: {error_msg}")
 
         # LM Studio requires /v1 suffix for OpenAI-compatible API
         # Auto-append if not already present

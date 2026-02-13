@@ -127,14 +127,14 @@ export function ModelConfigSection({
   // For embeddings: OpenAI uses dropdown, others use text input
   const shouldShowDropdown = isOpenAI && (
     isEmbedding
-      ? currentProviderConfig?.embedding_models.length > 0
-      : currentProviderConfig?.chat_models.length > 0
+      ? (currentProviderConfig?.embedding_models?.length ?? 0) > 0
+      : (currentProviderConfig?.chat_models?.length ?? 0) > 0
   );
 
   // Determine which models to show based on isEmbedding
   const modelList = isEmbedding
-    ? currentProviderConfig?.embedding_models.map((m) => m.name) || []
-    : currentProviderConfig?.chat_models || [];
+    ? currentProviderConfig?.embedding_models?.map((m) => m.name) ?? []
+    : currentProviderConfig?.chat_models ?? [];
 
   // For OpenAI embeddings, show dimensions in the dropdown label
   const embeddingModelsMap = isEmbedding && isOpenAI && currentProviderConfig

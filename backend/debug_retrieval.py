@@ -8,6 +8,7 @@ load_dotenv()
 
 async def debug():
     supabase = get_supabase_admin()
+    # Using test credentials documented in CLAUDE.md (pre-created test account)
     auth_response = supabase.auth.sign_in_with_password({
         "email": "test@...",
         "password": "***"
