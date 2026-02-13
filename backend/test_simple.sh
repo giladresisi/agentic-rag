@@ -1,10 +1,16 @@
 #!/bin/bash
 # Simple curl test
+# Requires TEST_EMAIL and TEST_PASSWORD environment variables (from .env)
+
+# Load .env file if it exists
+if [ -f .env ]; then
+    export $(grep -v '^#' .env | xargs)
+fi
 
 # Get token first
 TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email":"test@...","password":"***"}' | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+  -d "{\"email\":\"$TEST_EMAIL\",\"password\":\"$TEST_PASSWORD\"}" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
 
 echo "Token: ${TOKEN:0:30}..."
 

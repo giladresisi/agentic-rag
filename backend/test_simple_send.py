@@ -7,7 +7,7 @@ async def test():
     # Login
     login_resp = await httpx.AsyncClient().post(
         'http://localhost:8000/auth/login',
-        json={'email': 'test@...', 'password': '***'},
+        json={'email': TEST_EMAIL, 'password': TEST_PASSWORD},
         timeout=10.0
     )
     token = login_resp.json()['access_token']
