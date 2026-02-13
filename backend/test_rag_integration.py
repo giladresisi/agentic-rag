@@ -5,6 +5,7 @@ Tests end-to-end flow: user question -> tool call -> retrieval -> response with 
 import asyncio
 import os
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.openai_service import openai_service
 from services.embedding_service import embedding_service
 from services.supabase_service import get_supabase_admin
@@ -14,8 +15,6 @@ import time
 load_dotenv()
 
 # Test credentials
-TEST_USER_EMAIL = "test@..."
-TEST_USER_PASSWORD = "***"
 
 test_user_id = None
 

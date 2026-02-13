@@ -1,6 +1,7 @@
 """Test what similarity different queries get."""
 import asyncio
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.supabase_service import get_supabase_admin
 from services.retrieval_service import retrieval_service
 
@@ -9,8 +10,8 @@ load_dotenv()
 async def test():
     supabase = get_supabase_admin()
     auth_response = supabase.auth.sign_in_with_password({
-        "email": "test@...",
-        "password": "***"
+        "email": TEST_EMAIL,
+        "password": TEST_PASSWORD
     })
     user_id = auth_response.user.id
 

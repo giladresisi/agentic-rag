@@ -3,14 +3,13 @@ Targeted test for RAG tool calling with unique content that requires retrieval.
 """
 import asyncio
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.openai_service import openai_service
 from services.embedding_service import embedding_service
 from services.supabase_service import get_supabase_admin
 
 load_dotenv()
 
-TEST_USER_EMAIL = "test@..."
-TEST_USER_PASSWORD = "***"
 test_user_id = None
 
 

@@ -8,6 +8,7 @@ Test RAG retrieval functionality including:
 import asyncio
 import os
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.retrieval_service import retrieval_service
 from services.embedding_service import embedding_service
 from services.supabase_service import get_supabase_admin
@@ -17,8 +18,6 @@ import uuid
 load_dotenv()
 
 # Test credentials
-TEST_USER_EMAIL = "test@..."
-TEST_USER_PASSWORD = "***"
 
 # Test user ID (will be fetched from auth)
 test_user_id = None
