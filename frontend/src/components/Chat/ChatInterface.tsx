@@ -12,7 +12,7 @@ export function ChatInterface() {
   const { user, token, logout } = useAuth();
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const modelConfig = useModelConfig(
-    { provider: 'openai', model: 'gpt-4o-mini' },
+    { provider: 'openai', model: 'gpt-4o' },
     { provider: 'openai', model: 'text-embedding-3-small', dimensions: 1536 }
   );
   const [showSettings, setShowSettings] = useState(false);
