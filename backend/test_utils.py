@@ -2,12 +2,16 @@
 Utility functions for testing.
 """
 import os
+from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin
 
+# Load environment variables from .env file
+# This ensures TEST_EMAIL and TEST_PASSWORD are available from .env
+load_dotenv()
 
 # Test credentials configuration
-# These should be set in .env file or environment variables
-# See CLAUDE.md for documentation of test account (pre-created test user)
+# These are loaded from .env file (TEST_EMAIL, TEST_PASSWORD)
+# For public repositories, keep actual credentials in .env (gitignored)
 TEST_EMAIL = os.getenv("TEST_EMAIL", "test@...")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "***")
 
