@@ -9,14 +9,12 @@ def test_get_all_providers():
 
     # Should return the full presets dictionary
     assert isinstance(providers, dict)
-    assert len(providers) > 0
+    assert len(providers) == 3  # Plan 8: Only 3 providers
 
-    # Verify known providers
+    # Verify known providers (Plan 8: OpenAI, OpenRouter, LM Studio only)
     assert "openai" in providers
-    assert "ollama" in providers
     assert "openrouter" in providers
     assert "lmstudio" in providers
-    assert "custom" in providers
 
     print(f"\n[TEST PASSED] Retrieved {len(providers)} providers")
     print(f"  - Available: {', '.join(providers.keys())}")
@@ -29,14 +27,13 @@ def test_get_specific_provider_config():
     assert openai_config is not None
     assert openai_config["name"] == "OpenAI"
     assert openai_config["base_url"] == "https://api.openai.com/v1"
-    assert openai_config["requires_api_key"] is True
-    assert len(openai_config["models"]) > 0
+    assert len(openai_config["chat_models"]) > 0
+    assert len(openai_config["embedding_models"]) > 0
 
-    # Test Ollama (local, no API key)
-    ollama_config = provider_service.get_provider_config("ollama")
-    assert ollama_config is not None
-    assert ollama_config["name"] == "Ollama (Local)"
-    assert ollama_config["requires_api_key"] is False
+    # Test LM Studio (local)
+    lmstudio_config = provider_service.get_provider_config("lmstudio")
+    assert lmstudio_config is not None
+    assert lmstudio_config["name"] == "LM Studio (Local)"
 
     # Test non-existent provider
     invalid_config = provider_service.get_provider_config("nonexistent")
@@ -59,58 +56,45 @@ def test_provider_config_case_insensitive():
     print(f"\n[TEST PASSED] Provider lookup is case-insensitive")
 
 
-def test_validate_provider_with_api_key_required():
-    """Test validation for providers that require API keys."""
-    # OpenAI requires API key - should pass if default key available
+def test_validate_provider_with_model():
+    """Test validation for providers with model names."""
+    # OpenAI with valid model - validation is permissive now
     is_valid, error = provider_service.validate_provider_config(
         provider="openai",
-        model="gpt-4o-mini",
-        has_default_api_key=True
+        model="gpt-4o-mini"
     )
     assert is_valid is True
     assert error == ""
 
-    # OpenAI requires API key - should fail if no default key
+    # OpenRouter with model
     is_valid, error = provider_service.validate_provider_config(
-        provider="openai",
-        model="gpt-4o-mini",
-        has_default_api_key=False
-    )
-    assert is_valid is False
-    assert "requires an API key" in error
-
-    print(f"\n[TEST PASSED] API key requirement validation works correctly")
-
-
-def test_validate_provider_without_api_key():
-    """Test validation for providers that don't require API keys (local)."""
-    # Ollama doesn't require API key
-    is_valid, error = provider_service.validate_provider_config(
-        provider="ollama",
-        model="llama3.2",
-        has_default_api_key=False
+        provider="openrouter",
+        model="anthropic/claude-3.5-sonnet"
     )
     assert is_valid is True
     assert error == ""
 
-    # LM Studio doesn't require API key
+    print(f"\n[TEST PASSED] Provider validation works correctly")
+
+
+def test_validate_local_provider():
+    """Test validation for local providers."""
+    # LM Studio validation
     is_valid, error = provider_service.validate_provider_config(
         provider="lmstudio",
-        model="any-model",
-        has_default_api_key=False
+        model="any-model"
     )
     assert is_valid is True
     assert error == ""
 
-    print(f"\n[TEST PASSED] Local providers work without API key")
+    print(f"\n[TEST PASSED] Local provider validation works")
 
 
 def test_validate_unknown_provider():
     """Test validation fails for unknown providers."""
     is_valid, error = provider_service.validate_provider_config(
         provider="unknown-provider",
-        model="some-model",
-        has_default_api_key=True
+        model="some-model"
     )
     assert is_valid is False
     assert "Unknown provider" in error
@@ -118,50 +102,43 @@ def test_validate_unknown_provider():
     print(f"\n[TEST PASSED] Unknown provider validation fails correctly")
 
 
-def test_validate_custom_provider():
-    """Test validation for custom provider."""
-    # Custom provider requires API key by default
+def test_validate_with_base_url():
+    """Test validation with custom base URL."""
+    # LM Studio with custom base URL
     is_valid, error = provider_service.validate_provider_config(
-        provider="custom",
+        provider="lmstudio",
         model="custom-model",
-        base_url="https://custom.api.com/v1",
-        has_default_api_key=True
+        base_url="http://localhost:1234"
     )
     assert is_valid is True
     assert error == ""
 
-    # Custom provider without API key should fail
-    is_valid, error = provider_service.validate_provider_config(
-        provider="custom",
-        model="custom-model",
-        has_default_api_key=False
-    )
-    assert is_valid is False
-
-    print(f"\n[TEST PASSED] Custom provider validation works")
+    print(f"\n[TEST PASSED] Custom base URL validation works")
 
 
-def test_api_key_removed_from_validation():
-    """Test that api_key parameter is removed from validation (Plan 7)."""
-    # According to Plan 7, api_key parameter should be removed
-    # The function should only check has_default_api_key
+def test_server_side_api_keys():
+    """Test that API keys are handled server-side only (Plan 7)."""
+    # Validation doesn't require api_key parameter
+    # API keys are retrieved from environment via get_api_key_for_provider
 
-    # This should work - using server's default key
-    is_valid, error = provider_service.validate_provider_config(
-        provider="openai",
-        model="gpt-4o-mini",
-        has_default_api_key=True
-    )
-    assert is_valid is True
+    # Test that API key getter exists
+    openai_key = provider_service.get_api_key_for_provider("openai")
+    openrouter_key = provider_service.get_api_key_for_provider("openrouter")
+    lmstudio_key = provider_service.get_api_key_for_provider("lmstudio")
 
-    print(f"\n[TEST PASSED] Validation uses server-side API key only (Plan 7)")
+    # Keys should be strings or None (depending on .env configuration)
+    assert openai_key is None or isinstance(openai_key, str)
+    assert openrouter_key is None or isinstance(openrouter_key, str)
+    assert lmstudio_key is None or isinstance(lmstudio_key, str)
+
+    print(f"\n[TEST PASSED] API keys handled server-side only (Plan 7)")
 
 
 def test_all_providers_have_required_fields():
     """Test that all provider configs have required fields."""
     providers = PROVIDER_PRESETS
 
-    required_fields = ["name", "base_url", "requires_api_key", "models"]
+    required_fields = ["name", "chat_models", "embedding_models"]
 
     for provider_key, config in providers.items():
         for field in required_fields:
@@ -169,9 +146,12 @@ def test_all_providers_have_required_fields():
 
         # Verify types
         assert isinstance(config["name"], str)
-        assert isinstance(config["base_url"], str)
-        assert isinstance(config["requires_api_key"], bool)
-        assert isinstance(config["models"], list)
+        assert isinstance(config["chat_models"], list)
+        assert isinstance(config["embedding_models"], list)
+
+        # base_url is optional for lmstudio
+        if "base_url" in config:
+            assert isinstance(config["base_url"], str)
 
     print(f"\n[TEST PASSED] All {len(providers)} providers have required fields")
 
@@ -185,11 +165,11 @@ if __name__ == "__main__":
         test_get_all_providers()
         test_get_specific_provider_config()
         test_provider_config_case_insensitive()
-        test_validate_provider_with_api_key_required()
-        test_validate_provider_without_api_key()
+        test_validate_provider_with_model()
+        test_validate_local_provider()
         test_validate_unknown_provider()
-        test_validate_custom_provider()
-        test_api_key_removed_from_validation()
+        test_validate_with_base_url()
+        test_server_side_api_keys()
         test_all_providers_have_required_fields()
 
         print("\n" + "=" * 60)
