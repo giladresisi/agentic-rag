@@ -1,0 +1,96 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e7]:
+      - link "Chat" [ref=e8] [cursor=pointer]:
+        - /url: /chat
+        - button "Chat" [ref=e9]:
+          - img [ref=e10]
+          - text: Chat
+      - link "Documents" [ref=e12] [cursor=pointer]:
+        - /url: /ingestion
+        - button "Documents" [ref=e13]:
+          - img [ref=e14]
+          - text: Documents
+    - button "New Thread" [ref=e18] [cursor=pointer]:
+      - img [ref=e19]
+      - text: New Thread
+    - generic [ref=e21]:
+      - generic [ref=e22] [cursor=pointer]:
+        - generic [ref=e23]:
+          - img [ref=e24]
+          - generic [ref=e26]: Casual Chat Starter
+        - button [ref=e27]:
+          - img [ref=e28]
+      - generic [ref=e31] [cursor=pointer]:
+        - generic [ref=e32]:
+          - img [ref=e33]
+          - generic [ref=e35]: New Chat
+        - button [ref=e36]:
+          - img [ref=e37]
+      - generic [ref=e40] [cursor=pointer]:
+        - generic [ref=e41]:
+          - img [ref=e42]
+          - generic [ref=e44]: Understanding Thread 1 Discussions
+        - button [ref=e45]:
+          - img [ref=e46]
+      - generic [ref=e49] [cursor=pointer]:
+        - generic [ref=e50]:
+          - img [ref=e51]
+          - generic [ref=e53]: Data Persistence Test Discussion
+        - button [ref=e54]:
+          - img [ref=e55]
+      - generic [ref=e58] [cursor=pointer]:
+        - generic [ref=e59]:
+          - img [ref=e60]
+          - generic [ref=e62]: Discussing Our Favorite Colors
+        - button [ref=e63]:
+          - img [ref=e64]
+      - generic [ref=e67] [cursor=pointer]:
+        - generic [ref=e68]:
+          - img [ref=e69]
+          - generic [ref=e71]: New Chat
+        - button [ref=e72]:
+          - img [ref=e73]
+      - generic [ref=e76] [cursor=pointer]:
+        - generic [ref=e77]:
+          - img [ref=e78]
+          - generic [ref=e80]: New Chat
+        - button [ref=e81]:
+          - img [ref=e82]
+      - generic [ref=e85] [cursor=pointer]:
+        - generic [ref=e86]:
+          - img [ref=e87]
+          - generic [ref=e89]: Hello! How's it going?
+        - button [ref=e90]:
+          - img [ref=e91]
+      - generic [ref=e94] [cursor=pointer]:
+        - generic [ref=e95]:
+          - img [ref=e96]
+          - generic [ref=e98]: New Chat
+        - button [ref=e99]:
+          - img [ref=e100]
+      - generic [ref=e103] [cursor=pointer]:
+        - generic [ref=e104]:
+          - img [ref=e105]
+          - generic [ref=e107]: Greetings and Introductions
+        - button [ref=e108]:
+          - img [ref=e109]
+      - generic [ref=e112] [cursor=pointer]:
+        - generic [ref=e113]:
+          - img [ref=e114]
+          - generic [ref=e116]: New Chat
+        - button [ref=e117]:
+          - img [ref=e118]
+    - button "T User test@..." [ref=e123] [cursor=pointer]:
+      - generic [ref=e124]: T
+      - generic [ref=e125]:
+        - generic [ref=e126]: User
+        - generic [ref=e127]: test@...
+  - generic [ref=e128]:
+    - banner [ref=e129]:
+      - heading "Agentic RAG Masterclass" [level=1] [ref=e130]
+    - paragraph [ref=e132]: Select a thread or create a new one to start chatting
+```
