@@ -516,3 +516,158 @@ RETRIEVAL_SIMILARITY_THRESHOLD = 0.7     # Minimum similarity (0-1)
 - Decide on tool_choice strategy (auto vs required)
 - Consider system prompt improvements for tool calling
 - Move to Module 3 once validation complete
+---
+
+## Execution Quality Findings (2026-02-13)
+
+### Plans 7 & 8: Settings Enhancement - Validation Gap Discovery
+
+**Context:** Plans 7 (Model Selection Enhancement) and 8 (Enhanced Provider Settings) were executed, resulting in functional code. However, a critical validation gap was discovered during post-implementation review.
+
+#### What Was Executed
+
+**Plan 7: Model Selection Enhancement**
+- ✅ Created UserProfileMenu component
+- ✅ Created SettingsModal component  
+- ✅ Created ModelConfigSection component
+- ✅ Updated ChatInterface and IngestionInterface layouts
+- ✅ Removed API key fields from UI
+- ✅ Updated types to remove api_key
+- ✅ Default model changed from gpt-4o-mini to gpt-4o
+
+**Plan 8: Enhanced Provider Settings**
+- ✅ Limited providers to OpenAI, OpenRouter, LM Studio only
+- ✅ Added provider-specific UI (dropdowns for OpenAI, text inputs for others)
+- ✅ Added embedding dimensions support
+- ✅ Database migration for variable dimensions (migration 008)
+- ✅ Provider service refactoring
+- ✅ Embedding service enhancement
+
+**Additional User-Requested Changes (2026-02-13):**
+- ✅ Fixed OpenRouter chat section to use text input (not dropdown)
+- ✅ Changed default chat model to gpt-4o
+- ✅ Provider switching now resets fields to empty (except OpenAI)
+- ✅ Dimensions field starts empty for non-OpenAI providers
+- Commit: `2ac2f0d` - "fix(settings): Improve provider switching UX and default model"
+
+#### What Was NOT Done (Validation Gap)
+
+**Plan 7 Required 4 Validation Levels:**
+- ❌ Level 1: Syntax checks (only TypeScript check run, Python skipped)
+- ❌ Level 2: Build validation (not run - build has pre-existing errors)
+- ❌ Level 3: File verification (not run)
+- ❌ Level 4: Manual testing (12-step checklist not completed)
+
+**Plan 8 Required 6 Validation Levels:**
+- ❌ Level 1: Syntax & Type Checking (partially done)
+- ❌ Level 2: Build Validation (not run)
+- ❌ Level 3: Provider Configuration Tests (Python assertions not run)
+- ❌ Level 4: API Key Routing Tests (not run)
+- ❌ Level 5: Database Migration (applied but not verified)
+- ❌ Level 6: Manual Validation (settings UI testing not done)
+
+**Test Coverage:**
+- ❌ Existing `settings.spec.ts` tests NOT updated for Plan 8 changes
+- ❌ Existing tests now FAIL (expect Ollama/Custom providers that were removed)
+- ❌ No new tests added for new behavior (OpenRouter text input, provider reset)
+- ❌ Test suite NOT run during execution
+- ❌ No verification that changes don't break existing tests
+
+**Manual Testing:**
+- ❌ Settings modal not tested with browser
+- ❌ Provider switching behavior not verified
+- ❌ OpenRouter/LM Studio UI not tested
+- ❌ Dimensions field behavior not verified
+- ❌ No end-to-end validation of settings flow
+
+#### Current Test Status
+
+**Existing Tests (`settings.spec.ts`):**
+- 10 Playwright tests covering settings modal functionality
+- Tests are OUTDATED (expect providers that no longer exist)
+- Tests would FAIL if run:
+  - Expect 5 providers (OpenAI, OpenRouter, Ollama, LM Studio, Custom)
+  - Current code has 3 providers (OpenAI, OpenRouter, LM Studio)
+  - Ollama and Custom were removed in Plan 8
+- Last test run: FAILED (2 test failures documented)
+
+**Test Updates Required:**
+1. Update provider expectations (5 → 3 providers)
+2. Add tests for OpenRouter text input behavior (chat section)
+3. Add tests for provider switching reset behavior
+4. Add tests for dimensions field being empty on switch
+5. Add tests for default model being gpt-4o (not gpt-4o-mini)
+6. Fix existing test assertions to match current UI structure
+
+#### Validation Checklist (Plans 7 & 8)
+
+**Plan 7 - Level 1: Syntax**
+- [ ] `cd frontend && npx tsc --noEmit`
+- [ ] `cd backend && python -m py_compile models/message.py routers/chat.py services/provider_service.py`
+
+**Plan 7 - Level 2: Build**
+- [ ] `cd frontend && npm run build`
+- [ ] `cd backend && python -c "from main import app; print('OK')"`
+
+**Plan 7 - Level 3: Verification**
+- [ ] Verify new components exist (UserProfileMenu, SettingsModal, ModelConfigSection)
+- [ ] Verify ProviderSelector removed
+- [ ] Verify api_key removed from types and models
+
+**Plan 7 - Level 4: Manual Testing**
+- [ ] User profile button visible at bottom left
+- [ ] Settings modal opens with Chat/Embeddings sections
+- [ ] Provider switching updates model dropdown
+- [ ] Cancel reverts changes
+- [ ] Confirm applies changes
+- [ ] Chat flow uses configured model
+- [ ] Documents flow uses configured embeddings model
+
+**Plan 8 - Validation Levels 1-6**
+- [ ] Provider configuration tests (3 providers only)
+- [ ] API key routing tests (OPENROUTER_API_KEY, LM_STUDIO_API_KEY)
+- [ ] Database migration verified (embedding_dimensions column)
+- [ ] Settings UI with all 3 providers tested
+- [ ] OpenRouter shows text inputs (not dropdowns)
+- [ ] LM Studio shows base URL input
+- [ ] Dimensions field behavior verified
+
+#### Action Items Before Module 3
+
+**Tests:**
+- [ ] Update `settings.spec.ts` to match current provider structure
+- [ ] Add new tests for recent UX improvements (OpenRouter input, reset behavior)
+- [ ] Run full Playwright test suite and fix all failures
+
+**Validation:**
+- [ ] Run all validation commands from Plans 7 & 8 (listed above)
+- [ ] Manual browser testing of settings modal
+- [ ] Verify provider switching resets fields correctly
+- [ ] Verify dimensions field starts empty for non-OpenAI providers
+
+**Documentation:**
+- [ ] Document any issues found during validation
+- [ ] Update this checklist as items are completed
+
+---
+
+### Module 2 Status Update
+
+**Plans Completed (Implementation):**
+- [x] Plan 4: Chat Completions Migration
+- [x] Plan 5: Document Ingestion Pipeline
+- [x] Plan 6: Vector Retrieval Tool
+- [x] Plan 7: Model Selection Enhancement (implementation complete, validation pending)
+- [x] Plan 8: Enhanced Provider Settings (implementation complete, validation pending)
+
+**Validation Status:**
+- [x] Plans 4-6: Automated tests passing
+- [ ] Plan 7: Validation pending (tests need updates)
+- [ ] Plan 8: Validation pending (tests need updates)
+
+**Next Steps:**
+1. Complete validation for Plans 7 & 8 (test updates + execution)
+2. Run manual browser testing
+3. Fix any issues discovered
+4. Then proceed to Module 3
+
