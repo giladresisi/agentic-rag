@@ -5,8 +5,6 @@ import requests
 from services.supabase_service import get_supabase
 from test_utils import TEST_EMAIL, TEST_PASSWORD
 
-# Test credentials from CLAUDE.md
-
 def test_auth():
     """Test authentication and get token."""
     supabase = get_supabase()
