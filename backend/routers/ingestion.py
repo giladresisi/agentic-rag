@@ -54,6 +54,17 @@ async def process_document(
             base_url=base_url,
         )
 
+        # Validate embeddings were generated
+        if not embeddings or not embeddings[0]:
+            raise Exception("No embeddings generated")
+
+        # Get actual embedding dimensions from first embedding
+        actual_dimensions = len(embeddings[0])
+        print(f"Generated embeddings with {actual_dimensions} dimensions")
+
+        # Update dimensions parameter to match actual embeddings
+        dimensions = actual_dimensions
+
         # Save chunks to database
         chunk_records = []
         for idx, (chunk_text, embedding) in enumerate(zip(chunks, embeddings)):
@@ -67,18 +78,25 @@ async def process_document(
             })
 
         # Insert chunks
-        supabase.table("chunks").insert(chunk_records).execute()
+        print(f"Inserting {len(chunk_records)} chunks for document {document_id}")
+        chunks_response = supabase.table("chunks").insert(chunk_records).execute()
+        print(f"Chunks insert response: {chunks_response}")
 
         # Update document status to completed
-        supabase.table("documents").update({
+        print(f"Updating document {document_id} to completed status")
+        update_response = supabase.table("documents").update({
             "status": "completed",
             "chunk_count": len(chunks),
             "embedding_dimensions": dimensions,
         }).eq("id", document_id).execute()
+        print(f"Document update response: {update_response}")
 
     except Exception as e:
         # Update document status to failed
+        import traceback
         error_msg = str(e)
+        print(f"ERROR processing document {document_id}: {error_msg}")
+        print(f"Full traceback: {traceback.format_exc()}")
         supabase.table("documents").update({
             "status": "failed",
             "error_message": error_msg
