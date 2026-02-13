@@ -42,7 +42,7 @@ class Settings(BaseSettings):
 
     # Retrieval
     RETRIEVAL_LIMIT: int = 5
-    RETRIEVAL_SIMILARITY_THRESHOLD: float = 0.7
+    RETRIEVAL_SIMILARITY_THRESHOLD: float = 0.25  # Lowered for better recall with varied LLM-generated queries
 
     # Server
     PORT: int = 8000
