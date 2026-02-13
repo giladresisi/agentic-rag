@@ -16,7 +16,7 @@ Before starting, gather this information from your **current** project:
 
 - [ ] Current project URL: `https://[project-id].supabase.co`
 - [ ] Current anon key (for reference)
-- [ ] Test user credentials: test@... / ***
+- [ ] Test user credentials: test@.../ ***
 
 ---
 

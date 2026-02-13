@@ -1,8 +1,5 @@
 import { test, expect } from '@playwright/test';
-
-// Use existing test account
-const TEST_EMAIL = 'test@...';
-const TEST_PASSWORD = '***';
+import { TEST_EMAIL, TEST_PASSWORD } from './utils';
 
 test.describe('Authentication with Existing User', () => {
   test('should enforce protected routes', async ({ page }) => {
