@@ -8,12 +8,20 @@ export interface Thread {
   base_url?: string;
 }
 
+export interface Source {
+  document_id: string;
+  document_name: string;
+  chunk_content: string;
+  similarity: number;
+}
+
 export interface Message {
   id: string;
   thread_id: string;
   role: 'user' | 'assistant';
   content: string;
   created_at: string;
+  sources?: Source[];
 }
 
 export interface StreamEvent {

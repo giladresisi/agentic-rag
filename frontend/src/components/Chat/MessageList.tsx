@@ -41,6 +41,24 @@ export function MessageList({ messages, streamingContent, isStreaming }: Message
               }`}
             >
               <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+              {message.role === 'assistant' && message.sources && message.sources.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-border/40">
+                  <p className="text-xs font-medium text-muted-foreground mb-2">Sources:</p>
+                  <div className="space-y-1.5">
+                    {message.sources.map((source, index) => (
+                      <div key={index} className="flex items-start gap-2 text-xs text-muted-foreground">
+                        <span className="flex-shrink-0">📄</span>
+                        <div>
+                          <span className="font-medium">{source.document_name}</span>
+                          <span className="text-muted-foreground/70 ml-1">
+                            ({(source.similarity * 100).toFixed(1)}% match)
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             {message.role === 'user' && (
               <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center flex-shrink-0">
