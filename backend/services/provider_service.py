@@ -140,6 +140,12 @@ class ProviderService:
         # Determine base URL: explicit override > provider preset
         url = base_url or config.get("base_url")
 
+        # LM Studio requires /v1 suffix for OpenAI-compatible API
+        # Auto-append if not already present
+        if provider == "lmstudio" and url and not url.endswith("/v1"):
+            url = url.rstrip("/") + "/v1"
+            print(f"[LM Studio] Auto-appended /v1 to base URL: {url}")
+
         client_kwargs: Dict[str, Any] = {}
         if url:
             client_kwargs["base_url"] = url
@@ -174,6 +180,10 @@ class ProviderService:
 
         client = ProviderService._get_client(provider, base_url)
 
+        # Log embedding request
+        effective_url = base_url or PROVIDER_PRESETS.get(provider.lower(), {}).get("base_url", "default")
+        print(f"[EMBEDDINGS] Provider: {provider} | Model: {model} | URL: {effective_url} | Texts: {len(texts)}")
+
         response = await client.embeddings.create(
             model=model,
             input=texts,
@@ -204,6 +214,10 @@ class ProviderService:
             Stream chunks from the provider
         """
         client = ProviderService._get_client(provider, base_url)
+
+        # Log chat request
+        effective_url = base_url or PROVIDER_PRESETS.get(provider.lower(), {}).get("base_url", "default")
+        print(f"[CHAT] Provider: {provider} | Model: {model} | URL: {effective_url} | Messages: {len(messages)} | Tools: {len(tools) if tools else 0}")
 
         kwargs: Dict[str, Any] = {
             "model": model,
