@@ -7,7 +7,7 @@ from services.supabase_service import get_supabase_admin
 
 # Test credentials configuration
 # These should be set in .env file or environment variables
-# See CLAUDE.md for documentation of test account
+# See CLAUDE.md for documentation of test account (pre-created test user)
 TEST_EMAIL = os.getenv("TEST_EMAIL", "test@...")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "***")
 
