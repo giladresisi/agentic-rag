@@ -1,12 +1,8 @@
-from openai import AsyncOpenAI
 from config import settings
+from services.provider_service import provider_service
 from typing import AsyncGenerator, List, Dict, Tuple, Optional
 import os
-import time
 import json
-
-# Initialize default OpenAI client
-default_client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 # Initialize LangSmith tracing
 langsmith_enabled = False
@@ -15,20 +11,16 @@ langsmith_client = None
 try:
     from langsmith import Client as LangSmithClient
     from langsmith.run_helpers import traceable as ls_traceable
-    from langsmith.wrappers import wrap_openai
 
     langsmith_client = LangSmithClient()
-
-    # Wrap default OpenAI client for automatic tracing
-    default_client = wrap_openai(default_client)
     langsmith_enabled = True
 
 except ImportError:
     ls_traceable = lambda *args, **kwargs: lambda f: f  # No-op decorator
 
 
-class OpenAIService:
-    """Service for OpenAI-compatible Chat Completions API operations."""
+class ChatService:
+    """Provider-agnostic service for chat completions with tool calling support."""
 
     # Tool definition for document retrieval
     RETRIEVAL_TOOL = {
@@ -65,55 +57,20 @@ class OpenAIService:
         ]
 
     @staticmethod
-    def _get_client(base_url: str | None = None, api_key: str | None = None) -> AsyncOpenAI:
-        """Get OpenAI client with custom configuration.
-
-        Args:
-            base_url: Optional custom base URL
-            api_key: Optional custom API key
-
-        Returns:
-            Configured AsyncOpenAI client
-        """
-        # Use custom config if provided, otherwise use default client
-        if base_url or api_key:
-            client_kwargs = {}
-            if base_url:
-                client_kwargs["base_url"] = base_url
-            if api_key:
-                client_kwargs["api_key"] = api_key
-            else:
-                # Use default API key if only base_url is custom
-                client_kwargs["api_key"] = settings.OPENAI_API_KEY
-
-            client = AsyncOpenAI(**client_kwargs)
-
-            # Wrap with LangSmith if enabled
-            if langsmith_enabled:
-                try:
-                    client = wrap_openai(client)
-                except Exception:
-                    pass  # Continue without tracing for custom client
-
-            return client
-
-        return default_client
-
-    @staticmethod
     async def stream_response(
         conversation_history: List[Dict[str, str]],
         model: str = "gpt-4o-mini",
+        provider: str = "openai",
         base_url: str | None = None,
-        api_key: str | None = None,
         user_id: str | None = None
     ) -> AsyncGenerator[Tuple[str, Optional[List[Dict]]], None]:
-        """Stream a response using OpenAI Chat Completions API with tool calling support.
+        """Stream a response using the specified provider with tool calling support.
 
         Args:
             conversation_history: Full conversation history (list of messages)
             model: Model to use for generation
+            provider: Provider identifier
             base_url: Optional custom base URL for provider
-            api_key: Optional custom API key
             user_id: Optional user ID for retrieval RLS filtering
 
         Yields:
@@ -122,9 +79,6 @@ class OpenAIService:
         full_response = ""
         trace_closed = False
         sources = None
-
-        # Get client with custom config if provided
-        client = OpenAIService._get_client(base_url, api_key)
 
         # Create LangSmith run if tracing is enabled
         run_id = None
@@ -135,11 +89,12 @@ class OpenAIService:
                 run_id = uuid.uuid4()
                 langsmith_client.create_run(
                     id=run_id,
-                    name="openai_chat_completions_stream",
+                    name="chat_completions_stream",
                     run_type="llm",
                     inputs={
                         "messages": conversation_history,
                         "model": model,
+                        "provider": provider,
                         "base_url": base_url,
                     },
                     project_name=os.getenv('LANGCHAIN_PROJECT'),
@@ -149,22 +104,17 @@ class OpenAIService:
                 run_id = None
 
         try:
-            # Call Chat Completions API with streaming and tools
-            stream = await client.chat.completions.create(
-                model=model,
-                messages=conversation_history,
-                stream=True,
-                temperature=0.7,
-                tools=[OpenAIService.RETRIEVAL_TOOL],
-                tool_choice="auto"
-            )
-
-            # Track tool calls
+            # Stream from provider with tools
             tool_calls = []
             current_tool_call = None
 
-            # Process streaming response
-            async for chunk in stream:
+            async for chunk in provider_service.stream_chat_completion(
+                provider=provider,
+                model=model,
+                messages=conversation_history,
+                base_url=base_url,
+                tools=[ChatService.RETRIEVAL_TOOL],
+            ):
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
 
@@ -176,7 +126,6 @@ class OpenAIService:
                     # Handle tool call deltas
                     if delta.tool_calls:
                         for tool_call_delta in delta.tool_calls:
-                            # Initialize new tool call
                             if tool_call_delta.index is not None:
                                 while len(tool_calls) <= tool_call_delta.index:
                                     tool_calls.append({
@@ -186,7 +135,6 @@ class OpenAIService:
                                     })
                                 current_tool_call = tool_calls[tool_call_delta.index]
 
-                            # Update tool call data
                             if tool_call_delta.id:
                                 current_tool_call["id"] = tool_call_delta.id
                             if tool_call_delta.function:
@@ -201,23 +149,19 @@ class OpenAIService:
 
                 for tool_call in tool_calls:
                     if tool_call["function"]["name"] == "retrieve_documents":
-                        # Parse arguments
                         args = json.loads(tool_call["function"]["arguments"])
                         query = args.get("query", "")
 
-                        # Retrieve relevant chunks
                         chunks = await retrieval_service.retrieve_relevant_chunks(
                             query=query,
                             user_id=user_id
                         )
 
-                        # Format chunks as context
                         context_text = "\n\n".join([
                             f"Document: {chunk['document_name']}\n{chunk['content']}"
                             for chunk in chunks
                         ])
 
-                        # Store sources for frontend
                         sources = [
                             {
                                 "document_id": chunk["document_id"],
@@ -229,7 +173,6 @@ class OpenAIService:
                             for chunk in chunks
                         ]
 
-                        # Append tool call and result to conversation
                         conversation_history.append({
                             "role": "assistant",
                             "content": None,
@@ -248,16 +191,13 @@ class OpenAIService:
                             "content": context_text
                         })
 
-                        # Make follow-up request with context
-                        follow_up_stream = await client.chat.completions.create(
+                        # Follow-up stream without tools
+                        async for chunk in provider_service.stream_chat_completion(
+                            provider=provider,
                             model=model,
                             messages=conversation_history,
-                            stream=True,
-                            temperature=0.7,
-                        )
-
-                        # Stream the final response
-                        async for chunk in follow_up_stream:
+                            base_url=base_url,
+                        ):
                             if chunk.choices and len(chunk.choices) > 0:
                                 delta = chunk.choices[0].delta
                                 if delta.content:
@@ -297,4 +237,4 @@ class OpenAIService:
             raise Exception(f"Failed to stream response: {str(e)}")
 
 
-openai_service = OpenAIService()
+chat_service = ChatService()

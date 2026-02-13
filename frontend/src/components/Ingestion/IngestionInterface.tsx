@@ -3,6 +3,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIngestion } from '@/hooks/useIngestion';
 import { DocumentUpload } from './DocumentUpload';
 import { DocumentList } from './DocumentList';
+import type { ProviderConfig } from '@/types/chat';
 import { Button } from '@/components/ui/button';
 import { MessageSquare, AlertCircle, FileText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
@@ -23,14 +24,14 @@ export function IngestionInterface() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const modelConfig = useModelConfig(
     { provider: 'openai', model: 'gpt-4o-mini' },
-    { provider: 'openai', model: 'text-embedding-3-small' }
+    { provider: 'openai', model: 'text-embedding-3-small', dimensions: 1536 }
   );
   const [showSettings, setShowSettings] = useState(false);
 
-  const handleUpload = async (file: File) => {
+  const handleUpload = async (file: File, embeddingConfig?: ProviderConfig) => {
     try {
       setUploadError(null);
-      await uploadDocument(file);
+      await uploadDocument(file, embeddingConfig);
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Upload failed');
     }
@@ -113,7 +114,11 @@ export function IngestionInterface() {
         {/* Main Content */}
         <div className="flex-1 overflow-auto p-8">
           <div className="max-w-2xl mx-auto space-y-6">
-            <DocumentUpload onUpload={handleUpload} isUploading={isUploading} />
+            <DocumentUpload
+              onUpload={handleUpload}
+              isUploading={isUploading}
+              embeddingConfig={modelConfig.embeddingsConfig.current}
+            />
 
             {(uploadError || error) && (
               <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">

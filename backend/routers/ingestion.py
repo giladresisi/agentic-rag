@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, BackgroundTasks
+from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, BackgroundTasks
 from middleware.auth_middleware import get_current_user
 from services.supabase_service import get_supabase_admin
 from services.embedding_service import embedding_service
 from models.document import DocumentResponse, ChunkResponse
-from typing import List
+from typing import List, Optional
 from pathlib import Path
 from config import settings
 import tempfile
@@ -13,7 +13,15 @@ from datetime import datetime
 router = APIRouter()
 
 
-async def process_document(document_id: str, user_id: str, file_path: str):
+async def process_document(
+    document_id: str,
+    user_id: str,
+    file_path: str,
+    provider: str = "openai",
+    model: Optional[str] = None,
+    dimensions: int = 1536,
+    base_url: Optional[str] = None,
+):
     """Background task to process uploaded document.
 
     Steps:
@@ -38,8 +46,13 @@ async def process_document(document_id: str, user_id: str, file_path: str):
         if not chunks:
             raise Exception("No chunks created from text content")
 
-        # Generate embeddings
-        embeddings = await embedding_service.generate_embeddings(chunks)
+        # Generate embeddings using specified provider
+        embeddings = await embedding_service.generate_embeddings(
+            chunks,
+            provider=provider,
+            model=model,
+            base_url=base_url,
+        )
 
         # Save chunks to database
         chunk_records = []
@@ -49,7 +62,8 @@ async def process_document(document_id: str, user_id: str, file_path: str):
                 "user_id": user_id,
                 "content": chunk_text,
                 "embedding": embedding,
-                "chunk_index": idx
+                "chunk_index": idx,
+                "embedding_dimensions": dimensions,
             })
 
         # Insert chunks
@@ -58,7 +72,8 @@ async def process_document(document_id: str, user_id: str, file_path: str):
         # Update document status to completed
         supabase.table("documents").update({
             "status": "completed",
-            "chunk_count": len(chunks)
+            "chunk_count": len(chunks),
+            "embedding_dimensions": dimensions,
         }).eq("id", document_id).execute()
 
     except Exception as e:
@@ -79,6 +94,10 @@ async def process_document(document_id: str, user_id: str, file_path: str):
 async def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    provider: str = Form("openai"),
+    model: Optional[str] = Form(None),
+    dimensions: int = Form(1536),
+    base_url: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user)
 ):
     """Upload and process a document."""
@@ -166,7 +185,11 @@ async def upload_document(
         process_document,
         document_id=str(document["id"]),
         user_id=current_user["id"],
-        file_path=temp_file.name
+        file_path=temp_file.name,
+        provider=provider,
+        model=model,
+        dimensions=dimensions,
+        base_url=base_url,
     )
 
     return DocumentResponse(
@@ -355,3 +378,21 @@ async def delete_document(
         pass
 
     return {"message": "Document deleted successfully"}
+
+
+@router.get("/chunks/exists")
+async def chunks_exist(current_user: dict = Depends(get_current_user)):
+    """Check if any chunks exist for the current user."""
+    supabase = get_supabase_admin()
+
+    try:
+        response = supabase.table("chunks")\
+            .select("id", count="exact")\
+            .eq("user_id", current_user["id"])\
+            .limit(1)\
+            .execute()
+
+        return {"exists": response.count is not None and response.count > 0}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to check chunks: {str(e)}")

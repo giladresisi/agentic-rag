@@ -17,6 +17,12 @@ class Settings(BaseSettings):
     # OpenAI (default provider)
     OPENAI_API_KEY: str
 
+    # OpenRouter (optional)
+    OPENROUTER_API_KEY: str | None = None
+
+    # LM Studio (optional)
+    LM_STUDIO_API_KEY: str | None = None
+
     # Provider defaults (fallback values)
     DEFAULT_PROVIDER: str = "openai"
     DEFAULT_MODEL: str = "gpt-4o-mini"
