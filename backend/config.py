@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE_MB: int = 10
     SUPPORTED_FILE_TYPES: str = "pdf,docx,html,md,txt"
 
+    # Retrieval
+    RETRIEVAL_LIMIT: int = 5
+    RETRIEVAL_SIMILARITY_THRESHOLD: float = 0.7
+
     # Server
     PORT: int = 8000
     CORS_ORIGINS: str = "http://localhost:5173"

@@ -1,7 +1,7 @@
 from pydantic import BaseModel
 from datetime import datetime
 from uuid import UUID
-from typing import Optional, Literal
+from typing import Optional, Literal, List, Dict, Any
 
 
 class MessageBase(BaseModel):
@@ -36,3 +36,4 @@ class MessageResponse(BaseModel):
     role: str
     content: str
     created_at: str
+    sources: Optional[List[Dict[str, Any]]] = None

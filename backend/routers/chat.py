@@ -199,7 +199,8 @@ async def get_thread_messages(
             thread_id=str(msg["thread_id"]),
             role=msg["role"],
             content=msg["content"],
-            created_at=str(msg["created_at"])
+            created_at=str(msg["created_at"]),
+            sources=msg.get("sources")
         )
         for msg in messages_response.data
     ]
@@ -270,6 +271,7 @@ async def send_message(
     async def event_generator():
         full_response = ""
         chunk_count = 0
+        sources = None
 
         try:
             # Determine base_url and api_key
@@ -287,26 +289,40 @@ async def send_message(
             if provider_config and provider_config.get("requires_api_key"):
                 api_key = settings.OPENAI_API_KEY
 
-            async for delta in openai_service.stream_response(
+            async for delta, chunk_sources in openai_service.stream_response(
                 conversation_history,
                 model=message_data.model,
                 base_url=base_url,
-                api_key=api_key
+                api_key=api_key,
+                user_id=current_user["id"]
             ):
                 chunk_count += 1
-                full_response += delta
-                yield {
-                    "event": "message",
-                    "data": json.dumps({"type": "content_delta", "delta": delta})
-                }
 
-            # Save assistant message
-            supabase.table("messages").insert({
+                # Handle content delta
+                if delta:
+                    full_response += delta
+                    yield {
+                        "event": "message",
+                        "data": json.dumps({"type": "content_delta", "delta": delta})
+                    }
+
+                # Store sources if received
+                if chunk_sources:
+                    sources = chunk_sources
+
+            # Save assistant message with sources
+            message_data_to_insert = {
                 "thread_id": thread_id,
                 "user_id": current_user["id"],
                 "role": "assistant",
                 "content": full_response
-            }).execute()
+            }
+
+            # Add sources if available
+            if sources:
+                message_data_to_insert["sources"] = sources
+
+            supabase.table("messages").insert(message_data_to_insert).execute()
 
             # Update thread timestamp
             supabase.table("threads")\
