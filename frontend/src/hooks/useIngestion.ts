@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { Document, Chunk } from '@/types/ingestion';
+import type { ProviderConfig } from '@/types/chat';
 import { supabase } from '@/lib/supabase';
 
 const API_URL = import.meta.env.VITE_API_URL || '';
@@ -89,7 +90,7 @@ export function useIngestion(token: string | null) {
     };
   }, [token]);
 
-  const uploadDocument = async (file: File): Promise<void> => {
+  const uploadDocument = async (file: File, embeddingConfig?: ProviderConfig): Promise<void> => {
     if (!token) throw new Error('Not authenticated');
 
     setIsUploading(true);
@@ -98,6 +99,17 @@ export function useIngestion(token: string | null) {
     try {
       const formData = new FormData();
       formData.append('file', file);
+
+      if (embeddingConfig) {
+        formData.append('provider', embeddingConfig.provider);
+        formData.append('model', embeddingConfig.model);
+        if (embeddingConfig.dimensions) {
+          formData.append('dimensions', String(embeddingConfig.dimensions));
+        }
+        if (embeddingConfig.base_url) {
+          formData.append('base_url', embeddingConfig.base_url);
+        }
+      }
 
       const response = await fetch(`${API_URL}/ingestion/upload`, {
         method: 'POST',

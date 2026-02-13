@@ -34,13 +34,19 @@ export interface ProviderConfig {
   provider: string;
   model: string;
   base_url?: string;
+  dimensions?: number;
+}
+
+export interface EmbeddingModelInfo {
+  name: string;
+  dimensions: number;
 }
 
 export interface ProviderPreset {
   name: string;
-  base_url: string;
-  requires_api_key: boolean;
-  models: string[];
+  base_url?: string;
+  chat_models: string[];
+  embedding_models: EmbeddingModelInfo[];
 }
 
 export interface ProvidersResponse {

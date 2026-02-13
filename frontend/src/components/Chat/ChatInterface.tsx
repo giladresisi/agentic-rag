@@ -13,7 +13,7 @@ export function ChatInterface() {
   const [currentThreadId, setCurrentThreadId] = useState<string | null>(null);
   const modelConfig = useModelConfig(
     { provider: 'openai', model: 'gpt-4o-mini' },
-    { provider: 'openai', model: 'text-embedding-3-small' }
+    { provider: 'openai', model: 'text-embedding-3-small', dimensions: 1536 }
   );
   const [showSettings, setShowSettings] = useState(false);
   const titleGeneratedForThreads = useRef<Set<string>>(new Set());
