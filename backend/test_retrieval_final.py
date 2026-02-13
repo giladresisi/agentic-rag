@@ -16,14 +16,9 @@ from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin
 from services.chat_service import chat_service
 from services.embedding_service import embedding_service
-from test_utils import cleanup_test_documents_and_storage
+from test_utils import cleanup_test_documents_and_storage, TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
 
 load_dotenv()
-
-# Test credentials documented in CLAUDE.md
-# These are pre-created test accounts, not production secrets
-TEST_USER_EMAIL = "test@test.com"
-TEST_USER_PASSWORD = "123456"
 
 
 def log(msg):

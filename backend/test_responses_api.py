@@ -3,13 +3,12 @@ Comprehensive tests for OpenAI Responses API integration.
 Tests streaming, message saving, and vector store integration.
 """
 import asyncio
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 import httpx
 from services.supabase_service import get_supabase
 from services.openai_service import openai_service
 
-# Test credentials
-TEST_EMAIL = "test@test.com"
-TEST_PASSWORD = "123456"
+# Test credentials imported from test_utils
 API_BASE_URL = "http://localhost:8000"
 
 
