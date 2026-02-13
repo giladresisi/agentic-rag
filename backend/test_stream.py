@@ -1,4 +1,5 @@
 """
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 Test SSE streaming endpoint manually
 """
 import requests

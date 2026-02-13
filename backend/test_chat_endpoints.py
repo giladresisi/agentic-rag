@@ -5,8 +5,6 @@ from main import app
 import time
 
 # Test credentials
-TEST_EMAIL = "test@test.com"
-TEST_PASSWORD = "123456"
 
 client = TestClient(app)
 

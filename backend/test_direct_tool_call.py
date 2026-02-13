@@ -3,14 +3,13 @@ Direct test of tool calling mechanism by manually triggering tool execution.
 """
 import asyncio
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
 from services.retrieval_service import retrieval_service
 from services.embedding_service import embedding_service
 from services.supabase_service import get_supabase_admin
 
 load_dotenv()
 
-TEST_USER_EMAIL = "test@test.com"
-TEST_USER_PASSWORD = "123456"
 
 
 async def main():

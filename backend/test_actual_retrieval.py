@@ -1,6 +1,7 @@
 """Test retrieval with the actual document."""
 import asyncio
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.supabase_service import get_supabase_admin
 from services.retrieval_service import retrieval_service
 from services.chat_service import chat_service
@@ -16,8 +17,8 @@ async def test_retrieval():
 
     # Auth
     auth_response = supabase.auth.sign_in_with_password({
-        "email": "test@test.com",
-        "password": "123456"
+        "email": TEST_EMAIL,
+        "password": TEST_PASSWORD
     })
     user_id = auth_response.user.id
     print(f"\n[OK] User ID: {user_id}")

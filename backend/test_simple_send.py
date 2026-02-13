@@ -1,5 +1,6 @@
 """Simple test for sending a message."""
 import asyncio
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 import httpx
 
 async def test():

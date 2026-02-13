@@ -8,6 +8,7 @@ for module in list(sys.modules.keys()):
         del sys.modules[module]
 
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 load_dotenv()
 
 from services.supabase_service import get_supabase_admin
@@ -23,8 +24,8 @@ async def test():
 
     supabase = get_supabase_admin()
     auth_response = supabase.auth.sign_in_with_password({
-        "email": "test@test.com",
-        "password": "123456"
+        "email": TEST_EMAIL,
+        "password": TEST_PASSWORD
     })
     user_id = auth_response.user.id
 

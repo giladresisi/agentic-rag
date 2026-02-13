@@ -3,10 +3,9 @@ Quick diagnostic script to test the threads API endpoint.
 """
 import requests
 from services.supabase_service import get_supabase
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 
 # Test credentials from CLAUDE.md
-TEST_EMAIL = "test@test.com"
-TEST_PASSWORD = "123456"
 
 def test_auth():
     """Test authentication and get token."""

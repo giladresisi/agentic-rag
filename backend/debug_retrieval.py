@@ -1,6 +1,7 @@
 """Debug the retrieval function."""
 import asyncio
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.supabase_service import get_supabase_admin
 from services.embedding_service import embedding_service
 
@@ -10,8 +11,8 @@ async def debug():
     supabase = get_supabase_admin()
     # Using test credentials documented in CLAUDE.md (pre-created test account)
     auth_response = supabase.auth.sign_in_with_password({
-        "email": "test@test.com",
-        "password": "123456"
+        "email": TEST_EMAIL,
+        "password": TEST_PASSWORD
     })
     user_id = auth_response.user.id
 

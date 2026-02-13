@@ -19,8 +19,6 @@ from test_utils import cleanup_test_documents_and_storage
 
 load_dotenv()
 
-TEST_USER_EMAIL = "test@test.com"
-TEST_USER_PASSWORD = "123456"
 # Use a very forgiving threshold for LLM-generated queries
 TEST_THRESHOLD = 0.25
 
