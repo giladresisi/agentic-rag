@@ -1,12 +1,9 @@
-from openai import AsyncOpenAI
 from config import settings
-from typing import List
+from services.provider_service import provider_service
+from typing import List, Optional
 from pathlib import Path
 import tempfile
 import os
-
-# Initialize OpenAI client for embeddings
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
 
 
 class EmbeddingService:
@@ -99,11 +96,19 @@ class EmbeddingService:
         return chunks
 
     @staticmethod
-    async def generate_embeddings(texts: List[str]) -> List[List[float]]:
-        """Generate embeddings for a list of texts using OpenAI.
+    async def generate_embeddings(
+        texts: List[str],
+        provider: str = "openai",
+        model: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ) -> List[List[float]]:
+        """Generate embeddings for a list of texts using the specified provider.
 
         Args:
             texts: List of text strings to embed
+            provider: Provider identifier (default: openai)
+            model: Embedding model name (default from config)
+            base_url: Optional override base URL
 
         Returns:
             List of embedding vectors (each is a list of floats)
@@ -114,18 +119,15 @@ class EmbeddingService:
         if not texts:
             return []
 
+        model = model or settings.EMBEDDING_MODEL
+
         try:
-            # Call OpenAI embeddings API
-            response = await client.embeddings.create(
-                model=settings.EMBEDDING_MODEL,
-                input=texts
+            return await provider_service.create_embeddings(
+                provider=provider,
+                model=model,
+                texts=texts,
+                base_url=base_url,
             )
-
-            # Extract embeddings from response
-            embeddings = [item.embedding for item in response.data]
-
-            return embeddings
-
         except Exception as e:
             raise Exception(f"Failed to generate embeddings: {str(e)}")
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from sse_starlette.sse import EventSourceResponse
 from middleware.auth_middleware import get_current_user
 from services.supabase_service import get_supabase_admin
-from services.openai_service import openai_service, default_client
+from services.chat_service import chat_service
 from services.provider_service import provider_service
 from models.thread import ThreadCreate, ThreadResponse
 from models.message import MessageCreate, MessageResponse
@@ -16,9 +16,11 @@ router = APIRouter()
 
 @router.get("/providers")
 async def get_providers():
-    """Get available LLM provider presets."""
+    """Get available LLM providers and their configurations."""
+    providers = provider_service.get_providers()
+
     return {
-        "providers": provider_service.get_providers(),
+        "providers": providers,
         "defaults": {
             "provider": settings.DEFAULT_PROVIDER,
             "model": settings.DEFAULT_MODEL,
@@ -114,7 +116,8 @@ async def generate_thread_title(
 
     # Generate title using LLM
     try:
-        response = await default_client.chat.completions.create(
+        client = provider_service._get_client("openai")
+        response = await client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {
@@ -236,7 +239,7 @@ async def send_message(
         .execute()
 
     # Build conversation history
-    conversation_history = openai_service.build_conversation_history(
+    conversation_history = chat_service.build_conversation_history(
         history_response.data
     )
 
@@ -262,7 +265,6 @@ async def send_message(
         provider=message_data.provider,
         model=message_data.model,
         base_url=message_data.base_url,
-        has_default_api_key=bool(settings.OPENAI_API_KEY)
     )
     if not is_valid:
         raise HTTPException(status_code=400, detail=error_msg)
@@ -274,26 +276,11 @@ async def send_message(
         sources = None
 
         try:
-            # Determine base_url and api_key
-            base_url = message_data.base_url
-            api_key = None
-
-            # If no base_url provided, get from provider preset
-            if not base_url:
-                provider_config = provider_service.get_provider_config(message_data.provider)
-                if provider_config:
-                    base_url = provider_config.get("base_url")
-
-            # Use server-side api_key for providers that require it
-            provider_config = provider_service.get_provider_config(message_data.provider)
-            if provider_config and provider_config.get("requires_api_key"):
-                api_key = settings.OPENAI_API_KEY
-
-            async for delta, chunk_sources in openai_service.stream_response(
+            async for delta, chunk_sources in chat_service.stream_response(
                 conversation_history,
                 model=message_data.model,
-                base_url=base_url,
-                api_key=api_key,
+                provider=message_data.provider,
+                base_url=message_data.base_url,
                 user_id=current_user["id"]
             ):
                 chunk_count += 1

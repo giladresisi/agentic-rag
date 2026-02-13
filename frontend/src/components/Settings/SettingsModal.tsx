@@ -1,6 +1,10 @@
+import { useState, useEffect } from 'react';
 import { ModelConfigSection } from './ModelConfigSection';
 import { Button } from '@/components/ui/button';
 import type { ProviderConfig } from '@/types/chat';
+import { supabase } from '@/lib/supabase';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -25,6 +29,34 @@ export function SettingsModal({
   onCancel,
   hasChanges,
 }: SettingsModalProps) {
+  const [chunksExist, setChunksExist] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const checkChunks = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch(`${API_URL}/ingestion/chunks/exists`, {
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setChunksExist(data.exists);
+        }
+      } catch {
+        // Silently fail - default to unlocked
+      }
+    };
+
+    checkChunks();
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleConfirm = () => {
@@ -55,6 +87,7 @@ export function SettingsModal({
             description="Model used for chat conversations and LLM completions"
             config={chatConfig}
             onChange={onChatConfigChange}
+            isEmbedding={false}
           />
 
           <div className="border-t" />
@@ -64,6 +97,8 @@ export function SettingsModal({
             description="Model used for document embeddings and vector search"
             config={embeddingsConfig}
             onChange={onEmbeddingsConfigChange}
+            isEmbedding={true}
+            disabled={chunksExist}
           />
         </div>
 

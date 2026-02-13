@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Upload, FileText, X, AlertCircle } from 'lucide-react';
+import type { ProviderConfig } from '@/types/chat';
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -15,11 +16,12 @@ const SUPPORTED_MIME_TYPES = [
 ];
 
 interface DocumentUploadProps {
-  onUpload: (file: File) => Promise<void>;
+  onUpload: (file: File, embeddingConfig?: ProviderConfig) => Promise<void>;
   isUploading: boolean;
+  embeddingConfig?: ProviderConfig;
 }
 
-export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
+export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -94,7 +96,7 @@ export function DocumentUpload({ onUpload, isUploading }: DocumentUploadProps) {
     if (!selectedFile) return;
 
     try {
-      await onUpload(selectedFile);
+      await onUpload(selectedFile, embeddingConfig);
       setSelectedFile(null);
       setValidationError(null);
     } catch (error) {
