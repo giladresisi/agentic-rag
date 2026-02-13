@@ -1,7 +1,15 @@
 """
 Utility functions for testing.
 """
+import os
 from services.supabase_service import get_supabase_admin
+
+
+# Test credentials configuration
+# These should be set in .env file or environment variables
+# See CLAUDE.md for documentation of test account
+TEST_EMAIL = os.getenv("TEST_EMAIL", "test@...")
+TEST_PASSWORD = os.getenv("TEST_PASSWORD", "***")
 
 
 def cleanup_test_documents_and_storage(user_id: str, cleanup_orphaned: bool = True):

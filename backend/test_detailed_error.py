@@ -3,8 +3,6 @@ import requests
 from services.supabase_service import get_supabase
 
 # Test credentials
-TEST_EMAIL = "test@..."
-TEST_PASSWORD = "***"
 
 def test():
     # Get auth token

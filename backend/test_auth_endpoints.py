@@ -4,8 +4,6 @@ from fastapi.testclient import TestClient
 from main import app
 
 # Test credentials
-TEST_EMAIL = "test@..."
-TEST_PASSWORD = "***"
 
 client = TestClient(app)
 

@@ -1,5 +1,6 @@
 """Direct test of list_threads function."""
 import asyncio
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 from routers.chat import list_threads
 from services.supabase_service import get_supabase
 
@@ -10,8 +11,8 @@ async def test_list_threads_direct():
 
     # Get token
     response = supabase.auth.sign_in_with_password({
-        "email": "test@...",
-        "password": "***"
+        "email": TEST_EMAIL,
+        "password": TEST_PASSWORD
     })
 
     user_id = response.user.id

@@ -1,6 +1,7 @@
 """Test with the fix applied (threshold 0.4 + system prompt)."""
 import asyncio
 from dotenv import load_dotenv
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 
 # CRITICAL: Load environment variables BEFORE importing config
 # Otherwise .env values won't be reflected in settings
@@ -17,8 +18,8 @@ async def test():
 
     supabase = get_supabase_admin()
     auth_response = supabase.auth.sign_in_with_password({
-        "email": "test@...",
-        "password": "***"
+        "email": TEST_EMAIL,
+        "password": TEST_PASSWORD
     })
     user_id = auth_response.user.id
 

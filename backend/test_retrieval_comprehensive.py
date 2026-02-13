@@ -18,8 +18,6 @@ from test_utils import cleanup_test_documents_and_storage
 
 load_dotenv()
 
-TEST_USER_EMAIL = "test@..."
-TEST_USER_PASSWORD = "***"
 
 
 def log_section(title):
