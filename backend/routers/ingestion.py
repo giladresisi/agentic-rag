@@ -40,6 +40,39 @@ async def process_document(
         if not text_content or not text_content.strip():
             raise Exception("No text content extracted from document")
 
+        # Compute text content hash
+        text_content_hash = embedding_service.compute_text_hash(text_content)
+
+        # Check for existing document with same text hash
+        duplicate_check = supabase.table("documents")\
+            .select("id, filename, created_at, chunk_count")\
+            .eq("user_id", user_id)\
+            .eq("text_content_hash", text_content_hash)\
+            .eq("status", "completed")\
+            .execute()
+
+        if duplicate_check.data:
+            # Duplicate found - skip processing
+            original_doc = duplicate_check.data[0]
+
+            # Update current document as duplicate
+            supabase.table("documents").update({
+                "status": "duplicate",
+                "duplicate_of": original_doc["id"],
+                "text_content_hash": text_content_hash,
+                "chunk_count": original_doc["chunk_count"],
+            }).eq("id", document_id).execute()
+
+            # Clean up temp file and exit early
+            if os.path.exists(file_path):
+                os.remove(file_path)
+            return
+
+        # Not a duplicate - update hash and continue processing
+        supabase.table("documents").update({
+            "text_content_hash": text_content_hash
+        }).eq("id", document_id).execute()
+
         # Chunk text
         chunks = embedding_service.chunk_text(text_content)
 
@@ -60,7 +93,6 @@ async def process_document(
 
         # Get actual embedding dimensions from first embedding
         actual_dimensions = len(embeddings[0])
-        print(f"Generated embeddings with {actual_dimensions} dimensions")
 
         # Update dimensions parameter to match actual embeddings
         dimensions = actual_dimensions
@@ -78,25 +110,18 @@ async def process_document(
             })
 
         # Insert chunks
-        print(f"Inserting {len(chunk_records)} chunks for document {document_id}")
-        chunks_response = supabase.table("chunks").insert(chunk_records).execute()
-        print(f"Chunks insert response: {chunks_response}")
+        supabase.table("chunks").insert(chunk_records).execute()
 
         # Update document status to completed
-        print(f"Updating document {document_id} to completed status")
-        update_response = supabase.table("documents").update({
+        supabase.table("documents").update({
             "status": "completed",
             "chunk_count": len(chunks),
             "embedding_dimensions": dimensions,
         }).eq("id", document_id).execute()
-        print(f"Document update response: {update_response}")
 
     except Exception as e:
         # Update document status to failed
-        import traceback
         error_msg = str(e)
-        print(f"ERROR processing document {document_id}: {error_msg}")
-        print(f"Full traceback: {traceback.format_exc()}")
         supabase.table("documents").update({
             "status": "failed",
             "error_message": error_msg
@@ -168,6 +193,19 @@ async def upload_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
+    # Compute file content hash
+    file_content_hash = None
+    try:
+        # Write content to temp file to compute hash
+        temp_hash_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_ext)
+        temp_hash_file.write(content)
+        temp_hash_file.close()
+        file_content_hash = embedding_service.compute_file_hash(temp_hash_file.name)
+        os.unlink(temp_hash_file.name)  # Clean up temp file
+    except Exception:
+        # Silently continue if hash computation fails
+        pass
+
     # Create document record
     try:
         response = supabase.table("documents").insert({
@@ -177,7 +215,8 @@ async def upload_document(
             "file_size_bytes": file_size,
             "storage_path": storage_path,
             "status": "processing",
-            "chunk_count": 0
+            "chunk_count": 0,
+            "file_content_hash": file_content_hash
         }).execute()
 
         if not response.data:
@@ -218,6 +257,7 @@ async def upload_document(
         chunk_count=document["chunk_count"],
         status=document["status"],
         error_message=document.get("error_message"),
+        duplicate_of=str(document["duplicate_of"]) if document.get("duplicate_of") else None,
         created_at=str(document["created_at"]),
         updated_at=str(document["updated_at"])
     )
@@ -245,6 +285,7 @@ async def list_documents(current_user: dict = Depends(get_current_user)):
                 chunk_count=doc.get("chunk_count", 0),
                 status=doc["status"],
                 error_message=doc.get("error_message"),
+                duplicate_of=str(doc["duplicate_of"]) if doc.get("duplicate_of") else None,
                 created_at=str(doc["created_at"]),
                 updated_at=str(doc["updated_at"])
             ))
@@ -284,6 +325,7 @@ async def get_document(
             chunk_count=doc.get("chunk_count", 0),
             status=doc["status"],
             error_message=doc.get("error_message"),
+            duplicate_of=str(doc["duplicate_of"]) if doc.get("duplicate_of") else None,
             created_at=str(doc["created_at"]),
             updated_at=str(doc["updated_at"])
         )

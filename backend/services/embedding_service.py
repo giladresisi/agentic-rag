@@ -96,6 +96,37 @@ class EmbeddingService:
         return chunks
 
     @staticmethod
+    def compute_file_hash(file_path: str) -> str:
+        """Compute SHA-256 hash of file contents.
+
+        Args:
+            file_path: Path to file to hash
+
+        Returns:
+            64-character lowercase hex string (SHA-256 digest)
+        """
+        import hashlib
+        sha256_hash = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            # Read in 4KB chunks to handle large files efficiently
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+
+    @staticmethod
+    def compute_text_hash(text: str) -> str:
+        """Compute SHA-256 hash of text content.
+
+        Args:
+            text: String content to hash
+
+        Returns:
+            64-character lowercase hex string (SHA-256 digest)
+        """
+        import hashlib
+        return hashlib.sha256(text.encode('utf-8')).hexdigest()
+
+    @staticmethod
     async def generate_embeddings(
         texts: List[str],
         provider: str = "openai",
