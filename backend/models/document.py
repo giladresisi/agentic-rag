@@ -40,6 +40,7 @@ class DocumentResponse(BaseModel):
     chunk_count: int
     status: str
     error_message: Optional[str] = None
+    duplicate_of: Optional[str] = None
     created_at: str
     updated_at: str
 
