@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     RERANKING_ENABLED: bool = True
     RERANKING_PROVIDER: str = "local"  # Options: cohere, local
     RERANKING_TOP_N: int = 5
+    RERANKING_RETRIEVAL_MULTIPLIER: int = 3  # Retrieve N*multiplier candidates for reranking
     COHERE_RERANK_MODEL: str = "rerank-english-v3.0"
     LOCAL_RERANK_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
@@ -70,16 +71,5 @@ class Settings(BaseSettings):
     )
 
 
-# Initialize settings with debug output
-print("\n" + "=" * 60)
-print("LOADING SETTINGS FROM .ENV")
-print("=" * 60)
-
-try:
-    settings = Settings()
-    print("[OK] Settings loaded successfully")
-    print("=" * 60 + "\n")
-except Exception as e:
-    print(f"[ERROR] Error loading settings: {e}")
-    print("=" * 60 + "\n")
-    raise
+# Initialize settings
+settings = Settings()

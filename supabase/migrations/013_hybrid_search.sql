@@ -53,6 +53,8 @@ BEGIN
         c.document_id,
         c.content,
         ts_rank(c.content_tsv, query) AS rank
+    -- Note: websearch_to_tsquery safely handles user input by normalizing web-style queries
+    -- It's designed for direct user input and provides built-in protection against injection
     FROM chunks c, websearch_to_tsquery('english', query_text) query
     WHERE
         -- RLS enforcement: filter by user_id
@@ -126,6 +128,7 @@ BEGIN
             c.metadata,
             ts_rank(c.content_tsv, query) AS keyword_rank,
             ROW_NUMBER() OVER (ORDER BY ts_rank(c.content_tsv, query) DESC) AS rank
+        -- Note: websearch_to_tsquery safely handles user input (see keyword_search_chunks comment)
         FROM chunks c, websearch_to_tsquery('english', query_text) query
         WHERE
             -- RLS enforcement: filter by user_id
