@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Form, B
 from middleware.auth_middleware import get_current_user
 from services.supabase_service import get_supabase_admin
 from services.embedding_service import embedding_service
+from services.metadata_service import metadata_service
 from models.document import DocumentResponse, ChunkResponse
 from typing import List, Optional
 from pathlib import Path
@@ -21,6 +22,9 @@ async def process_document(
     model: Optional[str] = None,
     dimensions: int = 1536,
     base_url: Optional[str] = None,
+    extract_metadata: bool = True,
+    metadata_provider: Optional[str] = None,
+    metadata_model: Optional[str] = None,
 ):
     """Background task to process uploaded document.
 
@@ -72,6 +76,42 @@ async def process_document(
         supabase.table("documents").update({
             "text_content_hash": text_content_hash
         }).eq("id", document_id).execute()
+
+        # Metadata extraction (Module 4)
+        if extract_metadata:
+            try:
+                # Mark as processing
+                supabase.table("documents").update({
+                    "metadata_status": "processing"
+                }).eq("id", document_id).eq("user_id", user_id).execute()
+
+                # Extract metadata
+                metadata = await metadata_service.extract_metadata(
+                    text_content=text_content,
+                    document_id=document_id,
+                    user_id=user_id,
+                    provider=metadata_provider or provider,
+                    model=metadata_model or "gpt-4o-mini",
+                    base_url=base_url
+                )
+
+                # Update document with metadata
+                await metadata_service.update_document_metadata(
+                    document_id=document_id,
+                    metadata=metadata,
+                    supabase=supabase,
+                    user_id=user_id
+                )
+            except Exception:
+                # Mark as failed but continue ingestion
+                supabase.table("documents").update({
+                    "metadata_status": "failed"
+                }).eq("id", document_id).eq("user_id", user_id).execute()
+        else:
+            # Mark as skipped
+            supabase.table("documents").update({
+                "metadata_status": "skipped"
+            }).eq("id", document_id).eq("user_id", user_id).execute()
 
         # Chunk text
         chunks = embedding_service.chunk_text(text_content)
@@ -141,6 +181,9 @@ async def upload_document(
     model: Optional[str] = Form(None),
     dimensions: int = Form(1536),
     base_url: Optional[str] = Form(None),
+    extract_metadata: bool = Form(True),
+    metadata_provider: Optional[str] = Form(None),
+    metadata_model: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user)
 ):
     """Upload and process a document."""
@@ -247,6 +290,9 @@ async def upload_document(
         model=model,
         dimensions=dimensions,
         base_url=base_url,
+        extract_metadata=extract_metadata,
+        metadata_provider=metadata_provider,
+        metadata_model=metadata_model,
     )
 
     return DocumentResponse(
