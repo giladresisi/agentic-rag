@@ -62,7 +62,10 @@ class RetrievalService:
             supabase = get_supabase_admin()
 
             # Determine retrieval count (more if reranking to allow better filtering)
+            # Add bounds checking to prevent excessive database queries
             retrieval_count = limit * settings.RERANKING_RETRIEVAL_MULTIPLIER if enable_reranking else limit
+            MAX_RETRIEVAL_COUNT = 100  # Maximum to prevent performance issues
+            retrieval_count = min(retrieval_count, MAX_RETRIEVAL_COUNT)
 
             # Choose retrieval method: hybrid vs vector-only
             if settings.HYBRID_SEARCH_ENABLED:
