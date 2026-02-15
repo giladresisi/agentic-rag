@@ -18,9 +18,14 @@ def get_providers() -> Dict[str, str]:
         "local": "Local Cross-Encoder"
     }
 
-    # Only add Cohere if API key is configured
+    # Only add Cohere if API key is configured and package is available
     if settings.COHERE_API_KEY:
-        providers["cohere"] = "Cohere Rerank API"
+        try:
+            import cohere
+            providers["cohere"] = "Cohere Rerank API"
+        except ImportError:
+            # Cohere package not installed, skip provider
+            pass
 
     return providers
 
@@ -156,9 +161,6 @@ def rerank(
     Raises:
         ValueError: If provider is invalid
     """
-    # Log reranking call
-    print(f"[RERANKING] Provider: {provider} | Documents: {len(request.documents)} | Top N: {request.top_n}")
-
     if provider == "local":
         return rerank_local(
             query=request.query,

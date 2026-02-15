@@ -62,7 +62,7 @@ class RetrievalService:
             supabase = get_supabase_admin()
 
             # Determine retrieval count (more if reranking to allow better filtering)
-            retrieval_count = limit * 3 if enable_reranking else limit
+            retrieval_count = limit * settings.RERANKING_RETRIEVAL_MULTIPLIER if enable_reranking else limit
 
             # Choose retrieval method: hybrid vs vector-only
             if settings.HYBRID_SEARCH_ENABLED:
