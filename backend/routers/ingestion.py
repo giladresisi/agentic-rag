@@ -102,10 +102,12 @@ async def process_document(
                     supabase=supabase,
                     user_id=user_id
                 )
-            except Exception:
+            except Exception as e:
                 # Mark as failed but continue ingestion
+                # Error is captured in database field, silent production operation
                 supabase.table("documents").update({
-                    "metadata_status": "failed"
+                    "metadata_status": "failed",
+                    "error_message": f"Metadata extraction failed: {str(e)}"
                 }).eq("id", document_id).eq("user_id", user_id).execute()
         else:
             # Mark as skipped
@@ -181,12 +183,15 @@ async def upload_document(
     model: Optional[str] = Form(None),
     dimensions: int = Form(1536),
     base_url: Optional[str] = Form(None),
-    extract_metadata: bool = Form(True),
+    extract_metadata: str = Form("true"),  # Changed to str to handle form data correctly
     metadata_provider: Optional[str] = Form(None),
     metadata_model: Optional[str] = Form(None),
     current_user: dict = Depends(get_current_user)
 ):
     """Upload and process a document."""
+    # Convert string form data to boolean
+    extract_metadata_bool = extract_metadata.lower() in ('true', '1', 'yes')
+
     supabase = get_supabase_admin()
 
     # Validate file type
@@ -290,7 +295,7 @@ async def upload_document(
         model=model,
         dimensions=dimensions,
         base_url=base_url,
-        extract_metadata=extract_metadata,
+        extract_metadata=extract_metadata_bool,  # Use converted boolean
         metadata_provider=metadata_provider,
         metadata_model=metadata_model,
     )
