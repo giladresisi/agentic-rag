@@ -30,7 +30,7 @@ class EmbeddingService:
             file_ext = Path(file_path).suffix.lower()
 
             # For simple text-based formats, read directly
-            if file_ext in ['.txt', '.md', '.html']:
+            if file_ext in ['.txt', '.md', '.html', '.json', '.rtf']:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return f.read()
 

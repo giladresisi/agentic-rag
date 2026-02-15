@@ -131,6 +131,137 @@ def test_upload_oversized_file():
     print(f"  - Error message: {error['detail']}")
 
 
+def test_delete_document_cascade():
+    """Test that deleting a document cascades to delete chunks automatically."""
+    token = get_auth_token()
+    timestamp = int(time.time() * 1000)
+
+    # Upload document with content to create chunks
+    md_content = b"# Test\n\n" + b"Lorem ipsum. " * 200
+    files = {"file": (f"test_{timestamp}.md", BytesIO(md_content), "text/markdown")}
+    response = client.post(
+        "/ingestion/upload",
+        files=files,
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200, f"Upload failed: {response.json()}"
+    doc_id = response.json()["id"]
+
+    time.sleep(3)
+
+    # Verify chunks exist
+    chunks_response = client.get(
+        f"/ingestion/documents/{doc_id}/chunks",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert chunks_response.status_code == 200, f"Failed to get chunks: {chunks_response.json()}"
+    chunks = chunks_response.json()
+    assert len(chunks) > 0, "Should have chunks before deletion"
+
+    # Delete document
+    delete_response = client.delete(
+        f"/ingestion/documents/{doc_id}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert delete_response.status_code == 200, f"Delete failed: {delete_response.json()}"
+
+    # Verify chunks cascade deleted (document no longer exists, so 404)
+    chunks_after = client.get(
+        f"/ingestion/documents/{doc_id}/chunks",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert chunks_after.status_code == 404, "Chunks should cascade delete"
+
+    print(f"\n[TEST PASSED] Document cascade delete validated")
+
+
+def test_upload_json_file():
+    """Test uploading a valid JSON file."""
+    token = get_auth_token()
+    timestamp = int(time.time() * 1000)
+    content = b'{"service":"api","version":"1.0.0","description":"Test JSON document"}'
+    files = {"file": (f"test_{timestamp}.json", BytesIO(content), "application/json")}
+    response = client.post(
+        "/ingestion/upload",
+        files=files,
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200, f"Upload failed: {response.json()}"
+    print(f"\n[TEST PASSED] Successfully uploaded JSON file")
+
+
+def test_upload_csv_file():
+    """Test uploading a valid CSV file."""
+    token = get_auth_token()
+    timestamp = int(time.time() * 1000)
+    content = b"name,age,city\nAlice,30,NYC\nBob,25,LA\nCharlie,35,Chicago"
+    files = {"file": (f"test_{timestamp}.csv", BytesIO(content), "text/csv")}
+    response = client.post(
+        "/ingestion/upload",
+        files=files,
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200, f"Upload failed: {response.json()}"
+    print(f"\n[TEST PASSED] Successfully uploaded CSV file")
+
+
+def test_upload_xml_file():
+    """Test uploading a valid XML file."""
+    token = get_auth_token()
+    timestamp = int(time.time() * 1000)
+    content = b'<?xml version="1.0" encoding="UTF-8"?><document><title>Test Document</title><content>Sample XML content for testing.</content></document>'
+    files = {"file": (f"test_{timestamp}.xml", BytesIO(content), "application/xml")}
+    response = client.post(
+        "/ingestion/upload",
+        files=files,
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200, f"Upload failed: {response.json()}"
+    print(f"\n[TEST PASSED] Successfully uploaded XML file")
+
+
+def test_upload_rtf_file():
+    """Test uploading a valid RTF file."""
+    token = get_auth_token()
+    timestamp = int(time.time() * 1000)
+    content = b'{\\rtf1\\ansi\\deff0 {\\fonttbl {\\f0 Times New Roman;}}\\f0\\fs24 This is a test RTF document with {\\b bold} and {\\i italic} text.}'
+    files = {"file": (f"test_{timestamp}.rtf", BytesIO(content), "application/rtf")}
+    response = client.post(
+        "/ingestion/upload",
+        files=files,
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200, f"Upload failed: {response.json()}"
+    print(f"\n[TEST PASSED] Successfully uploaded RTF file")
+
+
+def test_upload_pptx_file():
+    """Test uploading a valid PPTX file."""
+    token = get_auth_token()
+    timestamp = int(time.time() * 1000)
+    try:
+        from pptx import Presentation
+        from io import BytesIO as BIO
+        prs = Presentation()
+        slide = prs.slides.add_slide(prs.slide_layouts[0])
+        title = slide.shapes.title
+        title.text = "Test Presentation"
+        pptx_bytes = BIO()
+        prs.save(pptx_bytes)
+        pptx_bytes.seek(0)
+
+        files = {"file": (f"test_{timestamp}.pptx", pptx_bytes, "application/vnd.openxmlformats-officedocument.presentationml.presentation")}
+        response = client.post(
+            "/ingestion/upload",
+            files=files,
+            headers={"Authorization": f"Bearer {token}"}
+        )
+        assert response.status_code == 200, f"Upload failed: {response.json()}"
+        print(f"\n[TEST PASSED] Successfully uploaded PPTX file")
+    except ImportError:
+        print(f"\n[TEST SKIPPED] PPTX test requires python-pptx library - install with: pip install python-pptx")
+
+
 if __name__ == "__main__":
     print("=" * 60)
     print("INGESTION UPLOAD TESTS")
@@ -141,6 +272,12 @@ if __name__ == "__main__":
         test_upload_markdown_file()
         test_upload_unsupported_file_type()
         test_upload_oversized_file()
+        test_delete_document_cascade()
+        test_upload_json_file()
+        test_upload_csv_file()
+        test_upload_xml_file()
+        test_upload_rtf_file()
+        test_upload_pptx_file()
 
         print("\n" + "=" * 60)
         print("ALL TESTS PASSED!")
