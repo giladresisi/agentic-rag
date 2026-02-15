@@ -1,7 +1,9 @@
 """Provider presets for different LLM providers."""
 
+import json
 from openai import AsyncOpenAI
-from typing import Dict, List, Any, AsyncGenerator, Optional
+from pydantic import ValidationError
+from typing import Dict, List, Any, AsyncGenerator, Optional, Type
 from config import settings
 from urllib.parse import urlparse
 import ipaddress
@@ -288,6 +290,88 @@ class ProviderService:
                 raise RuntimeError(f"Request timeout for {provider}: {error_msg}")
             else:
                 raise RuntimeError(f"Embedding creation failed for {provider}: {error_msg}")
+
+    @staticmethod
+    async def create_structured_completion(
+        provider: str,
+        model: str,
+        messages: List[Dict[str, Any]],
+        response_schema: Type,
+        base_url: str | None = None,
+        temperature: float = 0.0,
+    ):
+        """Create a chat completion with structured JSON output.
+
+        Uses OpenAI's response_format with json_schema to enforce
+        structured output validated against a Pydantic model.
+
+        Args:
+            provider: Provider identifier
+            model: Chat model name (gpt-4o and gpt-4o-mini support strict mode)
+            messages: Conversation messages
+            response_schema: Pydantic BaseModel class for response validation
+            base_url: Optional override base URL
+            temperature: Sampling temperature (default 0.0 for deterministic output)
+
+        Returns:
+            Validated Pydantic model instance
+
+        Raises:
+            RuntimeError: If API call, JSON parsing, or validation fails
+        """
+        try:
+            client = ProviderService._get_client(provider, base_url)
+
+            schema = response_schema.model_json_schema()
+            # OpenAI strict mode requires additionalProperties: false
+            schema["additionalProperties"] = False
+
+            response_format = {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": response_schema.__name__,
+                    "schema": schema,
+                    "strict": True,
+                },
+            }
+
+            response = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                response_format=response_format,
+                temperature=temperature,
+            )
+
+            content = response.choices[0].message.content
+            if not content:
+                raise RuntimeError("Provider returned empty response content")
+
+            parsed = json.loads(content)
+            return response_schema(**parsed)
+
+        except json.JSONDecodeError as e:
+            raise RuntimeError(
+                f"Failed to parse JSON from {provider} response: {e}"
+            )
+        except ValidationError as e:
+            raise RuntimeError(
+                f"Response from {provider} failed schema validation: {e}"
+            )
+        except ValueError as e:
+            # Re-raise validation errors (from _get_client URL validation)
+            raise
+        except RuntimeError:
+            raise
+        except Exception as e:
+            error_msg = str(e)
+            if "rate_limit" in error_msg.lower() or "429" in error_msg:
+                raise RuntimeError(f"Rate limit exceeded for {provider}: {error_msg}")
+            elif "authentication" in error_msg.lower() or "401" in error_msg or "403" in error_msg:
+                raise RuntimeError(f"Authentication failed for {provider}: Check API key")
+            elif "model" in error_msg.lower() or "404" in error_msg:
+                raise RuntimeError(f"Model '{model}' not found for {provider}: {error_msg}")
+            else:
+                raise RuntimeError(f"Structured completion failed for {provider}: {error_msg}")
 
     @staticmethod
     async def stream_chat_completion(

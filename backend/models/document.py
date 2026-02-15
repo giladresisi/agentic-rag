@@ -41,6 +41,12 @@ class DocumentResponse(BaseModel):
     status: str
     error_message: Optional[str] = None
     duplicate_of: Optional[str] = None
+    # Module 4 - Metadata Fields
+    summary: Optional[str] = None
+    document_type: Optional[str] = None
+    key_topics: Optional[list[str]] = None
+    extracted_at: Optional[str] = None
+    metadata_status: Optional[str] = None
     created_at: str
     updated_at: str
 
