@@ -173,14 +173,10 @@ IMPORTANT RULES:
                         args = json.loads(tool_call["function"]["arguments"])
                         query = args.get("query", "")
 
-                        print(f"[TOOL CALL] Query from LLM: {query}")
-
                         chunks = await retrieval_service.retrieve_relevant_chunks(
                             query=query,
                             user_id=user_id
                         )
-
-                        print(f"[TOOL CALL] Retrieved {len(chunks)} chunks")
 
                         context_text = "\n\n".join([
                             f"Document: {chunk['document_name']}\n{chunk['content']}"
