@@ -32,8 +32,8 @@ async def setup_test_user():
     # Try to sign in
     try:
         auth_response = supabase.auth.sign_in_with_password({
-            "email": TEST_USER_EMAIL,
-            "password": TEST_USER_PASSWORD
+            "email": TEST_EMAIL,
+            "password": TEST_PASSWORD
         })
         test_user_id = auth_response.user.id
         print(f"[PASS] Authenticated as test user: {test_user_id}")
