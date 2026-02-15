@@ -87,6 +87,73 @@ def test_feature():
 - **No IVFFlat index:** Variable dimensions support (Module 2) - index deferred for flexibility
 - **Cosine similarity:** Default distance metric for document retrieval
 
+### Supabase Query Patterns
+
+**`.single()` Exception Handling:**
+
+The `.single()` method throws an exception when no rows are found, rather than returning `null`. This affects error handling in API endpoints.
+
+```python
+# ❌ Bad - will never reach the if statement
+result = supabase.table("documents").select("*").eq("id", doc_id).single().execute()
+if not result.data:  # Never reached if no rows
+    raise HTTPException(status_code=404)
+
+# ✅ Good - catch exception and check error message
+try:
+    result = supabase.table("documents").select("*").eq("id", doc_id).single().execute()
+    # Process result.data
+except HTTPException:
+    raise  # Re-raise HTTP exceptions
+except Exception as e:
+    error_msg = str(e).lower()
+    if "no rows" in error_msg or "not found" in error_msg or "single" in error_msg:
+        raise HTTPException(status_code=404, detail="Document not found")
+    raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+```
+
+**When to use `.single()` vs `.execute()`:**
+- Use `.single()` when expecting exactly one result (e.g., fetch by ID)
+- Use `.execute()` when expecting zero or more results (e.g., list queries)
+- Always wrap `.single()` in try/except for proper error handling
+
+## Configuration Management
+
+### Pydantic Settings Environment Variables
+
+This project uses `pydantic-settings` for configuration. **Environment variables override code defaults.**
+
+**Priority:** `.env` file > `config.py` default values
+
+**Implications:**
+- Adding/changing `Settings` class fields in `config.py` may not take effect if `.env` overrides them
+- `.env` files are not tracked in git - can't be read during planning phase
+- User must manually update `.env` for configuration changes to take effect
+
+**Best Practice:**
+- Use `config.py` for sensible defaults that work for most users
+- Document user-configurable settings in README or setup guide
+- When modifying `Settings` class, check if `.env` might override your changes
+- If changing shared config (like `SUPPORTED_FILE_TYPES`), note potential `.env` dependency
+
+**Example:**
+```python
+# In config.py
+class Settings(BaseSettings):
+    SUPPORTED_FILE_TYPES: str = "pdf,docx,pptx,html,md,txt,csv,json,xml,rtf"  # Default
+```
+
+```bash
+# In .env (if present, this OVERRIDES config.py default)
+SUPPORTED_FILE_TYPES="pdf,docx,html,md,txt"  # User's custom value
+```
+
+**When updating configuration:**
+1. Update `config.py` default value
+2. Check if `.env` has override: `grep "SETTING_NAME" backend/.env`
+3. If override exists, document that user needs to update `.env` manually
+4. For shared configs, consider adding sync comments between files
+
 ## Cross-Platform Compatibility
 
 ### Character Encoding (Test Output)
