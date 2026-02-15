@@ -142,11 +142,97 @@ Will include:
 
 ---
 
-## Module 5: Multi-Format Support 🔄
+## Module 5: Multi-Format Support ✅
 
-**Status:** Not started
+**Status:** Complete and validated
 
-Note: Already have PDF, DOCX, HTML, Markdown via Docling (Plan 5). This module may expand format support or enhance parsing.
+**Plan:** `.agents/plans/module-5-multi-format-enhancement.md`
+**Execution Report:** `.agents/execution-reports/module-5-multi-format-enhancement.md`
+
+### Completed Features
+
+**Part 1: Cascade Delete Optimization** ✅
+- Removed redundant manual chunk deletion (4 lines removed)
+- Database ON DELETE CASCADE handles chunks automatically
+- Improved get_document_chunks endpoint error handling (proper 404 responses)
+- Added validation test to ensure cascade behavior works correctly
+
+**Part 2: Multi-Format Support Expansion** ✅
+- Added 5 new file formats to existing 5 (total: 10 formats)
+  - PPTX (PowerPoint) - via Docling
+  - CSV (data files) - via Docling
+  - JSON (structured data) - direct read
+  - XML (markup) - via Docling
+  - RTF (rich text) - direct read
+- Updated backend config (config.py)
+- Updated frontend validation (DocumentUpload.tsx)
+- Added sync comments between frontend/backend configs
+
+### Test Status
+
+**Automated Tests - All Passing:**
+- 8/8 tests passing (100% pass rate)
+- 1 optional test skipped (PPTX - requires python-pptx library)
+
+**New Tests Added:**
+1. `test_delete_document_cascade()` - Validates cascade delete works ✅
+2. `test_upload_json_file()` - JSON format upload ✅
+3. `test_upload_csv_file()` - CSV format upload ✅
+4. `test_upload_xml_file()` - XML format upload ✅
+5. `test_upload_rtf_file()` - RTF format upload ✅
+6. `test_upload_pptx_file()` - PPTX format upload ⚠️ (skipped - optional)
+
+### Files Modified
+
+**Backend (4 files):**
+- `backend/config.py` - 10 supported formats (+2/-1)
+- `backend/routers/ingestion.py` - Cascade delete fix, 404 handling (+5/-8)
+- `backend/services/embedding_service.py` - JSON/RTF simple parsing (+1/-1)
+- `backend/test_ingestion.py` - 6 new tests (+137/-0)
+
+**Frontend (1 file):**
+- `frontend/src/components/Ingestion/DocumentUpload.tsx` - 10 formats + MIME types (+10/-2)
+
+**Total:** 155 insertions(+), 12 deletions(-)
+
+### Configuration Updates
+
+**Supported Formats (10 total):**
+- Existing: PDF, DOCX, HTML, MD, TXT
+- New: PPTX, CSV, JSON, XML, RTF
+
+**Parsing Strategy:**
+- Simple (direct read): TXT, MD, HTML, JSON, RTF
+- Docling (converter): PDF, DOCX, PPTX, CSV, XML
+
+### Known Issues
+
+- ⚠️ **Environmental Dependency:** backend/.env file must be updated manually if SUPPORTED_FILE_TYPES is defined there (pydantic-settings prioritizes env vars over code defaults)
+- ℹ️ PPTX test requires `python-pptx` library (optional dependency, gracefully skipped)
+
+### Module 5 Success Criteria - All Met ✅
+
+- [x] 5 new file formats supported
+- [x] Cascade delete optimization implemented
+- [x] Frontend/backend config synchronized
+- [x] Test coverage for all formats
+- [x] Cascade delete validation test
+- [x] No regressions
+- [x] Code quality maintained
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/module-5-multi-format-enhancement.md`
+- Detailed implementation summary
+- Divergences and resolutions
+- Test results and metrics
+- Team performance analysis
+
+**System Review:** `.agents/system-reviews/module-5-multi-format-enhancement.md`
+- Alignment score: 9/10
+- Divergence analysis (2 identified: 1 justified, 1 environmental)
+- Process improvements and CLAUDE.md updates completed
+- Key learnings and recommendations for next implementation
 
 ---
 

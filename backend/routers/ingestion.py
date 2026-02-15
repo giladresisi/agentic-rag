@@ -425,6 +425,10 @@ async def get_document_chunks(
     except HTTPException:
         raise
     except Exception as e:
+        # Check if error is "no rows found" from Supabase
+        error_msg = str(e).lower()
+        if "no rows" in error_msg or "not found" in error_msg or "single" in error_msg:
+            raise HTTPException(status_code=404, detail="Document not found")
         raise HTTPException(status_code=500, detail=f"Failed to verify document: {str(e)}")
 
     # Get chunks
@@ -478,14 +482,7 @@ async def delete_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get document: {str(e)}")
 
-    # Delete chunks (will cascade due to foreign key)
-    try:
-        supabase.table("chunks")\
-            .delete()\
-            .eq("document_id", document_id)\
-            .execute()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to delete chunks: {str(e)}")
+    # Chunks cascade deleted automatically via ON DELETE CASCADE constraint (migration 006, line 19)
 
     # Delete document record
     try:

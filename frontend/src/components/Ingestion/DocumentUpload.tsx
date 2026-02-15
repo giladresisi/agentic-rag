@@ -6,13 +6,21 @@ import type { ProviderConfig } from '@/types/chat';
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
-const SUPPORTED_TYPES = ['.pdf', '.docx', '.txt', '.html', '.md'];
+// IMPORTANT: Keep in sync with backend/config.py SUPPORTED_FILE_TYPES
+const SUPPORTED_TYPES = ['.pdf', '.docx', '.pptx', '.txt', '.html', '.md', '.csv', '.json', '.xml', '.rtf'];
 const SUPPORTED_MIME_TYPES = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
   'text/plain',
   'text/html',
   'text/markdown',
+  'text/csv',
+  'application/json',
+  'application/xml',
+  'text/xml',
+  'application/rtf',
+  'text/rtf',
 ];
 
 interface DocumentUploadProps {
@@ -136,7 +144,7 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
               Drag and drop a file here, or click to browse
             </p>
             <p className="text-xs text-muted-foreground mb-4">
-              Supported formats: PDF, DOCX, TXT, HTML, MD (max {MAX_FILE_SIZE_MB}MB)
+              Supported formats: PDF, DOCX, PPTX, TXT, HTML, MD, CSV, JSON, XML, RTF (max {MAX_FILE_SIZE_MB}MB)
             </p>
             <input
               type="file"

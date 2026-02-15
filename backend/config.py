@@ -38,7 +38,8 @@ class Settings(BaseSettings):
     CHUNK_SIZE: int = 1000
     CHUNK_OVERLAP: int = 200
     MAX_FILE_SIZE_MB: int = 10
-    SUPPORTED_FILE_TYPES: str = "pdf,docx,html,md,txt"
+    # IMPORTANT: Keep in sync with frontend/src/components/Ingestion/DocumentUpload.tsx SUPPORTED_TYPES
+    SUPPORTED_FILE_TYPES: str = "pdf,docx,pptx,html,md,txt,csv,json,xml,rtf"
 
     # Retrieval
     RETRIEVAL_LIMIT: int = 5
