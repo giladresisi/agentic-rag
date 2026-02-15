@@ -304,6 +304,11 @@ async def upload_document(
         status=document["status"],
         error_message=document.get("error_message"),
         duplicate_of=str(document["duplicate_of"]) if document.get("duplicate_of") else None,
+        summary=document.get("summary"),
+        document_type=document.get("document_type"),
+        key_topics=document.get("key_topics"),
+        extracted_at=document.get("extracted_at"),
+        metadata_status=document.get("metadata_status"),
         created_at=str(document["created_at"]),
         updated_at=str(document["updated_at"])
     )
@@ -332,6 +337,11 @@ async def list_documents(current_user: dict = Depends(get_current_user)):
                 status=doc["status"],
                 error_message=doc.get("error_message"),
                 duplicate_of=str(doc["duplicate_of"]) if doc.get("duplicate_of") else None,
+                summary=doc.get("summary"),
+                document_type=doc.get("document_type"),
+                key_topics=doc.get("key_topics"),
+                extracted_at=doc.get("extracted_at"),
+                metadata_status=doc.get("metadata_status"),
                 created_at=str(doc["created_at"]),
                 updated_at=str(doc["updated_at"])
             ))
@@ -372,6 +382,11 @@ async def get_document(
             status=doc["status"],
             error_message=doc.get("error_message"),
             duplicate_of=str(doc["duplicate_of"]) if doc.get("duplicate_of") else None,
+            summary=doc.get("summary"),
+            document_type=doc.get("document_type"),
+            key_topics=doc.get("key_topics"),
+            extracted_at=doc.get("extracted_at"),
+            metadata_status=doc.get("metadata_status"),
             created_at=str(doc["created_at"]),
             updated_at=str(doc["updated_at"])
         )

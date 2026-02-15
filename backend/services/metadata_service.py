@@ -58,11 +58,6 @@ class MetadataService:
                 },
             ]
 
-            print(
-                f"[METADATA] Extracting for doc={document_id[:8]}... "
-                f"provider={provider} model={model}"
-            )
-
             result = await provider_service.create_structured_completion(
                 provider=provider,
                 model=model,
@@ -74,7 +69,6 @@ class MetadataService:
             return result
 
         except Exception as e:
-            print(f"[METADATA] Error extracting for doc={document_id[:8]}...: {e}")
             raise RuntimeError(f"Metadata extraction failed: {e}")
 
     @staticmethod
@@ -108,10 +102,7 @@ class MetadataService:
                 "id", document_id
             ).eq("user_id", user_id).execute()
 
-            print(f"[METADATA] + Updated document {document_id[:8]}...")
-
         except Exception as e:
-            print(f"[METADATA] Error updating doc={document_id[:8]}...: {e}")
             raise RuntimeError(f"Failed to update document metadata: {e}")
 
 
