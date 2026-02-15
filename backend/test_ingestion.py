@@ -5,8 +5,7 @@ from main import app
 from io import BytesIO
 import os
 import time
-
-# Test credentials
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 
 client = TestClient(app)
 
