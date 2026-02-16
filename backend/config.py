@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     COHERE_RERANK_MODEL: str = "rerank-english-v3.0"
     LOCAL_RERANK_MODEL: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"
 
+    # Tavily (Module 7 - Web Search)
+    TAVILY_API_KEY: str | None = None
+    WEB_SEARCH_ENABLED: bool = True
+    WEB_SEARCH_MAX_RESULTS: int = 5
+
+    # Text-to-SQL (Module 7)
+    TEXT_TO_SQL_ENABLED: bool = True
+    SQL_QUERY_ROLE_PASSWORD: str | None = None
+
     # Server
     PORT: int = 8000
     CORS_ORIGINS: str = "http://localhost:5173"

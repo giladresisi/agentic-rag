@@ -1,5 +1,7 @@
 from config import settings
 from services.provider_service import provider_service
+from services.sql_service import sql_service
+from services.web_search_service import web_search_service
 from typing import AsyncGenerator, List, Dict, Tuple, Optional
 import os
 import json
@@ -38,6 +40,42 @@ class ChatService:
                     "query": {
                         "type": "string",
                         "description": "A detailed search query describing what to find. Be specific and include key terms from the user's question. Examples: 'document content and main topics', 'specifications and features', 'introduction and overview'. Avoid single generic words like 'summary' or 'overview'."
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    }
+
+    TEXT_TO_SQL_TOOL = {
+        "type": "function",
+        "function": {
+            "name": "query_books_database",
+            "description": "Query a database of books using natural language. Use for questions about books, authors, genres, ratings. Examples: 'Books by George Orwell', 'Fantasy books with high ratings', 'Books published after 1950'",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Natural language query about books"
+                    }
+                },
+                "required": ["query"]
+            }
+        }
+    }
+
+    WEB_SEARCH_TOOL = {
+        "type": "function",
+        "function": {
+            "name": "search_web",
+            "description": "Search web for current info not in documents. Use ONLY when documents lack answer or for current events. Try document retrieval first.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "Specific search query"
                     }
                 },
                 "required": ["query"]
@@ -90,14 +128,19 @@ class ChatService:
         if not conversation_history or conversation_history[0].get("role") != "system":
             system_message = {
                 "role": "system",
-                "content": """You are a helpful assistant with access to the user's uploaded documents.
+                "content": """You are a helpful assistant with tools:
 
-IMPORTANT RULES:
-1. When users ask about their documents, ALWAYS use the retrieve_documents tool first
-2. If the tool returns NO results or empty content, say: "I don't see any relevant information in your uploaded documents for that query. Could you rephrase your question or provide more context?"
-3. NEVER make up or fabricate document content - only use information actually returned by the retrieve_documents tool
-4. If no documents are found, DO NOT invent document titles, topics, or content
-5. Base your answers ONLY on the retrieved document chunks provided by the tool"""
+1. retrieve_documents: Search uploaded document content
+2. query_books_database: Query a books database with natural language
+3. search_web: Search web for current information
+
+RULES:
+- User's uploaded documents -> retrieve_documents
+- Questions about books/authors/genres -> query_books_database
+- Current events/recent info -> search_web
+- No results -> explain to user
+- NEVER fabricate - only use tool data
+- Always attribute sources"""
             }
             conversation_history.insert(0, system_message)
 
@@ -125,6 +168,13 @@ IMPORTANT RULES:
                 run_id = None
 
         try:
+            # Build tools list dynamically based on enabled features
+            tools = [ChatService.RETRIEVAL_TOOL]
+            if settings.TEXT_TO_SQL_ENABLED:
+                tools.append(ChatService.TEXT_TO_SQL_TOOL)
+            if settings.WEB_SEARCH_ENABLED:
+                tools.append(ChatService.WEB_SEARCH_TOOL)
+
             # Stream from provider with tools
             tool_calls = []
             current_tool_call = None
@@ -134,7 +184,7 @@ IMPORTANT RULES:
                 model=model,
                 messages=conversation_history,
                 base_url=base_url,
-                tools=[ChatService.RETRIEVAL_TOOL],
+                tools=tools,
             ):
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
@@ -169,8 +219,11 @@ IMPORTANT RULES:
                 from services.retrieval_service import retrieval_service
 
                 for tool_call in tool_calls:
-                    if tool_call["function"]["name"] == "retrieve_documents":
-                        args = json.loads(tool_call["function"]["arguments"])
+                    tool_name = tool_call["function"]["name"]
+                    args = json.loads(tool_call["function"]["arguments"])
+                    context_text = ""
+
+                    if tool_name == "retrieve_documents":
                         query = args.get("query", "")
 
                         chunks = await retrieval_service.retrieve_relevant_chunks(
@@ -194,36 +247,57 @@ IMPORTANT RULES:
                             for chunk in chunks
                         ]
 
-                        conversation_history.append({
-                            "role": "assistant",
-                            "content": None,
-                            "tool_calls": [{
-                                "id": tool_call["id"],
-                                "type": "function",
-                                "function": {
-                                    "name": "retrieve_documents",
-                                    "arguments": tool_call["function"]["arguments"]
-                                }
-                            }]
-                        })
-                        conversation_history.append({
-                            "role": "tool",
-                            "tool_call_id": tool_call["id"],
-                            "content": context_text
-                        })
+                    elif tool_name == "query_books_database":
+                        query = args.get("query", "")
+                        sql_response = await sql_service.natural_language_to_sql(query)
+                        if sql_response.error:
+                            context_text = f"SQL query failed: {sql_response.error}"
+                        else:
+                            context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} books):\n"
+                            context_text += "\n".join([str(r) for r in sql_response.results[:20]])
+                        sources = None
 
-                        # Follow-up stream without tools
-                        async for chunk in provider_service.stream_chat_completion(
-                            provider=provider,
-                            model=model,
-                            messages=conversation_history,
-                            base_url=base_url,
-                        ):
-                            if chunk.choices and len(chunk.choices) > 0:
-                                delta = chunk.choices[0].delta
-                                if delta.content:
-                                    full_response += delta.content
-                                    yield (delta.content, None)
+                    elif tool_name == "search_web":
+                        query = args.get("query", "")
+                        search_response = await web_search_service.search(query)
+                        if search_response.error:
+                            context_text = f"Web search failed: {search_response.error}"
+                        else:
+                            context_text = f"Web search: {query}\n\n"
+                            for i, r in enumerate(search_response.results, 1):
+                                context_text += f"{i}. {r.title}\n{r.content}\nSource: {r.url}\n\n"
+                        sources = None
+
+                    conversation_history.append({
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [{
+                            "id": tool_call["id"],
+                            "type": "function",
+                            "function": {
+                                "name": tool_name,
+                                "arguments": tool_call["function"]["arguments"]
+                            }
+                        }]
+                    })
+                    conversation_history.append({
+                        "role": "tool",
+                        "tool_call_id": tool_call["id"],
+                        "content": context_text
+                    })
+
+                # Follow-up stream without tools
+                async for chunk in provider_service.stream_chat_completion(
+                    provider=provider,
+                    model=model,
+                    messages=conversation_history,
+                    base_url=base_url,
+                ):
+                    if chunk.choices and len(chunk.choices) > 0:
+                        delta = chunk.choices[0].delta
+                        if delta.content:
+                            full_response += delta.content
+                            yield (delta.content, None)
 
             # Yield sources on final message (if any)
             if sources:
