@@ -1,7 +1,12 @@
 import { test, expect } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
 import { TEST_EMAIL, TEST_PASSWORD } from './utils';
+
+// ES modules equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 test.describe('Multi-file upload', () => {
   test.beforeEach(async ({ page }) => {
