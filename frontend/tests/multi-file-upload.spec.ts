@@ -1,9 +1,7 @@
 import { test, expect } from '@playwright/test';
 import * as path from 'path';
 import * as fs from 'fs';
-
-const TEST_EMAIL = process.env.TEST_EMAIL || '';
-const TEST_PASSWORD = process.env.TEST_PASSWORD || '';
+import { TEST_EMAIL, TEST_PASSWORD } from './utils';
 
 test.describe('Multi-file upload', () => {
   test.beforeEach(async ({ page }) => {
