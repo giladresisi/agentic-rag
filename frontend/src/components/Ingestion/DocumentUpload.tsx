@@ -71,6 +71,16 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     return null;
   };
 
+  const createQueuedFile = (file: File): QueuedFile => {
+    const validationError = validateFile(file);
+    return {
+      id: `${file.name}-${Date.now()}-${Math.random()}`,
+      file,
+      status: 'pending',
+      validationError: validationError || undefined,
+    };
+  };
+
   const handleFile = useCallback((file: File) => {
     const error = validateFile(file);
     if (error) {
