@@ -50,6 +50,16 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     filesRemaining: number;
   } | null>(null);
 
+  const removeFile = useCallback((id: string) => {
+    setFileQueue(prev => prev.filter(f => f.id !== id));
+  }, []);
+
+  const clearAll = useCallback(() => {
+    setFileQueue([]);
+    setCurrentUploadIndex(-1);
+    setIsPaused(false);
+  }, []);
+
   const validateFile = (file: File): string | null => {
     // Check file size
     if (file.size > MAX_FILE_SIZE_BYTES) {
