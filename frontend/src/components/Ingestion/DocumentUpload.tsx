@@ -60,6 +60,89 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     setIsPaused(false);
   }, []);
 
+  const uploadNext = useCallback(async () => {
+    // Find next valid file to upload
+    let nextIndex = currentUploadIndex + 1;
+    while (nextIndex < fileQueue.length) {
+      const queuedFile = fileQueue[nextIndex];
+      if (!queuedFile.validationError && queuedFile.status === 'pending') {
+        break;
+      }
+      nextIndex++;
+    }
+
+    // No more files to upload
+    if (nextIndex >= fileQueue.length) {
+      setCurrentUploadIndex(-1);
+      return;
+    }
+
+    setCurrentUploadIndex(nextIndex);
+    const queuedFile = fileQueue[nextIndex];
+
+    // Update status to uploading
+    setFileQueue(prev => prev.map((f, idx) =>
+      idx === nextIndex ? { ...f, status: 'uploading' as const } : f
+    ));
+
+    try {
+      await onUpload(queuedFile.file, embeddingConfig);
+
+      // Update status to success
+      setFileQueue(prev => prev.map((f, idx) =>
+        idx === nextIndex ? { ...f, status: 'success' as const } : f
+      ));
+
+      // Continue to next file
+      if (!isPaused) {
+        setTimeout(() => uploadNext(), 100);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+
+      // Update status to failed
+      setFileQueue(prev => prev.map((f, idx) =>
+        idx === nextIndex ? { ...f, status: 'failed' as const, error: errorMessage } : f
+      ));
+
+      // Count remaining files
+      const remainingCount = fileQueue.slice(nextIndex + 1).filter(
+        f => !f.validationError && f.status === 'pending'
+      ).length;
+
+      // Show error dialog
+      setIsPaused(true);
+      setErrorDialogData({
+        fileName: queuedFile.file.name,
+        error: errorMessage,
+        filesRemaining: remainingCount,
+      });
+      setShowErrorDialog(true);
+    }
+  }, [currentUploadIndex, fileQueue, onUpload, embeddingConfig, isPaused]);
+
+  const handleUploadAll = useCallback(() => {
+    if (fileQueue.length === 0) return;
+
+    setCurrentUploadIndex(-1);
+    setIsPaused(false);
+    uploadNext();
+  }, [fileQueue, uploadNext]);
+
+  const handleContinueUpload = useCallback(() => {
+    setShowErrorDialog(false);
+    setErrorDialogData(null);
+    setIsPaused(false);
+    uploadNext();
+  }, [uploadNext]);
+
+  const handleStopUpload = useCallback(() => {
+    setShowErrorDialog(false);
+    setErrorDialogData(null);
+    setCurrentUploadIndex(-1);
+    setIsPaused(false);
+  }, []);
+
   const validateFile = (file: File): string | null => {
     // Check file size
     if (file.size > MAX_FILE_SIZE_BYTES) {
@@ -127,23 +210,6 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     },
     [createQueuedFile]
   );
-
-  const handleUpload = async () => {
-    if (!selectedFile) return;
-
-    try {
-      await onUpload(selectedFile, embeddingConfig);
-      setSelectedFile(null);
-      setValidationError(null);
-    } catch (error) {
-      // Error is handled by parent component
-    }
-  };
-
-  const handleClear = () => {
-    setSelectedFile(null);
-    setValidationError(null);
-  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return bytes + ' B';
