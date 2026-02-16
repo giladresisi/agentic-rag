@@ -1,3 +1,5 @@
+import type { SubAgentMetadata } from './subagent';
+
 export interface Thread {
   id: string;
   title: string;
@@ -22,6 +24,7 @@ export interface Message {
   content: string;
   created_at: string;
   sources?: Source[];
+  subagent_metadata?: SubAgentMetadata;
 }
 
 export interface StreamEvent {

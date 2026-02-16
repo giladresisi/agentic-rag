@@ -4,7 +4,7 @@ Targeted test for RAG tool calling with unique content that requires retrieval.
 import asyncio
 from dotenv import load_dotenv
 from test_utils import TEST_EMAIL, TEST_PASSWORD
-from services.openai_service import openai_service
+from services.chat_service import ChatService
 from services.embedding_service import embedding_service
 from services.supabase_service import get_supabase_admin
 
@@ -17,8 +17,8 @@ async def setup():
     global test_user_id
     supabase = get_supabase_admin()
     auth_response = supabase.auth.sign_in_with_password({
-        "email": TEST_USER_EMAIL,
-        "password": TEST_USER_PASSWORD
+        "email": TEST_EMAIL,
+        "password": TEST_PASSWORD
     })
     test_user_id = auth_response.user.id
 
@@ -94,11 +94,13 @@ async def test_forced_retrieval():
         {"role": "user", "content": "What is the training code for TechFlow training?"}
     ]
 
+    chat_service = ChatService()
+
     print("\nStreaming response...")
     full_response = ""
     sources = None
 
-    async for delta, chunk_sources in openai_service.stream_response(
+    async for delta, chunk_sources, _subagent_meta in chat_service.stream_response(
         conversation_history=conversation_history,
         user_id=test_user_id,
         model="gpt-4o-mini"
@@ -115,7 +117,7 @@ async def test_forced_retrieval():
         print(f"[PASS] Tool called! Retrieved {len(sources)} sources:")
         for idx, source in enumerate(sources):
             print(f"  {idx+1}. {source['document_name']} (similarity: {source['similarity']:.3f})")
-            print(f"     Preview: {source['chunk_content'][:80]}...")
+            print(f"     Preview: {source['content'][:80]}...")
 
         # Verify response contains the correct answer
         if "ACME-TF-2024-Q1" in full_response:
@@ -150,11 +152,13 @@ async def test_with_system_prompt():
         }
     ]
 
+    chat_service = ChatService()
+
     print("\nStreaming response...")
     full_response = ""
     sources = None
 
-    async for delta, chunk_sources in openai_service.stream_response(
+    async for delta, chunk_sources, _subagent_meta in chat_service.stream_response(
         conversation_history=conversation_history,
         user_id=test_user_id,
         model="gpt-4o-mini"
