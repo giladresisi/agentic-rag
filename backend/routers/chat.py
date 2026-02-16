@@ -10,6 +10,18 @@ from typing import List
 import json
 from datetime import datetime
 from config import settings
+import os
+
+# Initialize LangSmith tracing
+langsmith_enabled = False
+langsmith_client = None
+
+try:
+    from langsmith import Client as LangSmithClient
+    langsmith_client = LangSmithClient()
+    langsmith_enabled = True
+except ImportError:
+    pass
 
 router = APIRouter()
 
@@ -114,6 +126,27 @@ async def generate_thread_title(
 
     first_message = messages_response.data[0]["content"]
 
+    # Create LangSmith run for title generation
+    run_id = None
+    if langsmith_enabled and langsmith_client:
+        try:
+            import uuid
+            from datetime import datetime, timezone
+            run_id = uuid.uuid4()
+            langsmith_client.create_run(
+                id=run_id,
+                name="generate_thread_title",
+                run_type="llm",
+                inputs={
+                    "first_message": first_message,
+                    "model": "gpt-4o-mini"
+                },
+                project_name=os.getenv('LANGCHAIN_PROJECT'),
+                start_time=datetime.now(timezone.utc),
+            )
+        except Exception:
+            run_id = None
+
     # Generate title using LLM
     try:
         client = provider_service._get_client("openai")
@@ -147,7 +180,31 @@ async def generate_thread_title(
         if not generated_title:
             generated_title = first_message[:50] + ("..." if len(first_message) > 50 else "")
 
+        # Close LangSmith trace on success
+        if langsmith_enabled and langsmith_client and run_id:
+            try:
+                from datetime import datetime, timezone
+                langsmith_client.update_run(
+                    run_id=run_id,
+                    outputs={"title": generated_title},
+                    end_time=datetime.now(timezone.utc),
+                )
+            except Exception:
+                pass
+
     except Exception as e:
+        # Close trace with error
+        if langsmith_enabled and langsmith_client and run_id:
+            try:
+                from datetime import datetime, timezone
+                langsmith_client.update_run(
+                    run_id=run_id,
+                    error=str(e),
+                    end_time=datetime.now(timezone.utc),
+                )
+            except Exception:
+                pass
+
         # Fallback to first 50 chars of message if title generation fails
         generated_title = first_message[:50] + ("..." if len(first_message) > 50 else "")
 

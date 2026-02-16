@@ -109,6 +109,49 @@ class ChatService:
     }
 
     @staticmethod
+    def _trace_tool_call(
+        parent_run_id: str,
+        tool_name: str,
+        inputs: Dict,
+        outputs: Dict,
+        metadata: Optional[Dict] = None
+    ):
+        """Create a child LangSmith run for a tool execution.
+
+        Args:
+            parent_run_id: ID of parent chat completion run
+            tool_name: Name of the tool being executed
+            inputs: Tool input parameters
+            outputs: Tool execution results
+            metadata: Optional additional metadata
+        """
+        if not langsmith_enabled or not langsmith_client:
+            return
+
+        try:
+            import uuid
+            from datetime import datetime, timezone
+
+            child_run_id = uuid.uuid4()
+
+            # Start the tool run
+            langsmith_client.create_run(
+                id=child_run_id,
+                name=f"tool_{tool_name}",
+                run_type="tool",
+                inputs=inputs,
+                outputs=outputs,
+                parent_run_id=parent_run_id,
+                project_name=os.getenv('LANGCHAIN_PROJECT'),
+                start_time=datetime.now(timezone.utc),
+                end_time=datetime.now(timezone.utc),
+                extra=metadata or {}
+            )
+        except Exception:
+            # Tracing failures should not break tool execution
+            pass
+
+    @staticmethod
     def build_conversation_history(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
         """Build conversation history in Chat Completions format.
 
@@ -144,7 +187,6 @@ class ChatService:
             Tuples of (text_delta, sources, subagent_metadata) where sources/metadata populated on final yield
         """
         full_response = ""
-        trace_closed = False
         sources = None
         subagent_metadata = None
 
@@ -195,6 +237,8 @@ IMPORTANT RULES:
                 )
             except Exception:
                 run_id = None
+
+        error_occurred = None
 
         try:
             # Build tools list dynamically based on enabled features
@@ -276,6 +320,24 @@ IMPORTANT RULES:
                             for chunk in chunks
                         ]
 
+                        # Add LangSmith tracing
+                        ChatService._trace_tool_call(
+                            parent_run_id=run_id,
+                            tool_name="retrieve_documents",
+                            inputs={"query": query, "user_id": user_id},
+                            outputs={
+                                "chunk_count": len(chunks),
+                                "document_names": list(set(c["document_name"] for c in chunks)),
+                                "top_similarity": chunks[0]["similarity"] if chunks else None
+                            },
+                            metadata={
+                                "sources": [
+                                    {"doc": c["document_name"], "similarity": c["similarity"]}
+                                    for c in chunks
+                                ]
+                            }
+                        )
+
                         conversation_history.append({
                             "role": "assistant",
                             "content": None,
@@ -297,11 +359,40 @@ IMPORTANT RULES:
                     elif tool_name == "query_books_database":
                         query = args.get("query", "")
                         sql_response = await sql_service.natural_language_to_sql(query)
+
                         if sql_response.error:
                             context_text = f"SQL query failed: {sql_response.error}"
+
+                            # Trace failed SQL query
+                            ChatService._trace_tool_call(
+                                parent_run_id=run_id,
+                                tool_name="query_books_database",
+                                inputs={"natural_language_query": query},
+                                outputs={
+                                    "error": sql_response.error,
+                                    "sql_query": sql_response.query
+                                },
+                                metadata={"status": "failed"}
+                            )
                         else:
                             context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} books):\n"
                             context_text += "\n".join([str(r) for r in sql_response.results[:20]])
+
+                            # Trace successful SQL query
+                            ChatService._trace_tool_call(
+                                parent_run_id=run_id,
+                                tool_name="query_books_database",
+                                inputs={"natural_language_query": query},
+                                outputs={
+                                    "sql_query": sql_response.query,
+                                    "row_count": sql_response.row_count,
+                                    "sample_results": sql_response.results[:3]
+                                },
+                                metadata={
+                                    "status": "success",
+                                    "table": "books"
+                                }
+                            )
 
                         conversation_history.append({
                             "role": "assistant",
@@ -324,12 +415,41 @@ IMPORTANT RULES:
                     elif tool_name == "search_web":
                         query = args.get("query", "")
                         search_response = await web_search_service.search(query)
+
                         if search_response.error:
                             context_text = f"Web search failed: {search_response.error}"
+
+                            # Trace failed web search
+                            ChatService._trace_tool_call(
+                                parent_run_id=run_id,
+                                tool_name="search_web",
+                                inputs={"search_query": query},
+                                outputs={
+                                    "error": search_response.error,
+                                    "result_count": 0
+                                },
+                                metadata={"status": "failed"}
+                            )
                         else:
                             context_text = f"Web search: {query}\n\n"
                             for i, r in enumerate(search_response.results, 1):
                                 context_text += f"{i}. {r.title}\n{r.content}\nSource: {r.url}\n\n"
+
+                            # Trace successful web search
+                            ChatService._trace_tool_call(
+                                parent_run_id=run_id,
+                                tool_name="search_web",
+                                inputs={"search_query": query},
+                                outputs={
+                                    "result_count": search_response.result_count,
+                                    "top_urls": [r.url for r in search_response.results[:5]],
+                                    "top_titles": [r.title for r in search_response.results[:5]]
+                                },
+                                metadata={
+                                    "status": "success",
+                                    "max_results": settings.WEB_SEARCH_MAX_RESULTS
+                                }
+                            )
 
                         conversation_history.append({
                             "role": "assistant",
@@ -366,6 +486,21 @@ IMPORTANT RULES:
                         if not doc_response.data:
                             # Document not found - add error to conversation
                             context_text = f"Error: Document '{document_name}' not found. Please verify the document name and ensure it has been fully processed."
+
+                            # Trace failed subagent call
+                            ChatService._trace_tool_call(
+                                parent_run_id=run_id,
+                                tool_name="analyze_document_with_subagent",
+                                inputs={
+                                    "task_description": task_description,
+                                    "document_name": document_name
+                                },
+                                outputs={
+                                    "error": "Document not found",
+                                    "status": "failed"
+                                },
+                                metadata={"user_id": user_id}
+                            )
                         else:
                             # Execute sub-agent
                             from services.subagent_service import execute_subagent
@@ -390,6 +525,27 @@ IMPORTANT RULES:
                             }
 
                             context_text = result.result if result.status == "completed" else f"Error: {result.error}"
+
+                            # Trace subagent execution
+                            ChatService._trace_tool_call(
+                                parent_run_id=run_id,
+                                tool_name="analyze_document_with_subagent",
+                                inputs={
+                                    "task_description": task_description,
+                                    "document_name": document_name,
+                                    "document_id": doc_response.data[0]["id"]
+                                },
+                                outputs={
+                                    "status": result.status,
+                                    "result_preview": result.result[:200] if result.result else None,
+                                    "reasoning_steps_count": len(result.reasoning_steps),
+                                    "error": result.error
+                                },
+                                metadata={
+                                    "parent_depth": 0,
+                                    "user_id": user_id
+                                }
+                            )
 
                         conversation_history.append({
                             "role": "assistant",
@@ -426,33 +582,32 @@ IMPORTANT RULES:
             if sources or subagent_metadata:
                 yield ("", sources, subagent_metadata)
 
-            # Close LangSmith trace on success
-            if langsmith_enabled and langsmith_client and run_id:
-                try:
-                    from datetime import datetime, timezone
-                    langsmith_client.update_run(
-                        run_id=run_id,
-                        outputs={"content": full_response, "sources": sources, "subagent_metadata": subagent_metadata},
-                        end_time=datetime.now(timezone.utc),
-                    )
-                    trace_closed = True
-                except Exception:
-                    pass
-
         except Exception as e:
-            # Close trace with error
+            error_occurred = e
+            raise Exception(f"Failed to stream response: {str(e)}")
+
+        finally:
+            # Always close LangSmith trace
             if langsmith_enabled and langsmith_client and run_id:
                 try:
                     from datetime import datetime, timezone
-                    langsmith_client.update_run(
-                        run_id=run_id,
-                        error=str(e),
-                        end_time=datetime.now(timezone.utc),
-                    )
+                    if error_occurred:
+                        # Close with error
+                        langsmith_client.update_run(
+                            run_id=run_id,
+                            error=str(error_occurred),
+                            end_time=datetime.now(timezone.utc),
+                        )
+                    else:
+                        # Close with success
+                        langsmith_client.update_run(
+                            run_id=run_id,
+                            outputs={"content": full_response, "sources": sources, "subagent_metadata": subagent_metadata},
+                            end_time=datetime.now(timezone.utc),
+                        )
                 except Exception:
+                    # If trace closure fails, don't break the response
                     pass
-
-            raise Exception(f"Failed to stream response: {str(e)}")
 
 
 chat_service = ChatService()
