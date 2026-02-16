@@ -177,6 +177,35 @@ Hybrid search combining PostgreSQL full-text search with vector similarity via R
 
 ---
 
+## Enhancement: Multi-File Upload ✅
+
+**Status:** ✅ Complete
+**Completed:** 2026-02-16
+**Design:** `docs/plans/2026-02-16-multi-file-upload-design.md`
+**Plan:** `docs/plans/2026-02-16-multi-file-upload-implementation.md`
+
+### Core Validation
+Multi-file document upload with queue management, sequential processing, and interactive error handling validated through E2E tests. Users can select unlimited files, review/remove from queue, and handle upload failures interactively.
+
+### Test Status
+- **E2E Tests:** ✅ 6/6 passing
+  - Multi-file selection via file picker
+  - Queue management (remove, clear all)
+  - Sequential upload with status tracking
+  - Validation error handling
+  - Upload summary display
+  - Backward compatibility
+
+### Notes
+- Frontend-only changes (no backend modifications)
+- Queue state managed in DocumentUpload component
+- Error dialog prompts user on failure (continue/stop)
+- Invalid files shown in queue but skipped during upload
+- Backward compatible with single-file uploads
+- Existing Supabase Realtime status updates still work
+
+---
+
 ## Module 7: Additional Tools ✅
 
 **Status:** ✅ Complete
