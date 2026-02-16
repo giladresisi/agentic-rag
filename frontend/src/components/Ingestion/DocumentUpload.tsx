@@ -120,10 +120,13 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (files && files.length > 0) {
-        handleFile(files[0]);
+        const newFiles = Array.from(files).map(createQueuedFile);
+        setFileQueue(prev => [...prev, ...newFiles]);
       }
+      // Reset input so same file can be selected again
+      e.target.value = '';
     },
-    [handleFile]
+    [createQueuedFile]
   );
 
   const handleUpload = async () => {
@@ -179,6 +182,7 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
               accept={SUPPORTED_TYPES.join(',')}
               onChange={handleFileInput}
               disabled={isUploading}
+              multiple
             />
             <Button
               variant="outline"
