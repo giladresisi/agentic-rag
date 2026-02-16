@@ -43,3 +43,7 @@ htmlcov/
 .pytest_cache/
 frontend/playwright-report/
 frontend/test-results/
+
+# Test fixtures (temporary files created during test runs)
+frontend/tests/fixtures/
+frontend/signup-debug.png

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Document, Chunk } from '@/types/ingestion';
 import type { ProviderConfig } from '@/types/chat';
 import { supabase } from '@/lib/supabase';
@@ -10,6 +10,9 @@ export function useIngestion(token: string | null) {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Track pending upload request to prevent duplicates
+  const pendingUploadRef = useRef<AbortController | null>(null);
 
   const fetchDocuments = async () => {
     if (!token) return;
@@ -93,6 +96,15 @@ export function useIngestion(token: string | null) {
   const uploadDocument = async (file: File, embeddingConfig?: ProviderConfig): Promise<void> => {
     if (!token) throw new Error('Not authenticated');
 
+    // Cancel any pending upload request (prevents duplicates from React Strict Mode)
+    if (pendingUploadRef.current) {
+      pendingUploadRef.current.abort();
+    }
+
+    // Create new AbortController for this upload
+    const controller = new AbortController();
+    pendingUploadRef.current = controller;
+
     setIsUploading(true);
     setError(null);
 
@@ -117,6 +129,7 @@ export function useIngestion(token: string | null) {
           'Authorization': `Bearer ${token}`,
         },
         body: formData,
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -133,10 +146,17 @@ export function useIngestion(token: string | null) {
       // Refresh to ensure consistency
       await fetchDocuments();
     } catch (err) {
+      // Don't treat aborted requests as errors (expected when canceling duplicates)
+      if (err instanceof Error && err.name === 'AbortError') {
+        return;
+      }
+
       const errorMessage = err instanceof Error ? err.message : 'Failed to upload document';
       setError(errorMessage);
       throw new Error(errorMessage);
     } finally {
+      // Clear pending request reference
+      pendingUploadRef.current = null;
       setIsUploading(false);
     }
   };
