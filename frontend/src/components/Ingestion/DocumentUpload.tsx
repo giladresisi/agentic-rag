@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Upload, FileText, X, AlertCircle } from 'lucide-react';
 import type { ProviderConfig } from '@/types/chat';
+import { UploadErrorDialog } from './UploadErrorDialog';
 
 const MAX_FILE_SIZE_MB = 10;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -23,6 +24,14 @@ const SUPPORTED_MIME_TYPES = [
   'text/rtf',
 ];
 
+interface QueuedFile {
+  id: string;
+  file: File;
+  status: 'pending' | 'uploading' | 'success' | 'failed';
+  error?: string;
+  validationError?: string;
+}
+
 interface DocumentUploadProps {
   onUpload: (file: File, embeddingConfig?: ProviderConfig) => Promise<void>;
   isUploading: boolean;
@@ -31,8 +40,15 @@ interface DocumentUploadProps {
 
 export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [fileQueue, setFileQueue] = useState<QueuedFile[]>([]);
+  const [currentUploadIndex, setCurrentUploadIndex] = useState<number>(-1);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorDialogData, setErrorDialogData] = useState<{
+    fileName: string;
+    error: string;
+    filesRemaining: number;
+  } | null>(null);
 
   const validateFile = (file: File): string | null => {
     // Check file size
