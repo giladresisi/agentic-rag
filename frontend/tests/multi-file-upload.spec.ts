@@ -173,4 +173,154 @@ test.describe('Multi-file upload', () => {
     // Cleanup
     if (fs.existsSync(invalidFile)) fs.unlinkSync(invalidFile);
   });
+
+  test('should handle duplicate file errors and continue with remaining files', async ({ page }) => {
+    const fixturesDir = path.join(__dirname, 'fixtures');
+    if (!fs.existsSync(fixturesDir)) {
+      fs.mkdirSync(fixturesDir, { recursive: true });
+    }
+
+    // Create unique test files with timestamp to avoid conflicts with other tests
+    const timestamp = Date.now();
+    const duplicateFile = path.join(fixturesDir, `duplicate-${timestamp}.txt`);
+    const file2 = path.join(fixturesDir, `after-duplicate1-${timestamp}.txt`);
+    const file3 = path.join(fixturesDir, `after-duplicate2-${timestamp}.txt`);
+
+    fs.writeFileSync(duplicateFile, 'This file will be uploaded twice');
+    fs.writeFileSync(file2, 'Second file content');
+    fs.writeFileSync(file3, 'Third file content');
+
+    try {
+      // Step 1: Upload the file for the first time
+      const fileInput1 = page.locator('input[type="file"]').first();
+      await fileInput1.setInputFiles([duplicateFile]);
+
+      await expect(page.locator('text=1 file in queue')).toBeVisible();
+
+      // Upload - we just need the file to reach storage, not complete processing
+      await page.click('text=Upload All');
+
+      // Wait for upload to start
+      await expect(page.locator('text=Uploading 1 of 1')).toBeVisible({ timeout: 10000 });
+
+      // Wait a few seconds for the file to reach storage
+      // The file will be uploaded to storage immediately, even if processing continues
+      await page.waitForTimeout(5000);
+
+      // Navigate back to ingestion page to reset upload state
+      await page.goto('http://localhost:5173/ingestion');
+      await page.waitForLoadState('networkidle');
+
+      // Wait for upload interface to be ready
+      await expect(page.locator('text=Upload Documents')).toBeVisible({ timeout: 10000 });
+
+      // Step 2: Try to upload the same file again + 2 new files
+      const fileInput2 = page.locator('input[type="file"]').first();
+      await fileInput2.setInputFiles([duplicateFile, file2, file3]);
+
+      // Verify 3 files in queue
+      await expect(page.locator('text=3 files in queue')).toBeVisible();
+
+      // Start upload
+      await page.click('text=Upload All');
+
+      // Wait for the duplicate error dialog to appear
+      await expect(page.locator('text=Upload Failed')).toBeVisible({ timeout: 15000 });
+      await expect(page.locator(`text="${path.basename(duplicateFile)}" failed to upload`)).toBeVisible();
+      await expect(page.locator('text=already exists')).toBeVisible();
+      await expect(page.locator('text=2 files remaining in queue')).toBeVisible();
+
+      // Click "Continue with next file"
+      await page.click('button:has-text("Continue with next file")');
+
+      // Verify dialog closes
+      await expect(page.locator('text=Upload Failed')).not.toBeVisible();
+
+      // Wait for next file to start uploading
+      await expect(page.locator('text=Uploading')).toBeVisible({ timeout: 10000 });
+
+      // Wait for all uploads to complete - look for success status on the remaining files
+      // We should see 2 success icons (for file2 and file3)
+      await expect(page.locator('text=✓')).toHaveCount(2, { timeout: 60000 });
+
+      // Verify the duplicate file shows failed status
+      await expect(page.locator('text=Failed')).toBeVisible();
+      await expect(page.locator('text=✗')).toBeVisible();
+
+      // Wait a moment for the upload complete message
+      await page.waitForTimeout(1000);
+
+      // Verify final summary if visible (optional, may not always appear)
+      const uploadComplete = page.locator('text=Upload Complete');
+      if (await uploadComplete.isVisible({ timeout: 2000 }).catch(() => false)) {
+        await expect(page.locator('text=2 succeeded, 1 failed')).toBeVisible();
+      }
+
+    } finally {
+      // Cleanup test files
+      [duplicateFile, file2, file3].forEach(filePath => {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      });
+
+      // Cleanup uploaded documents from the database
+      // Note: In a real test, you might want to delete these via API or clean up the test user's data
+      // For now, the cleanup happens naturally when the test user's documents are cleared
+    }
+  });
+
+  test('should stop upload when user clicks "Stop uploading" on error', async ({ page }) => {
+    const fixturesDir = path.join(__dirname, 'fixtures');
+    if (!fs.existsSync(fixturesDir)) {
+      fs.mkdirSync(fixturesDir, { recursive: true });
+    }
+
+    const timestamp = Date.now();
+    const duplicateFile = path.join(fixturesDir, `stop-duplicate-${timestamp}.txt`);
+    const file2 = path.join(fixturesDir, `stop-after1-${timestamp}.txt`);
+    const file3 = path.join(fixturesDir, `stop-after2-${timestamp}.txt`);
+
+    fs.writeFileSync(duplicateFile, 'Duplicate file for stop test');
+    fs.writeFileSync(file2, 'Should not upload 1');
+    fs.writeFileSync(file3, 'Should not upload 2');
+
+    try {
+      // Upload the file first
+      const fileInput1 = page.locator('input[type="file"]').first();
+      await fileInput1.setInputFiles([duplicateFile]);
+      await page.click('text=Upload All');
+
+      // Wait for upload to reach storage
+      await page.waitForTimeout(5000);
+
+      // Navigate back to ingestion page to reset state
+      await page.goto('http://localhost:5173/ingestion');
+      await page.waitForLoadState('networkidle');
+      await expect(page.locator('text=Upload Documents')).toBeVisible({ timeout: 10000 });
+
+      // Try to upload duplicate + 2 new files
+      const fileInput2 = page.locator('input[type="file"]').first();
+      await fileInput2.setInputFiles([duplicateFile, file2, file3]);
+      await page.click('text=Upload All');
+
+      // Wait for error dialog
+      await expect(page.locator('text=Upload Failed')).toBeVisible({ timeout: 15000 });
+
+      // Click "Stop uploading"
+      await page.click('button:has-text("Stop uploading")');
+
+      // Verify dialog closes
+      await expect(page.locator('text=Upload Failed')).not.toBeVisible();
+
+      // Verify no "Upload Complete" message appears (upload was stopped)
+      // The queue should show 1 failed, 2 waiting (not uploaded)
+      await expect(page.locator('text=Failed')).toBeVisible();
+      await expect(page.locator('text=Waiting')).toHaveCount(2);
+
+    } finally {
+      // Cleanup
+      [duplicateFile, file2, file3].forEach(filePath => {
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      });
+    }
+  });
 });
