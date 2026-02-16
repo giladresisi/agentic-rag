@@ -179,7 +179,12 @@ Hybrid search combining PostgreSQL full-text search with vector similarity via R
 
 ## Module 7: Additional Tools 🔄
 
-**Status:** Not started
+**Status:** Planning in progress
+**Started:** 2026-02-16
+**Plan File:** .agents/plans/module-7-additional-tools.md
+
+### Planning Phase
+Analyzing codebase for tool calling patterns, text-to-SQL implementation approaches, and web search integration strategies. Creating comprehensive implementation plan with automated test coverage.
 
 Will include:
 - Text-to-SQL for structured data queries
