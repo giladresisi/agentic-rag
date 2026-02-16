@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import type { Message } from '@/types/chat';
 import { User, Bot, Loader } from 'lucide-react';
+import { SubAgentSection } from './SubAgentSection';
 
 interface MessageListProps {
   messages: Message[];
@@ -58,6 +59,9 @@ export function MessageList({ messages, streamingContent, isStreaming }: Message
                     ))}
                   </div>
                 </div>
+              )}
+              {message.role === 'assistant' && message.subagent_metadata && (
+                <SubAgentSection metadata={message.subagent_metadata} />
               )}
             </div>
             {message.role === 'user' && (

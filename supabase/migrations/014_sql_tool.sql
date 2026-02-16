@@ -30,7 +30,7 @@ ON CONFLICT (isbn) DO NOTHING;
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'sql_query_role') THEN
-        CREATE ROLE sql_query_role WITH LOGIN PASSWORD 'test-rag';
+        CREATE ROLE sql_query_role WITH LOGIN PASSWORD '***';
     END IF;
 END $$;
 

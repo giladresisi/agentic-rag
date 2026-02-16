@@ -172,5 +172,111 @@ SUPPORTED_FILE_TYPES="pdf,docx,html,md,txt"  # User's custom value
 - Primary: Windows (development), Linux (production)
 - Testing: Ensure tests pass on Windows with MINGW64/Git Bash
 
+## Streaming Response Patterns
+
+### Extending Stream Metadata
+
+When adding new metadata to streaming responses (e.g., sources, subagent_metadata):
+
+1. **Use tuple expansion:** Extend existing tuple pattern rather than creating new channels
+   - Example: `(delta, sources)` → `(delta, sources, metadata)`
+2. **Update all unpacking sites:** Search for all locations that unpack the stream yield
+   - Router unpacking: `async for delta, sources, metadata in stream_response(...)`
+   - Test unpacking: Update all test assertions that consume streams
+3. **Document as breaking change:** Note in plan that signature change affects dependent code
+4. **Consider alternatives for frequent expansion:** If stream yields grow beyond 3-4 values, migrate to:
+   - Named tuple: `StreamChunk(delta="...", sources=[], metadata=None)`
+   - Dataclass: `@dataclass class StreamChunk: delta: str; sources: List; metadata: Optional[Dict]`
+
+**Why tuples work for 2-3 values:**
+- Simple and performant
+- Easy to unpack inline
+- Clear contract for consumers
+
+**When to use named types:**
+- More than 3 values in tuple
+- Frequent additions expected
+- Complex nested metadata structures
+
+## Pre-Execution Test Audit
+
+Before implementing features, verify test suite health to avoid discovering broken tests mid-execution.
+
+**Process:**
+
+1. **Run full test suite before starting implementation:**
+   ```bash
+   # Backend
+   cd backend && venv/Scripts/python -m pytest
+
+   # Frontend
+   cd frontend && npm test
+   ```
+
+2. **Document test status in plan:**
+   - Which tests are passing (baseline)
+   - Which tests are broken (pre-existing)
+   - Which tests are skipped (intentional)
+
+3. **Decide on broken tests:**
+   - Fix before implementation (if blocking)
+   - Fix during implementation (if related to feature)
+   - Document as known issue (if unrelated)
+
+**Benefits:**
+- Clear baseline of what works before changes
+- Prevents confusion about what broke during implementation
+- Allows proactive fixing of related broken tests
+- Enables accurate regression detection
+
+**Example plan section:**
+```markdown
+## Pre-Implementation Test Status
+
+**Backend Tests:** 15/17 passing
+- ✅ test_provider_service.py (9/9)
+- ✅ test_subagent_service.py (3/3)
+- ❌ test_rag_tool_calling.py (0/2) - BROKEN: outdated imports from Module 2
+- ⚠️ test_auth.py (3/3) - SKIPPED: requires manual browser
+
+**Frontend Tests:** 12/12 passing
+
+**Decision:** Fix test_rag_tool_calling.py during implementation (related to tool calling)
+```
+
+## Team-Based Execution Best Practices
+
+When using parallel agents for feature implementation:
+
+### Wave-Based Dependency Management
+
+1. **Define clear interface contracts between waves:**
+   - What outputs Wave N provides
+   - What inputs Wave N+1 requires
+   - Example: "Task 1.2 provides `read_full_document(doc_id, user_id) -> str`"
+
+2. **Use WAVE annotations in task descriptions:**
+   - Mark each task with its wave number: `WAVE: 1`, `WAVE: 2`
+   - Enables parallel execution within waves, sequential between waves
+
+3. **Prefer named parameters over positional tuples for cross-agent APIs:**
+   - Better: `StreamChunk(delta=..., sources=[], metadata=None)`
+   - Worse: `(delta, sources, metadata)` (brittle when expanding)
+
+### Migration Coordination
+
+4. **Reserve migration number ranges for parallel modules:**
+   - When multiple features in development simultaneously
+   - Example: Module 7 uses 014-019, Module 8 uses 020-025
+   - Prevents renumbering after merge conflicts
+
+### Performance Metrics
+
+5. **Expected efficiency gains from parallelization:**
+   - 2-agent wave: ~2x speedup vs sequential
+   - 3-agent wave: ~3x speedup vs sequential
+   - Coordination overhead: typically <10% time cost
+   - Net gain: 30-50% total time reduction for 4+ wave projects
+
 ## Progress
 Check PROGRESS.md for current module status. Update it as you complete requests.
