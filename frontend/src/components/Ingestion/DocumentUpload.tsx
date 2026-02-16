@@ -282,24 +282,24 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
   };
 
   return (
-    <Card className="p-6">
-      <h2 className="text-lg font-semibold mb-4">Upload Document</h2>
+    <>
+      <Card className="p-6">
+        <h2 className="text-lg font-semibold mb-4">Upload Documents</h2>
 
-      <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-muted-foreground/25 hover:border-primary/50'
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        {!selectedFile ? (
-          <>
+        {fileQueue.length === 0 ? (
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              isDragging
+                ? 'border-primary bg-primary/5'
+                : 'border-muted-foreground/25 hover:border-primary/50'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
             <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-sm text-muted-foreground mb-2">
-              Drag and drop a file here, or click to browse
+              Drag and drop files here, or click to browse
             </p>
             <p className="text-xs text-muted-foreground mb-4">
               Supported formats: PDF, DOCX, PPTX, TXT, HTML, MD, CSV, JSON, XML, RTF (max {MAX_FILE_SIZE_MB}MB)
@@ -321,43 +321,93 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
             >
               Browse Files
             </Button>
-          </>
+          </div>
         ) : (
           <div className="space-y-4">
-            <div className="flex items-center justify-center gap-3">
-              <FileText className="w-8 h-8 text-primary" />
-              <div className="flex-1 text-left">
-                <p className="text-sm font-medium">{selectedFile.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {formatFileSize(selectedFile.size)}
-                </p>
-              </div>
+            {/* Queue Header */}
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {fileQueue.length} file{fileQueue.length !== 1 ? 's' : ''} in queue
+              </p>
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleClear}
-                disabled={isUploading}
+                onClick={clearAll}
+                disabled={currentUploadIndex >= 0}
               >
-                <X className="w-4 h-4" />
+                Clear All
               </Button>
             </div>
-            <Button
-              onClick={handleUpload}
-              disabled={isUploading}
-              className="w-full"
-            >
-              {isUploading ? 'Uploading...' : 'Upload Document'}
-            </Button>
+
+            {/* File Queue */}
+            <div className="max-h-64 overflow-y-auto space-y-2">
+              {fileQueue.map((queuedFile, index) => (
+                <QueueItem
+                  key={queuedFile.id}
+                  queuedFile={queuedFile}
+                  onRemove={() => removeFile(queuedFile.id)}
+                  canRemove={index !== currentUploadIndex}
+                />
+              ))}
+            </div>
+
+            {/* Upload Controls */}
+            <div className="flex gap-2">
+              <input
+                type="file"
+                id="file-input-add"
+                className="hidden"
+                accept={SUPPORTED_TYPES.join(',')}
+                onChange={handleFileInput}
+                disabled={currentUploadIndex >= 0}
+                multiple
+              />
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById('file-input-add')?.click()}
+                disabled={currentUploadIndex >= 0}
+              >
+                Add More Files
+              </Button>
+              <Button
+                onClick={handleUploadAll}
+                disabled={
+                  currentUploadIndex >= 0 ||
+                  fileQueue.every(f => f.validationError || f.status !== 'pending')
+                }
+                className="flex-1"
+              >
+                {currentUploadIndex >= 0
+                  ? `Uploading ${currentUploadIndex + 1} of ${fileQueue.length}...`
+                  : 'Upload All'}
+              </Button>
+            </div>
+
+            {/* Upload Summary */}
+            {currentUploadIndex === -1 && fileQueue.some(f => f.status !== 'pending') && (
+              <div className="p-3 bg-muted rounded-md text-sm">
+                <p className="font-medium mb-1">Upload Complete</p>
+                <p className="text-muted-foreground">
+                  {fileQueue.filter(f => f.status === 'success').length} succeeded, {' '}
+                  {fileQueue.filter(f => f.status === 'failed').length} failed
+                </p>
+              </div>
+            )}
           </div>
         )}
-      </div>
+      </Card>
 
-      {validationError && (
-        <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-destructive mt-0.5" />
-          <p className="text-sm text-destructive">{validationError}</p>
-        </div>
+      {/* Error Dialog */}
+      {errorDialogData && (
+        <UploadErrorDialog
+          isOpen={showErrorDialog}
+          fileName={errorDialogData.fileName}
+          error={errorDialogData.error}
+          filesRemaining={errorDialogData.filesRemaining}
+          onContinue={handleContinueUpload}
+          onStop={handleStopUpload}
+        />
       )}
-    </Card>
+    </>
   );
 }
