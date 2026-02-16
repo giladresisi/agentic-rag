@@ -141,6 +141,70 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
+  const QueueItem = ({ queuedFile, onRemove, canRemove }: {
+    queuedFile: QueuedFile;
+    onRemove: () => void;
+    canRemove: boolean;
+  }) => {
+    const getStatusIcon = () => {
+      if (queuedFile.status === 'success') {
+        return <span className="text-green-600">✓</span>;
+      }
+      if (queuedFile.status === 'failed') {
+        return <span className="text-destructive">✗</span>;
+      }
+      if (queuedFile.status === 'uploading') {
+        return <span className="text-primary">↻</span>;
+      }
+      if (queuedFile.validationError) {
+        return <span className="text-destructive">!</span>;
+      }
+      return <span className="text-muted-foreground">○</span>;
+    };
+
+    const getStatusBadge = () => {
+      if (queuedFile.status === 'uploading') return 'Uploading...';
+      if (queuedFile.status === 'success') return 'Success';
+      if (queuedFile.status === 'failed') return 'Failed';
+      if (queuedFile.validationError) return 'Invalid';
+      return 'Waiting';
+    };
+
+    return (
+      <div className={`flex items-center gap-3 p-3 rounded-md border ${
+        queuedFile.status === 'uploading' ? 'bg-primary/5 border-primary' : 'bg-muted/30'
+      }`}>
+        <FileText className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium truncate">{queuedFile.file.name}</p>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <span>{formatFileSize(queuedFile.file.size)}</span>
+            <span>•</span>
+            <span className="flex items-center gap-1">
+              {getStatusIcon()}
+              {getStatusBadge()}
+            </span>
+          </div>
+          {queuedFile.validationError && (
+            <p className="text-xs text-destructive mt-1">{queuedFile.validationError}</p>
+          )}
+          {queuedFile.error && (
+            <p className="text-xs text-destructive mt-1">{queuedFile.error}</p>
+          )}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onRemove}
+          disabled={!canRemove}
+          title={!canRemove ? 'Cannot remove file during upload' : 'Remove file'}
+        >
+          <X className="w-4 h-4" />
+        </Button>
+      </div>
+    );
+  };
+
   return (
     <Card className="p-6">
       <h2 className="text-lg font-semibold mb-4">Upload Document</h2>
