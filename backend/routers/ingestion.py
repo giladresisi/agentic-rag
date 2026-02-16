@@ -239,6 +239,13 @@ async def upload_document(
             file_options={"content-type": file.content_type}
         )
     except Exception as e:
+        error_msg = str(e).lower()
+        # Check if error is due to duplicate path
+        if "duplicate" in error_msg or "already exists" in error_msg:
+            raise HTTPException(
+                status_code=409,
+                detail=f"File '{file.filename}' already exists. Please rename the file or delete the existing one."
+            )
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
     # Compute file content hash
@@ -272,13 +279,31 @@ async def upload_document(
 
         document = response.data[0]
 
-    except Exception as e:
-        # Clean up storage if database insert fails
+    except HTTPException:
+        # Re-raise HTTP exceptions (from line 278) after attempting cleanup
         try:
             supabase.storage.from_("documents").remove([storage_path])
-        except:
-            pass
-        raise HTTPException(status_code=500, detail=f"Failed to create document: {str(e)}")
+        except Exception as cleanup_error:
+            # Storage cleanup failed - file will be orphaned
+            # Re-raise original error with cleanup warning
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to create document record. Storage cleanup also failed: {str(cleanup_error)}"
+            )
+        raise  # Re-raise original HTTPException
+    except Exception as e:
+        # Clean up storage if database insert fails
+        cleanup_success = True
+        try:
+            supabase.storage.from_("documents").remove([storage_path])
+        except Exception as cleanup_error:
+            cleanup_success = False
+
+        # Report both the original error and cleanup status
+        error_msg = f"Failed to create document: {str(e)}"
+        if not cleanup_success:
+            error_msg += " (Warning: Storage file may be orphaned)"
+        raise HTTPException(status_code=500, detail=error_msg)
 
     # Save file to temp location for processing
     temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=file_ext)
@@ -482,9 +507,18 @@ async def delete_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get document: {str(e)}")
 
+    # Delete from storage FIRST (before database)
+    # If this fails, we want to know about it before modifying the database
+    storage_error = None
+    try:
+        supabase.storage.from_("documents").remove([document["storage_path"]])
+    except Exception as e:
+        # Capture error but continue - file might already be deleted
+        storage_error = str(e)
+
     # Chunks cascade deleted automatically via ON DELETE CASCADE constraint (migration 006, line 19)
 
-    # Delete document record
+    # Delete document record from database
     try:
         supabase.table("documents")\
             .delete()\
@@ -493,12 +527,12 @@ async def delete_document(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
 
-    # Delete from storage
-    try:
-        supabase.storage.from_("documents").remove([document["storage_path"]])
-    except Exception:
-        # Log but don't fail if storage deletion fails
-        pass
+    # If storage deletion failed, include warning in response
+    if storage_error:
+        return {
+            "message": "Document deleted successfully",
+            "warning": f"Storage file may not have been deleted: {storage_error}"
+        }
 
     return {"message": "Document deleted successfully"}
 

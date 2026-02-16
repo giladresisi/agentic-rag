@@ -275,6 +275,225 @@ Hierarchical agent delegation system enabling main chat agent to spawn isolated 
 
 ---
 
+## 🐛 Active Bug Investigation: Duplicate Upload Requests
+
+**Status:** ✅ RESOLVED
+**Issue Date:** 2026-02-16
+**Resolution Date:** 2026-02-16
+**Severity:** High - Blocks file upload functionality
+
+### Issue Summary
+
+When uploading a single file, the frontend sends **TWO identical upload requests** to the backend in rapid succession, causing:
+1. **First request:** Uploads to storage successfully (200 OK), creates database record
+2. **Second request:** Fails with 409 Conflict (file already exists in storage)
+3. **User sees:** Error dialog saying file already exists, even though it's the first upload
+4. **Backend logs confirm:** Two `POST /ingestion/upload` requests on different ports
+
+### Root Cause Analysis
+
+**Confirmed:**
+- ✅ Backend receives two separate HTTP requests (seen in logs)
+- ✅ First request succeeds completely (file in storage + database)
+- ✅ Second request fails at storage upload (duplicate error)
+- ✅ Race condition occurs even with multiple frontend guards
+
+**Not confirmed:**
+- ❓ Why frontend sends duplicate requests despite guards
+- ❓ Whether it's a double-click, event handler issue, or React re-render
+- ❓ If React Strict Mode is causing duplicate calls (dev mode only?)
+
+### What We've Tried
+
+#### Attempt 1: `isUploadingRef` Guard (Failed)
+**File:** `frontend/src/components/Ingestion/DocumentUpload.tsx`
+```typescript
+const isUploadingRef = useRef(false);
+
+const uploadNext = useCallback(async () => {
+  if (isUploadingRef.current) return;
+  isUploadingRef.current = true;
+  // ... upload logic
+  isUploadingRef.current = false;
+}, [...]);
+```
+**Result:** Both requests still sent - ref check not blocking second call
+
+#### Attempt 2: Early Ref Assignment (Failed)
+**Change:** Moved `isUploadingRef.current = true` to immediately after the check
+```typescript
+const uploadNext = useCallback(async () => {
+  if (isUploadingRef.current) return;
+  isUploadingRef.current = true; // Set IMMEDIATELY
+  // ... rest of logic
+}, [...]);
+```
+**Result:** Both requests still sent
+
+#### Attempt 3: Guard in `handleUploadAll` (Failed)
+**Change:** Added ref check in button click handler
+```typescript
+const handleUploadAll = useCallback(() => {
+  if (isUploadingRef.current) return;
+  // ... continue
+}, [...]);
+```
+**Result:** Both requests still sent
+
+#### Attempt 4: State-Based Lock (Failed)
+**Change:** Added `isProcessingUpload` state variable + button disable
+```typescript
+const [isProcessingUpload, setIsProcessingUpload] = useState(false);
+
+const handleUploadAll = useCallback(() => {
+  if (isUploadingRef.current || isProcessingUpload) return;
+  setIsProcessingUpload(true);
+  // ...
+}, [...]);
+
+// Button disabled condition
+disabled={currentUploadIndex >= 0 || isProcessingUpload || ...}
+```
+**Result:** Both requests still sent
+
+### Evidence & Logs
+
+**Backend Logs (Screenshot: 145815.png):**
+```
+POST /ingestion/upload HTTP/1.1" 200 OK    # Port 65849 - SUCCESS
+POST /ingestion/upload HTTP/1.1" 409 Conflict  # Port 55825 - DUPLICATE
+```
+
+**Frontend State:**
+- Library shows "No documents uploaded yet" before upload
+- After upload: Library shows file with "Completed" status (from first request)
+- Error dialog shows "File already exists" (from second request)
+
+### Secondary Issues Fixed
+
+While investigating the duplicate request issue, we also fixed:
+
+#### Issue A: Storage Cleanup on Delete ✅
+**Problem:** Deleting documents from database didn't remove files from storage
+**Fix:** `backend/routers/ingestion.py:492-518`
+- Delete from storage BEFORE database
+- Report storage deletion failures in response
+- Prevents orphaned files
+
+#### Issue B: Wrong Error Code for Duplicates ✅
+**Problem:** Duplicate uploads returned 500 instead of 409
+**Fix:** `backend/routers/ingestion.py:234-248`
+- Check error message for "duplicate" or "already exists"
+- Return 409 Conflict with user-friendly message
+
+#### Issue C: Upload Queue Stuck After "Continue" ✅
+**Problem:** Clicking "Continue with next file" didn't continue uploading
+**Fix:** `frontend/src/components/Ingestion/DocumentUpload.tsx`
+- Added `isPausedRef` to avoid stale closure bug
+- Update ref immediately when resuming uploads
+
+### Next Steps for Investigation
+
+**Recommended Debugging Approach:**
+
+1. **Add Console Logging**
+   - Log every entry to `handleUploadAll` and `uploadNext`
+   - Log ref/state values before and after checks
+   - Track execution timing to see if calls are synchronous
+
+2. **Check React DevTools**
+   - Monitor component re-renders
+   - Check if component mounts/unmounts during upload
+   - Verify Strict Mode is disabled in production build
+
+3. **Network Tab Analysis**
+   - Capture full request headers and timing
+   - Check if requests have same/different timestamps
+   - Verify request initiator (which code triggered each request)
+
+4. **Event Handler Audit**
+   - Search for any other code calling `onUpload` directly
+   - Check if drag-and-drop handlers trigger uploads
+   - Verify no duplicate event listeners attached
+
+5. **Test in Production Build**
+   - Build production bundle: `npm run build`
+   - Serve and test: `npm run preview`
+   - If issue disappears, it's dev-mode specific (Strict Mode?)
+
+6. **Simplify Test Case**
+   - Create minimal reproduction in isolated component
+   - Remove all guards and see when duplication starts
+   - Add guards back one-by-one to identify which fails
+
+**Alternative Solutions if Root Cause Not Found:**
+
+1. **Backend Deduplication:** Add upload request deduplication based on filename + timestamp
+2. **Frontend Debounce:** Add aggressive debounce (500ms) to upload button click
+3. **Request Cancellation:** Cancel in-flight requests if duplicate detected
+4. **Backend Lock:** Use database-level lock to prevent concurrent uploads of same file
+
+### Files Modified During Investigation
+
+**Frontend:**
+- `frontend/src/components/Ingestion/DocumentUpload.tsx`
+  - Lines 1, 57, 76-78, 85, 100, 113, 141-142, 154-160, 164-171, 410
+
+**Backend:**
+- `backend/routers/ingestion.py`
+  - Lines 234-248: Duplicate error handling (409)
+  - Lines 282-299: Storage cleanup error handling
+  - Lines 492-518: Delete endpoint storage cleanup
+
+**Utilities:**
+- `backend/cleanup_orphaned_storage.py` - Enhanced with dry-run and confirmation
+- `backend/delete_all_documents.py` - Created for testing cleanup
+
+### Test Environment
+
+**All Working:**
+- Backend server running on http://localhost:8000
+- Frontend dev server on http://localhost:5173
+- Supabase connection working
+- Single file upload works correctly (no duplicates)
+- Multi-file upload queue processes sequentially
+- Error handling and status updates functioning properly
+
+### ✅ Resolution Summary
+
+**Root Cause:** **Stale closure bug** in upload continuation logic. The `uploadNext` callback had `currentUploadIndex` as a dependency, causing it to be recreated on every index change. When `setTimeout` fired the continuation, it would call a newly-created `uploadNext` that read a stale state value, causing it to re-upload the same file.
+
+**Secondary Issue:** React Strict Mode double-invocation also contributed to duplicates in development mode.
+
+**Fixes Applied:**
+
+1. **Stale Closure Prevention** (`frontend/src/components/Ingestion/DocumentUpload.tsx`):
+   - Added `currentUploadIndexRef` to track index with a ref (always current)
+   - Updated `uploadNext` to read from ref instead of state
+   - Removed `currentUploadIndex` from `useCallback` dependencies
+
+2. **Request Deduplication** (`frontend/src/hooks/useIngestion.ts`):
+   - Added `pendingUploadRef` with AbortController
+   - Cancel duplicate requests before they reach the network
+   - Handle aborted requests gracefully
+
+**Files Modified:**
+- `frontend/src/hooks/useIngestion.ts`: AbortController deduplication
+- `frontend/src/components/Ingestion/DocumentUpload.tsx`: Stale closure fix + processing guards
+
+**Result:** Single-file and multi-file uploads work correctly without duplicates. Error handling ("Continue"/"Stop") works as expected. Bug fully resolved.
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/duplicate-upload-bug-fix.md`
+- Complete investigation timeline (4 failed approaches documented)
+- Root cause analysis (stale closure bug + React Strict Mode)
+- Solution implementation details (refs + AbortController)
+- Manual testing results across all scenarios
+- Key learnings and recommendations for future
+
+---
+
 ## System Status
 
 **Servers:**

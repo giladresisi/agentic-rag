@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Upload, FileText, X, AlertCircle } from 'lucide-react';
@@ -50,6 +50,21 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     filesRemaining: number;
   } | null>(null);
 
+  // Use ref to track isPaused state for callbacks to avoid stale closures
+  const isPausedRef = useRef(isPaused);
+  useEffect(() => {
+    isPausedRef.current = isPaused;
+  }, [isPaused]);
+
+  // Track if we're actively processing the queue to prevent duplicate starts
+  const isProcessingQueueRef = useRef(false);
+
+  // Track current upload index with ref to avoid stale closures in setTimeout
+  const currentUploadIndexRef = useRef(currentUploadIndex);
+  useEffect(() => {
+    currentUploadIndexRef.current = currentUploadIndex;
+  }, [currentUploadIndex]);
+
   const removeFile = useCallback((id: string) => {
     setFileQueue(prev => prev.filter(f => f.id !== id));
   }, []);
@@ -58,11 +73,14 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     setFileQueue([]);
     setCurrentUploadIndex(-1);
     setIsPaused(false);
+    isProcessingQueueRef.current = false;
   }, []);
 
   const uploadNext = useCallback(async () => {
-    // Find next valid file to upload
-    let nextIndex = currentUploadIndex + 1;
+    const currentIndex = currentUploadIndexRef.current;
+
+    // Find next valid file to upload (use ref to get latest value)
+    let nextIndex = currentIndex + 1;
     while (nextIndex < fileQueue.length) {
       const queuedFile = fileQueue[nextIndex];
       if (!queuedFile.validationError && queuedFile.status === 'pending') {
@@ -74,6 +92,7 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     // No more files to upload
     if (nextIndex >= fileQueue.length) {
       setCurrentUploadIndex(-1);
+      isProcessingQueueRef.current = false;
       return;
     }
 
@@ -93,8 +112,9 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
         idx === nextIndex ? { ...f, status: 'success' as const } : f
       ));
 
-      // Continue to next file
-      if (!isPaused) {
+      // Continue to next file if not paused
+      // Use ref to avoid stale closure issue
+      if (!isPausedRef.current) {
         setTimeout(() => uploadNext(), 100);
       }
     } catch (error) {
@@ -119,11 +139,17 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
       });
       setShowErrorDialog(true);
     }
-  }, [currentUploadIndex, fileQueue, onUpload, embeddingConfig, isPaused]);
+  }, [fileQueue, onUpload, embeddingConfig]);
 
   const handleUploadAll = useCallback(() => {
     if (fileQueue.length === 0) return;
 
+    // Guard: Don't start a new batch if already processing
+    if (isProcessingQueueRef.current) {
+      return;
+    }
+
+    isProcessingQueueRef.current = true;
     setCurrentUploadIndex(-1);
     setIsPaused(false);
     uploadNext();
@@ -133,7 +159,9 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     setShowErrorDialog(false);
     setErrorDialogData(null);
     setIsPaused(false);
-    uploadNext();
+    isPausedRef.current = false; // Update ref immediately to ensure uploadNext sees the new value
+    // Schedule uploadNext after state updates to avoid stale closure
+    setTimeout(() => uploadNext(), 0);
   }, [uploadNext]);
 
   const handleStopUpload = useCallback(() => {
@@ -141,6 +169,7 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     setErrorDialogData(null);
     setCurrentUploadIndex(-1);
     setIsPaused(false);
+    isProcessingQueueRef.current = false;
   }, []);
 
   const validateFile = (file: File): string | null => {
