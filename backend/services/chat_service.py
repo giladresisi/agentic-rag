@@ -189,6 +189,7 @@ class ChatService:
         full_response = ""
         sources = None
         subagent_metadata = None
+        tool_calls_summary = []  # Track all tool calls for tracing
 
         # Add system prompt if not present to encourage tool use and prevent hallucinations
         # Make a copy to avoid modifying the original list
@@ -203,15 +204,40 @@ class ChatService:
 3. search_web: Search web for current information (use for recent events, news)
 4. analyze_document_with_subagent: Delegate complex full-document analysis to specialized sub-agent
 
-IMPORTANT RULES:
-- User's uploaded documents → retrieve_documents for semantic search
-- Questions about books/authors/genres → query_books_database
-- Current events/recent info not in documents → search_web
-- Complex document analysis (summarization, deep extraction, entire document review) → analyze_document_with_subagent
-- If no results from any tool, explain to user and ask for clarification
+STRATEGIC RETRIEVAL APPROACH:
+
+Before answering the user's query, think step-by-step:
+
+1. ANALYZE THE QUERY:
+   - What information is needed to answer this question?
+   - What are the key concepts, entities, or topics?
+   - Is this a simple lookup or complex analysis?
+
+2. PLAN YOUR RETRIEVAL STRATEGY:
+   - Which tool(s) will provide the needed information?
+   - Do I need multiple tool calls to gather complete information?
+   - Should I use different search queries to cover different aspects?
+   - What order should I call tools in (e.g., documents first, then web for gaps)?
+
+3. EXECUTE MULTIPLE TOOL CALLS IF NEEDED:
+   - Don't limit yourself to one tool call - make as many as needed
+   - Use different queries to retrieve complementary information
+   - Call the same tool multiple times with different queries if that helps
+   - Combine results from different tools for comprehensive answers
+
+TOOL USAGE GUIDELINES:
+- User's uploaded documents → retrieve_documents (try multiple queries for different aspects)
+- Questions about books/authors/genres → query_books_database (can query multiple times)
+- Current events/recent info → search_web (use after checking documents)
+- Complex full-document analysis → analyze_document_with_subagent
+- Incomplete information? Make additional tool calls with refined queries
+
+QUALITY STANDARDS:
 - NEVER make up or fabricate information - only use data returned by tools
+- If initial tool calls don't provide enough information, make additional calls
 - Always attribute sources when using tools
-- For simple document queries, use retrieve_documents; for complex analysis, use analyze_document_with_subagent"""
+- If no tool results are relevant after multiple attempts, explain limitations to user
+- Synthesize information from multiple tool calls into coherent answers"""
             }
             conversation_history.insert(0, system_message)
 
@@ -320,16 +346,25 @@ IMPORTANT RULES:
                             for chunk in chunks
                         ]
 
+                        # Track tool call for summary
+                        tool_call_info = {
+                            "tool": "retrieve_documents",
+                            "inputs": {"query": query},
+                            "outputs": {
+                                "chunk_count": len(chunks),
+                                "document_names": list(set(c["document_name"] for c in chunks)),
+                                "top_similarity": chunks[0]["similarity"] if chunks else None,
+                                "avg_similarity": sum(c["similarity"] for c in chunks) / len(chunks) if chunks else None
+                            }
+                        }
+                        tool_calls_summary.append(tool_call_info)
+
                         # Add LangSmith tracing
                         ChatService._trace_tool_call(
                             parent_run_id=run_id,
                             tool_name="retrieve_documents",
                             inputs={"query": query, "user_id": user_id},
-                            outputs={
-                                "chunk_count": len(chunks),
-                                "document_names": list(set(c["document_name"] for c in chunks)),
-                                "top_similarity": chunks[0]["similarity"] if chunks else None
-                            },
+                            outputs=tool_call_info["outputs"],
                             metadata={
                                 "sources": [
                                     {"doc": c["document_name"], "similarity": c["similarity"]}
@@ -363,31 +398,49 @@ IMPORTANT RULES:
                         if sql_response.error:
                             context_text = f"SQL query failed: {sql_response.error}"
 
+                            # Track tool call for summary
+                            tool_call_info = {
+                                "tool": "query_books_database",
+                                "inputs": {"natural_language_query": query},
+                                "outputs": {
+                                    "error": sql_response.error,
+                                    "sql_query": sql_response.query,
+                                    "status": "failed"
+                                }
+                            }
+                            tool_calls_summary.append(tool_call_info)
+
                             # Trace failed SQL query
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
                                 tool_name="query_books_database",
-                                inputs={"natural_language_query": query},
-                                outputs={
-                                    "error": sql_response.error,
-                                    "sql_query": sql_response.query
-                                },
+                                inputs=tool_call_info["inputs"],
+                                outputs=tool_call_info["outputs"],
                                 metadata={"status": "failed"}
                             )
                         else:
                             context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} books):\n"
                             context_text += "\n".join([str(r) for r in sql_response.results[:20]])
 
+                            # Track tool call for summary
+                            tool_call_info = {
+                                "tool": "query_books_database",
+                                "inputs": {"natural_language_query": query},
+                                "outputs": {
+                                    "sql_query": sql_response.query,
+                                    "row_count": sql_response.row_count,
+                                    "sample_results": sql_response.results[:3],
+                                    "status": "success"
+                                }
+                            }
+                            tool_calls_summary.append(tool_call_info)
+
                             # Trace successful SQL query
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
                                 tool_name="query_books_database",
-                                inputs={"natural_language_query": query},
-                                outputs={
-                                    "sql_query": sql_response.query,
-                                    "row_count": sql_response.row_count,
-                                    "sample_results": sql_response.results[:3]
-                                },
+                                inputs=tool_call_info["inputs"],
+                                outputs=tool_call_info["outputs"],
                                 metadata={
                                     "status": "success",
                                     "table": "books"
@@ -419,15 +472,24 @@ IMPORTANT RULES:
                         if search_response.error:
                             context_text = f"Web search failed: {search_response.error}"
 
+                            # Track tool call for summary
+                            tool_call_info = {
+                                "tool": "search_web",
+                                "inputs": {"search_query": query},
+                                "outputs": {
+                                    "error": search_response.error,
+                                    "result_count": 0,
+                                    "status": "failed"
+                                }
+                            }
+                            tool_calls_summary.append(tool_call_info)
+
                             # Trace failed web search
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
                                 tool_name="search_web",
-                                inputs={"search_query": query},
-                                outputs={
-                                    "error": search_response.error,
-                                    "result_count": 0
-                                },
+                                inputs=tool_call_info["inputs"],
+                                outputs=tool_call_info["outputs"],
                                 metadata={"status": "failed"}
                             )
                         else:
@@ -435,16 +497,25 @@ IMPORTANT RULES:
                             for i, r in enumerate(search_response.results, 1):
                                 context_text += f"{i}. {r.title}\n{r.content}\nSource: {r.url}\n\n"
 
+                            # Track tool call for summary
+                            tool_call_info = {
+                                "tool": "search_web",
+                                "inputs": {"search_query": query},
+                                "outputs": {
+                                    "result_count": search_response.result_count,
+                                    "top_urls": [r.url for r in search_response.results[:5]],
+                                    "top_titles": [r.title for r in search_response.results[:5]],
+                                    "status": "success"
+                                }
+                            }
+                            tool_calls_summary.append(tool_call_info)
+
                             # Trace successful web search
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
                                 tool_name="search_web",
-                                inputs={"search_query": query},
-                                outputs={
-                                    "result_count": search_response.result_count,
-                                    "top_urls": [r.url for r in search_response.results[:5]],
-                                    "top_titles": [r.title for r in search_response.results[:5]]
-                                },
+                                inputs=tool_call_info["inputs"],
+                                outputs=tool_call_info["outputs"],
                                 metadata={
                                     "status": "success",
                                     "max_results": settings.WEB_SEARCH_MAX_RESULTS
@@ -487,18 +558,26 @@ IMPORTANT RULES:
                             # Document not found - add error to conversation
                             context_text = f"Error: Document '{document_name}' not found. Please verify the document name and ensure it has been fully processed."
 
+                            # Track tool call for summary
+                            tool_call_info = {
+                                "tool": "analyze_document_with_subagent",
+                                "inputs": {
+                                    "task_description": task_description,
+                                    "document_name": document_name
+                                },
+                                "outputs": {
+                                    "error": "Document not found",
+                                    "status": "failed"
+                                }
+                            }
+                            tool_calls_summary.append(tool_call_info)
+
                             # Trace failed subagent call
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
                                 tool_name="analyze_document_with_subagent",
-                                inputs={
-                                    "task_description": task_description,
-                                    "document_name": document_name
-                                },
-                                outputs={
-                                    "error": "Document not found",
-                                    "status": "failed"
-                                },
+                                inputs=tool_call_info["inputs"],
+                                outputs=tool_call_info["outputs"],
                                 metadata={"user_id": user_id}
                             )
                         else:
@@ -526,21 +605,29 @@ IMPORTANT RULES:
 
                             context_text = result.result if result.status == "completed" else f"Error: {result.error}"
 
-                            # Trace subagent execution
-                            ChatService._trace_tool_call(
-                                parent_run_id=run_id,
-                                tool_name="analyze_document_with_subagent",
-                                inputs={
+                            # Track tool call for summary
+                            tool_call_info = {
+                                "tool": "analyze_document_with_subagent",
+                                "inputs": {
                                     "task_description": task_description,
                                     "document_name": document_name,
                                     "document_id": doc_response.data[0]["id"]
                                 },
-                                outputs={
+                                "outputs": {
                                     "status": result.status,
                                     "result_preview": result.result[:200] if result.result else None,
                                     "reasoning_steps_count": len(result.reasoning_steps),
                                     "error": result.error
-                                },
+                                }
+                            }
+                            tool_calls_summary.append(tool_call_info)
+
+                            # Trace subagent execution
+                            ChatService._trace_tool_call(
+                                parent_run_id=run_id,
+                                tool_name="analyze_document_with_subagent",
+                                inputs=tool_call_info["inputs"],
+                                outputs=tool_call_info["outputs"],
                                 metadata={
                                     "parent_depth": 0,
                                     "user_id": user_id
@@ -599,10 +686,16 @@ IMPORTANT RULES:
                             end_time=datetime.now(timezone.utc),
                         )
                     else:
-                        # Close with success
+                        # Close with success - include tool calls summary
                         langsmith_client.update_run(
                             run_id=run_id,
-                            outputs={"content": full_response, "sources": sources, "subagent_metadata": subagent_metadata},
+                            outputs={
+                                "content": full_response,
+                                "sources": sources,
+                                "subagent_metadata": subagent_metadata,
+                                "tool_calls": tool_calls_summary,
+                                "tool_calls_count": len(tool_calls_summary)
+                            },
                             end_time=datetime.now(timezone.utc),
                         )
                 except Exception:
