@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, FileText, X, AlertCircle } from 'lucide-react';
+import { Upload, FileText, X } from 'lucide-react';
 import type { ProviderConfig } from '@/types/chat';
 import { UploadErrorDialog } from './UploadErrorDialog';
 
