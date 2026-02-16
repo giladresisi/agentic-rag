@@ -21,7 +21,6 @@ export function IngestionInterface() {
     uploadDocument,
     deleteDocument,
   } = useIngestion(token);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const modelConfig = useModelConfig(
     { provider: 'openai', model: 'gpt-4o' },
     { provider: 'openai', model: 'text-embedding-3-small', dimensions: 1536 }
@@ -29,12 +28,7 @@ export function IngestionInterface() {
   const [showSettings, setShowSettings] = useState(false);
 
   const handleUpload = async (file: File, embeddingConfig?: ProviderConfig) => {
-    try {
-      setUploadError(null);
-      await uploadDocument(file, embeddingConfig);
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'Upload failed');
-    }
+    await uploadDocument(file, embeddingConfig);
   };
 
   const handleDelete = async (documentId: string) => {
@@ -120,13 +114,13 @@ export function IngestionInterface() {
               embeddingConfig={modelConfig.embeddingsConfig.current}
             />
 
-            {(uploadError || error) && (
+            {error && (
               <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-md flex items-start gap-2">
                 <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
                 <div className="flex-1">
                   <p className="text-sm font-medium text-destructive">Error</p>
                   <p className="text-sm text-destructive/90">
-                    {uploadError || error}
+                    {error}
                   </p>
                 </div>
               </div>
