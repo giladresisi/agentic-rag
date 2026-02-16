@@ -37,3 +37,4 @@ class MessageResponse(BaseModel):
     content: str
     created_at: str
     sources: Optional[List[Dict[str, Any]]] = None
+    subagent_metadata: Optional[Dict[str, Any]] = None

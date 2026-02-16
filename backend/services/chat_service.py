@@ -47,6 +47,7 @@ class ChatService:
         }
     }
 
+    # Tool definition for text-to-SQL queries
     TEXT_TO_SQL_TOOL = {
         "type": "function",
         "function": {
@@ -65,6 +66,7 @@ class ChatService:
         }
     }
 
+    # Tool definition for web search
     WEB_SEARCH_TOOL = {
         "type": "function",
         "function": {
@@ -79,6 +81,29 @@ class ChatService:
                     }
                 },
                 "required": ["query"]
+            }
+        }
+    }
+
+    # Tool definition for sub-agent document analysis
+    ANALYZE_DOCUMENT_TOOL = {
+        "type": "function",
+        "function": {
+            "name": "analyze_document_with_subagent",
+            "description": "Delegate complex document analysis tasks to a specialized sub-agent with full document context. Use this for tasks requiring deep analysis, summarization, or extraction from entire documents (not just chunks).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_description": {
+                        "type": "string",
+                        "description": "Detailed description of the analysis task for the sub-agent. Be specific about what information to extract or how to analyze the document."
+                    },
+                    "document_name": {
+                        "type": "string",
+                        "description": "Name of the document to analyze (e.g., 'report.pdf', 'policy.docx')"
+                    }
+                },
+                "required": ["task_description", "document_name"]
             }
         }
     }
@@ -105,7 +130,7 @@ class ChatService:
         provider: str = "openai",
         base_url: str | None = None,
         user_id: str | None = None
-    ) -> AsyncGenerator[Tuple[str, Optional[List[Dict]]], None]:
+    ) -> AsyncGenerator[Tuple[str, Optional[List[Dict]], Optional[Dict]], None]:
         """Stream a response using the specified provider with tool calling support.
 
         Args:
@@ -116,11 +141,12 @@ class ChatService:
             user_id: Optional user ID for retrieval RLS filtering
 
         Yields:
-            Tuples of (text_delta, sources) where sources is populated on final yield
+            Tuples of (text_delta, sources, subagent_metadata) where sources/metadata populated on final yield
         """
         full_response = ""
         trace_closed = False
         sources = None
+        subagent_metadata = None
 
         # Add system prompt if not present to encourage tool use and prevent hallucinations
         # Make a copy to avoid modifying the original list
@@ -128,19 +154,22 @@ class ChatService:
         if not conversation_history or conversation_history[0].get("role") != "system":
             system_message = {
                 "role": "system",
-                "content": """You are a helpful assistant with tools:
+                "content": """You are a helpful assistant with access to multiple tools:
 
-1. retrieve_documents: Search uploaded document content
-2. query_books_database: Query a books database with natural language
-3. search_web: Search web for current information
+1. retrieve_documents: Search uploaded document content (semantic search, returns 5 relevant chunks)
+2. query_books_database: Query a books database with natural language (structured data queries)
+3. search_web: Search web for current information (use for recent events, news)
+4. analyze_document_with_subagent: Delegate complex full-document analysis to specialized sub-agent
 
-RULES:
-- User's uploaded documents -> retrieve_documents
-- Questions about books/authors/genres -> query_books_database
-- Current events/recent info -> search_web
-- No results -> explain to user
-- NEVER fabricate - only use tool data
-- Always attribute sources"""
+IMPORTANT RULES:
+- User's uploaded documents → retrieve_documents for semantic search
+- Questions about books/authors/genres → query_books_database
+- Current events/recent info not in documents → search_web
+- Complex document analysis (summarization, deep extraction, entire document review) → analyze_document_with_subagent
+- If no results from any tool, explain to user and ask for clarification
+- NEVER make up or fabricate information - only use data returned by tools
+- Always attribute sources when using tools
+- For simple document queries, use retrieve_documents; for complex analysis, use analyze_document_with_subagent"""
             }
             conversation_history.insert(0, system_message)
 
@@ -169,7 +198,7 @@ RULES:
 
         try:
             # Build tools list dynamically based on enabled features
-            tools = [ChatService.RETRIEVAL_TOOL]
+            tools = [ChatService.RETRIEVAL_TOOL, ChatService.ANALYZE_DOCUMENT_TOOL]
             if settings.TEXT_TO_SQL_ENABLED:
                 tools.append(ChatService.TEXT_TO_SQL_TOOL)
             if settings.WEB_SEARCH_ENABLED:
@@ -192,7 +221,7 @@ RULES:
                     # Handle content delta
                     if delta.content:
                         full_response += delta.content
-                        yield (delta.content, None)
+                        yield (delta.content, None, None)
 
                     # Handle tool call deltas
                     if delta.tool_calls:
@@ -247,6 +276,24 @@ RULES:
                             for chunk in chunks
                         ]
 
+                        conversation_history.append({
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [{
+                                "id": tool_call["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": "retrieve_documents",
+                                    "arguments": tool_call["function"]["arguments"]
+                                }
+                            }]
+                        })
+                        conversation_history.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": context_text
+                        })
+
                     elif tool_name == "query_books_database":
                         query = args.get("query", "")
                         sql_response = await sql_service.natural_language_to_sql(query)
@@ -255,7 +302,24 @@ RULES:
                         else:
                             context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} books):\n"
                             context_text += "\n".join([str(r) for r in sql_response.results[:20]])
-                        sources = None
+
+                        conversation_history.append({
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [{
+                                "id": tool_call["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": "query_books_database",
+                                    "arguments": tool_call["function"]["arguments"]
+                                }
+                            }]
+                        })
+                        conversation_history.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": context_text
+                        })
 
                     elif tool_name == "search_web":
                         query = args.get("query", "")
@@ -266,27 +330,86 @@ RULES:
                             context_text = f"Web search: {query}\n\n"
                             for i, r in enumerate(search_response.results, 1):
                                 context_text += f"{i}. {r.title}\n{r.content}\nSource: {r.url}\n\n"
-                        sources = None
 
-                    conversation_history.append({
-                        "role": "assistant",
-                        "content": None,
-                        "tool_calls": [{
-                            "id": tool_call["id"],
-                            "type": "function",
-                            "function": {
-                                "name": tool_name,
-                                "arguments": tool_call["function"]["arguments"]
+                        conversation_history.append({
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [{
+                                "id": tool_call["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": "search_web",
+                                    "arguments": tool_call["function"]["arguments"]
+                                }
+                            }]
+                        })
+                        conversation_history.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": context_text
+                        })
+
+                    elif tool_name == "analyze_document_with_subagent":
+                        task_description = args.get("task_description", "")
+                        document_name = args.get("document_name", "")
+
+                        # Look up document by filename
+                        from services.supabase_service import get_supabase_admin
+                        supabase = get_supabase_admin()
+                        doc_response = supabase.table("documents")\
+                            .select("id, filename")\
+                            .eq("user_id", user_id)\
+                            .eq("filename", document_name)\
+                            .eq("status", "completed")\
+                            .execute()
+
+                        if not doc_response.data:
+                            # Document not found - add error to conversation
+                            context_text = f"Error: Document '{document_name}' not found. Please verify the document name and ensure it has been fully processed."
+                        else:
+                            # Execute sub-agent
+                            from services.subagent_service import execute_subagent
+                            from models.subagent import SubAgentRequest
+
+                            request = SubAgentRequest(
+                                task_description=task_description,
+                                document_id=doc_response.data[0]["id"],
+                                parent_depth=0,
+                                user_id=user_id
+                            )
+                            result = await execute_subagent(request, user_id)
+
+                            subagent_metadata = {
+                                "task_description": task_description,
+                                "document_id": doc_response.data[0]["id"],
+                                "document_name": document_name,
+                                "status": result.status,
+                                "reasoning_steps": [step.dict() for step in result.reasoning_steps],
+                                "result": result.result,
+                                "error": result.error
                             }
-                        }]
-                    })
-                    conversation_history.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call["id"],
-                        "content": context_text
-                    })
 
-                # Follow-up stream without tools
+                            context_text = result.result if result.status == "completed" else f"Error: {result.error}"
+
+                        conversation_history.append({
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [{
+                                "id": tool_call["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": "analyze_document_with_subagent",
+                                    "arguments": tool_call["function"]["arguments"]
+                                }
+                            }]
+                        })
+                        conversation_history.append({
+                            "role": "tool",
+                            "tool_call_id": tool_call["id"],
+                            "content": context_text
+                        })
+
+                # Follow-up stream without tools after all tool calls
                 async for chunk in provider_service.stream_chat_completion(
                     provider=provider,
                     model=model,
@@ -297,11 +420,11 @@ RULES:
                         delta = chunk.choices[0].delta
                         if delta.content:
                             full_response += delta.content
-                            yield (delta.content, None)
+                            yield (delta.content, None, None)
 
-            # Yield sources on final message (if any)
-            if sources:
-                yield ("", sources)
+            # Yield sources and/or subagent_metadata on final message
+            if sources or subagent_metadata:
+                yield ("", sources, subagent_metadata)
 
             # Close LangSmith trace on success
             if langsmith_enabled and langsmith_client and run_id:
@@ -309,7 +432,7 @@ RULES:
                     from datetime import datetime, timezone
                     langsmith_client.update_run(
                         run_id=run_id,
-                        outputs={"content": full_response, "sources": sources},
+                        outputs={"content": full_response, "sources": sources, "subagent_metadata": subagent_metadata},
                         end_time=datetime.now(timezone.utc),
                     )
                     trace_closed = True

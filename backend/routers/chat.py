@@ -203,7 +203,8 @@ async def get_thread_messages(
             role=msg["role"],
             content=msg["content"],
             created_at=str(msg["created_at"]),
-            sources=msg.get("sources")
+            sources=msg.get("sources"),
+            subagent_metadata=msg.get("subagent_metadata")
         )
         for msg in messages_response.data
     ]
@@ -274,9 +275,10 @@ async def send_message(
         full_response = ""
         chunk_count = 0
         sources = None
+        subagent_metadata = None
 
         try:
-            async for delta, chunk_sources in chat_service.stream_response(
+            async for delta, chunk_sources, chunk_subagent_meta in chat_service.stream_response(
                 conversation_history,
                 model=message_data.model,
                 provider=message_data.provider,
@@ -297,7 +299,11 @@ async def send_message(
                 if chunk_sources:
                     sources = chunk_sources
 
-            # Save assistant message with sources
+                # Store subagent metadata if received
+                if chunk_subagent_meta:
+                    subagent_metadata = chunk_subagent_meta
+
+            # Save assistant message with sources and subagent metadata
             message_data_to_insert = {
                 "thread_id": thread_id,
                 "user_id": current_user["id"],
@@ -308,6 +314,10 @@ async def send_message(
             # Add sources if available
             if sources:
                 message_data_to_insert["sources"] = sources
+
+            # Add subagent metadata if available
+            if subagent_metadata:
+                message_data_to_insert["subagent_metadata"] = subagent_metadata
 
             supabase.table("messages").insert(message_data_to_insert).execute()
 
