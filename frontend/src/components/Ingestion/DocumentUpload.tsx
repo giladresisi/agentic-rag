@@ -81,18 +81,6 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
     };
   };
 
-  const handleFile = useCallback((file: File) => {
-    const error = validateFile(file);
-    if (error) {
-      setValidationError(error);
-      setSelectedFile(null);
-      return;
-    }
-
-    setValidationError(null);
-    setSelectedFile(file);
-  }, []);
-
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(true);
@@ -110,10 +98,11 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
 
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) {
-        handleFile(files[0]);
+        const newFiles = files.map(createQueuedFile);
+        setFileQueue(prev => [...prev, ...newFiles]);
       }
     },
-    [handleFile]
+    [createQueuedFile]
   );
 
   const handleFileInput = useCallback(
