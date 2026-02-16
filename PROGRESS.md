@@ -243,14 +243,30 @@ Multi-tool agent with text-to-SQL and web search capabilities validated through 
 
 ---
 
-## Module 8: Subagents 🔄
+## Module 8: Sub-Agents 📋
 
-**Status:** Not started
+**Status:** Planning complete
+**Planned:** 2026-02-16
+**Plan File:** .agents/plans/module-8-sub-agents.md
 
-Will include:
-- Isolated context for subagent reasoning
-- Document analysis delegation
-- Multi-agent coordination
+### Feature Summary
+LLM-triggered sub-agents for full-document analysis with isolated context and expandable UI display.
+
+**Approach:**
+- Main agent calls `analyze_document_with_subagent` tool (LLM decides when)
+- Sub-agent reads full document (not chunks), performs analysis
+- Recursion depth limit (2 levels) prevents infinite nesting
+- Frontend expandable sections show sub-agent reasoning and results
+
+**Key Components:**
+- Backend: Sub-agent service, document service, tool integration
+- Database: `subagent_metadata` JSONB field in messages table
+- Frontend: SubAgentSection component with expand/collapse
+- Testing: 75% automated (6/8 tests), 25% manual E2E
+
+**Parallelization:** 4 waves, 2 parallel tasks in Wave 1 + Wave 3
+
+Next step: Execute with `/core_piv_loop:execute .agents/plans/module-8-sub-agents.md`
 
 ---
 
