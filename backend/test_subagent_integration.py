@@ -33,18 +33,31 @@ async def create_test_document(content: str, filename: str):
     global test_user_id
     supabase = get_supabase_admin()
 
+    storage_path = f"{test_user_id}/test_{filename}"
+
     # Create document record
     doc_response = supabase.table("documents").insert({
         "user_id": test_user_id,
         "filename": filename,
         "content_type": "text/plain",
         "file_size_bytes": len(content),
-        "storage_path": f"{test_user_id}/test_{filename}",
+        "storage_path": storage_path,
         "status": "completed",
         "chunk_count": 0
     }).execute()
 
     document_id = doc_response.data[0]["id"]
+
+    # Upload file to storage for read_full_document
+    try:
+        supabase.storage.from_("documents").upload(
+            storage_path,
+            content.encode("utf-8"),
+            {"content-type": "text/plain"},
+        )
+    except Exception as e:
+        if "Duplicate" not in str(e):
+            raise
 
     # Create chunks with embeddings
     chunks = embedding_service.chunk_text(content)
@@ -305,9 +318,18 @@ async def main():
     result2 = await test_subagent_document_not_found()
     result3 = await test_subagent_metadata_stored()
 
-    # Clean up
+    # Clean up database and storage
     supabase = get_supabase_admin()
     supabase.table("documents").delete().eq("user_id", test_user_id).execute()
+
+    # Clean up storage files
+    try:
+        supabase.storage.from_("documents").remove([
+            f"{test_user_id}/test_zetacorp_annual_report.txt",
+            f"{test_user_id}/test_project_alpha.txt"
+        ])
+    except Exception:
+        pass
 
     print("\n" + "=" * 60)
     all_passed = result1 and result2 and result3

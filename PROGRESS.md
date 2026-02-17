@@ -567,4 +567,4 @@ venv/Scripts/python test_provider_service.py
 **Apply Database Migration:**
 1. Open Supabase Dashboard → SQL Editor
 2. Copy migration file contents from `supabase/migrations/`
-3. Run SQL commands sequentially (001 → 002 → ... → 010)
+3. Run SQL commands sequentially (001 → 002 → ... → 015)

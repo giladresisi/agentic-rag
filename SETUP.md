@@ -1,6 +1,17 @@
-# Module 1 Setup Guide
+TODO - update
 
-This guide walks you through the remaining setup steps to get the application running.
+# Setup Guide
+
+This guide walks you through the complete setup steps to get the application running.
+
+## Quick Start
+
+1. Clone this repo
+2. Install [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+3. Open in your IDE (Cursor, VS Code, etc.)
+4. Run `claude` in the terminal
+5. Use the `/onboard` command to get started
+6. Follow the detailed instructions below for environment configuration
 
 ## Prerequisites
 
