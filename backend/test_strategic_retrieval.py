@@ -55,13 +55,12 @@ def test_strategic_retrieval(token, thread_id):
     print("TEST 1: Complex document query (should trigger multiple retrieval calls)")
     print("="*80)
 
-    query1 = """I need a comprehensive analysis of the uploaded documents.
-    Please tell me about:
-    1. The main themes and topics covered
-    2. Any technical specifications or important details
-    3. Key conclusions or recommendations
+    query1 = """Search through my uploaded documents and tell me:
+    1. What are the main themes and topics?
+    2. What technical specifications or important details are mentioned?
+    3. What conclusions or recommendations are provided?
 
-    Use multiple searches to gather complete information."""
+    Use multiple search queries to find this information across different parts of the documents."""
 
     response = requests.post(
         f"{BASE_URL}/chat/threads/{thread_id}/messages",
@@ -89,7 +88,12 @@ def test_strategic_retrieval(token, thread_id):
                     break
                 try:
                     chunk = json.loads(data)
-                    if 'content' in chunk:
+                    # Handle content_delta type (streaming chunks)
+                    if chunk.get('type') == 'content_delta' and 'delta' in chunk:
+                        print(chunk['delta'], end='', flush=True)
+                        full_response += chunk['delta']
+                    # Handle legacy format with 'content' key (if any)
+                    elif 'content' in chunk:
                         print(chunk['content'], end='', flush=True)
                         full_response += chunk['content']
                     if 'sources' in chunk and chunk['sources']:
@@ -135,7 +139,9 @@ def test_strategic_retrieval(token, thread_id):
                     break
                 try:
                     chunk = json.loads(data)
-                    if 'content' in chunk:
+                    if chunk.get('type') == 'content_delta' and 'delta' in chunk:
+                        print(chunk['delta'], end='', flush=True)
+                    elif 'content' in chunk:
                         print(chunk['content'], end='', flush=True)
                 except json.JSONDecodeError:
                     pass
@@ -177,7 +183,9 @@ def test_strategic_retrieval(token, thread_id):
                     break
                 try:
                     chunk = json.loads(data)
-                    if 'content' in chunk:
+                    if chunk.get('type') == 'content_delta' and 'delta' in chunk:
+                        print(chunk['delta'], end='', flush=True)
+                    elif 'content' in chunk:
                         print(chunk['content'], end='', flush=True)
                 except json.JSONDecodeError:
                     pass
@@ -189,11 +197,20 @@ def test_strategic_retrieval(token, thread_id):
 
 def main():
     """Run strategic retrieval tests."""
-    print("\n STRATEGIC RETRIEVAL TEST")
+    print("\n" + "="*80)
+    print(" STRATEGIC RETRIEVAL TEST - MANUAL VALIDATION REQUIRED")
+    print("="*80)
+    print("\n[IMPORTANT] This test requires:")
+    print("  1. Documents already uploaded to the test account")
+    print("  2. Manual validation via LangSmith dashboard")
+    print("  3. LangSmith tracing enabled (LANGCHAIN_TRACING_V2=true)")
+    print("\n[NOTE] This test demonstrates agentic behavior but does NOT")
+    print("       automatically verify results. YOU must inspect LangSmith")
+    print("       traces to validate strategic tool calling patterns.")
     print("="*80)
 
     if not TEST_EMAIL or not TEST_PASSWORD:
-        print("[FAIL] TEST_EMAIL and TEST_PASSWORD must be set in .env file")
+        print("\n[FAIL] TEST_EMAIL and TEST_PASSWORD must be set in .env file")
         return
 
     # Authenticate

@@ -33,7 +33,7 @@ class ChatService:
         "type": "function",
         "function": {
             "name": "retrieve_documents",
-            "description": "Search and retrieve relevant document chunks from the user's uploaded documents. ALWAYS use this tool when the user asks about their documents or specific information. This tool performs semantic search across the user's knowledge base.",
+            "description": "STEP 1: Search and retrieve relevant document chunks from the user's uploaded documents. ALWAYS use this tool FIRST when the user asks about their documents. This tool performs semantic search and returns chunk content AND document names. Use the returned document names for subsequent subagent analysis calls if deeper analysis is needed.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -90,7 +90,7 @@ class ChatService:
         "type": "function",
         "function": {
             "name": "analyze_document_with_subagent",
-            "description": "Delegate complex document analysis tasks to a specialized sub-agent with full document context. Use this for tasks requiring deep analysis, summarization, or extraction from entire documents (not just chunks).",
+            "description": "STEP 2: Delegate complex full-document analysis to a specialized sub-agent. ONLY use this AFTER calling retrieve_documents to discover relevant document names. Use the exact document filenames returned by retrieve_documents. This tool provides full document context (not just chunks) for deep analysis, summarization, or extraction tasks.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -100,7 +100,7 @@ class ChatService:
                     },
                     "document_name": {
                         "type": "string",
-                        "description": "Name of the document to analyze (e.g., 'report.pdf', 'policy.docx')"
+                        "description": "EXACT filename of the document to analyze as returned by retrieve_documents (e.g., 'prime.md', 'plan-feature.md', 'report.pdf'). NEVER guess or hallucinate filenames - only use names from retrieve_documents results."
                     }
                 },
                 "required": ["task_description", "document_name"]
@@ -211,31 +211,79 @@ Before answering the user's query, think step-by-step:
 1. ANALYZE THE QUERY:
    - What information is needed to answer this question?
    - What are the key concepts, entities, or topics?
-   - Is this a simple lookup or complex analysis?
+   - Does the user want CHUNKS (specific facts) or COMPREHENSIVE ANALYSIS (full document understanding)?
 
 2. PLAN YOUR RETRIEVAL STRATEGY:
-   - Which tool(s) will provide the needed information?
-   - Do I need multiple tool calls to gather complete information?
-   - Should I use different search queries to cover different aspects?
-   - What order should I call tools in (e.g., documents first, then web for gaps)?
 
-3. EXECUTE MULTIPLE TOOL CALLS IF NEEDED:
-   - Don't limit yourself to one tool call - make as many as needed
-   - Use different queries to retrieve complementary information
-   - Call the same tool multiple times with different queries if that helps
-   - Combine results from different tools for comprehensive answers
+   **For CHUNK-BASED queries** (specific facts, quick lookups):
+   - Use multiple retrieve_documents calls with different queries
+   - Each call targets a different aspect or concept
+   - Synthesize answers from the returned chunks
+
+   **For COMPREHENSIVE ANALYSIS queries** (deep analysis, summaries, multi-aspect understanding):
+   - STEP 1: Call retrieve_documents ONCE with a broad query to discover relevant documents
+   - STEP 2: Extract document names from the retrieval results
+   - STEP 3: Call analyze_document_with_subagent for EACH discovered document
+   - Pass specific analysis tasks to each subagent call
+
+   **Example pattern for comprehensive analysis:**
+   ```
+   User asks: "Analyze my documents - what are themes, specs, and conclusions?"
+
+   1. retrieve_documents(query="project documentation and main content")
+      → Returns chunks from: [doc1.pdf, doc2.md, doc3.txt]
+
+   2. analyze_document_with_subagent(
+        document_name="doc1.pdf",
+        task="Extract main themes and topics"
+      )
+
+   3. analyze_document_with_subagent(
+        document_name="doc2.md",
+        task="Identify technical specifications"
+      )
+
+   4. analyze_document_with_subagent(
+        document_name="doc3.txt",
+        task="Summarize conclusions and recommendations"
+      )
+   ```
+
+3. EXECUTE THE PLANNED STRATEGY:
+   - Follow the pattern chosen above
+   - For comprehensive analysis: ALWAYS do retrieval first, then subagents
+   - Use EXACT document names from retrieval results - NEVER guess filenames
 
 TOOL USAGE GUIDELINES:
-- User's uploaded documents → retrieve_documents (try multiple queries for different aspects)
+
+**Document Queries - Choose the Right Pattern:**
+
+PATTERN A - Multiple Retrieval Calls (for specific facts):
+- Query: "What does the document say about X?" → retrieve_documents multiple times
+- Query: "Find information about Y and Z" → retrieve_documents for Y, then for Z
+- Use when: User wants specific facts, quotes, or chunk-based information
+
+PATTERN B - Retrieval + Subagents (for comprehensive analysis):
+- Query: "Analyze documents for themes, specs, conclusions" → Use TWO-STEP workflow below
+- Query: "Summarize my documents" → Use TWO-STEP workflow below
+- Query: "What are the main points across all documents?" → Use TWO-STEP workflow below
+- TWO-STEP WORKFLOW:
+  STEP 1: retrieve_documents(query="broad search to discover documents")
+  STEP 2: For each unique document name in results:
+          analyze_document_with_subagent(document_name="exact_filename.ext", task="...")
+  NEVER guess document names - always use names from Step 1!
+
+**Other Tools:**
 - Questions about books/authors/genres → query_books_database (can query multiple times)
 - Current events/recent info → search_web (use after checking documents)
-- Complex full-document analysis → analyze_document_with_subagent
 - Incomplete information? Make additional tool calls with refined queries
 
 QUALITY STANDARDS:
 - NEVER make up or fabricate information - only use data returned by tools
+- NEVER guess or hallucinate document filenames - always use retrieve_documents to discover them
 - If initial tool calls don't provide enough information, make additional calls
 - Always attribute sources when using tools
+- For subagent analysis, ONLY use document names returned by retrieve_documents
 - If no tool results are relevant after multiple attempts, explain limitations to user
 - Synthesize information from multiple tool calls into coherent answers"""
             }
