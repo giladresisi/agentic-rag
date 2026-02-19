@@ -1,7 +1,13 @@
 #!/bin/bash
 # Script to start backend server after killing any existing processes on port 8000
+# Can be run from start_scripts directory
+
+# Get script directory and navigate to backend root
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+cd "$SCRIPT_DIR/.." || exit 1
 
 echo "=== Starting Backend Server ==="
+echo "Working directory: $(pwd)"
 echo ""
 
 # Find all PIDs using port 8000

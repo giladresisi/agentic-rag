@@ -6,6 +6,7 @@ Usage:
     python cleanup_orphaned_storage.py --yes      # Auto-confirm deletion
     python cleanup_orphaned_storage.py --dry-run  # Show what would be deleted
 """
+import _setup_path  # noqa - sets up Python path for imports
 import sys
 from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin

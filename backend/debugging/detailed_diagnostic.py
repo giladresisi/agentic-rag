@@ -1,6 +1,7 @@
 """Detailed diagnostic with raw query output."""
+import _setup_path  # noqa - sets up Python path for imports
 from dotenv import load_dotenv
-from test_utils import TEST_EMAIL, TEST_PASSWORD
+from tests.test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.supabase_service import get_supabase_admin
 import os
 

@@ -2,7 +2,16 @@
 Utility functions for testing.
 """
 import os
+import sys
+from pathlib import Path
 from dotenv import load_dotenv
+
+# Add backend directory to Python path so tests can import backend modules
+# This allows tests to be run from the tests directory
+backend_dir = Path(__file__).parent.parent
+if str(backend_dir) not in sys.path:
+    sys.path.insert(0, str(backend_dir))
+
 from services.supabase_service import get_supabase_admin
 
 # Load environment variables from .env file

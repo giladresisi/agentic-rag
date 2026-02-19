@@ -1,7 +1,8 @@
 """Debug the retrieval function."""
+import _setup_path  # noqa - sets up Python path for imports
 import asyncio
 from dotenv import load_dotenv
-from test_utils import TEST_EMAIL, TEST_PASSWORD
+from tests.test_utils import TEST_EMAIL, TEST_PASSWORD
 from services.supabase_service import get_supabase_admin
 from services.embedding_service import embedding_service
 

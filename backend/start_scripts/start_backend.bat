@@ -1,7 +1,12 @@
 @echo off
 REM Script to start backend server after killing any existing processes on port 8000
+REM Can be run from start_scripts directory
+
+REM Navigate to backend root directory (parent of start_scripts)
+cd /d "%~dp0.."
 
 echo === Starting Backend Server ===
+echo Working directory: %CD%
 echo.
 
 echo Killing all Python processes...

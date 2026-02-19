@@ -5,6 +5,7 @@ Usage:
     python delete_all_documents.py --user-id USER_ID
     python delete_all_documents.py --all  # Delete for all users
 """
+import _setup_path  # noqa - sets up Python path for imports
 import sys
 from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin
