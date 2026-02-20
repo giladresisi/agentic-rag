@@ -64,4 +64,5 @@ async def test():
     print(f"Total chunks: {chunk_count}")
     print("\n[OK] Test completed successfully!")
 
-asyncio.run(test())
+if __name__ == "__main__":
+    asyncio.run(test())

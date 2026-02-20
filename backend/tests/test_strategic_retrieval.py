@@ -46,7 +46,7 @@ def create_thread(token):
     return thread_id
 
 
-def test_strategic_retrieval(token, thread_id):
+def run_strategic_retrieval(token, thread_id):
     """Test strategic retrieval with a complex query."""
 
     # Test Query 1: Should trigger multiple retrieve_documents calls
@@ -224,7 +224,7 @@ def main():
         return
 
     # Run tests
-    test_strategic_retrieval(token, thread_id)
+    run_strategic_retrieval(token, thread_id)
 
     print("\n" + "="*80)
     print(" CHECK LANGSMITH DASHBOARD")

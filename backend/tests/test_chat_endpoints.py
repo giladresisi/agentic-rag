@@ -5,7 +5,17 @@ from main import app
 import time
 from test_utils import TEST_EMAIL, TEST_PASSWORD
 
-client = TestClient(app)
+client = None
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_client():
+    """Use TestClient as a context manager to ensure proper async lifecycle
+    and prevent stale asyncio event loop errors from sse_starlette background tasks."""
+    global client
+    with TestClient(app) as c:
+        client = c
+        yield
 
 
 def get_auth_token():
@@ -16,6 +26,18 @@ def get_auth_token():
     )
     assert response.status_code == 200, f"Login failed: {response.json()}"
     return response.json()["access_token"]
+
+
+def _create_thread(token):
+    """Helper: create a thread and return its ID."""
+    timestamp = int(time.time() * 1000)
+    response = client.post(
+        "/chat/threads",
+        json={"title": f"Test Thread {timestamp}"},
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 200, f"Failed to create thread: {response.json()}"
+    return response.json()["id"]
 
 
 def test_get_providers():
@@ -49,7 +71,6 @@ def test_create_thread():
     """Test creating a new chat thread."""
     token = get_auth_token()
 
-    # Create unique thread title
     timestamp = int(time.time() * 1000)
     thread_title = f"Test Thread {timestamp}"
 
@@ -62,7 +83,6 @@ def test_create_thread():
     assert response.status_code == 200, f"Failed to create thread: {response.json()}"
     data = response.json()
 
-    # Verify response structure
     assert "id" in data
     assert data["title"] == thread_title
     assert "created_at" in data
@@ -70,8 +90,6 @@ def test_create_thread():
 
     print(f"\n[TEST PASSED] Successfully created thread: {data['title']}")
     print(f"  - Thread ID: {data['id']}")
-
-    return data["id"]
 
 
 def test_list_threads():
@@ -103,9 +121,7 @@ def test_list_threads():
 def test_send_message_without_llm():
     """Test sending a message (structure only, no actual LLM call)."""
     token = get_auth_token()
-
-    # Create a thread first
-    thread_id = test_create_thread()
+    thread_id = _create_thread(token)
 
     # Prepare message data
     message_data = {
@@ -134,9 +150,7 @@ def test_send_message_without_llm():
 def test_get_thread_messages():
     """Test getting all messages in a thread."""
     token = get_auth_token()
-
-    # Create a thread
-    thread_id = test_create_thread()
+    thread_id = _create_thread(token)
 
     # Get messages (should be empty for new thread)
     response = client.get(
@@ -163,9 +177,7 @@ def test_get_thread_messages():
 def test_delete_thread():
     """Test deleting a thread."""
     token = get_auth_token()
-
-    # Create a thread to delete
-    thread_id = test_create_thread()
+    thread_id = _create_thread(token)
 
     # Delete it
     response = client.delete(
@@ -185,9 +197,7 @@ def test_delete_thread():
 def test_message_without_api_key_field():
     """Test that message endpoint no longer accepts api_key field (Plan 7)."""
     token = get_auth_token()
-
-    # Create a thread
-    thread_id = test_create_thread()
+    thread_id = _create_thread(token)
 
     # Try to send message with api_key field (should be ignored/removed in Plan 7)
     message_data = {

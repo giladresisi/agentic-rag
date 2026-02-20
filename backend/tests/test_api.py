@@ -28,7 +28,7 @@ def test_auth():
         return None, None
 
 
-def test_threads_api(token):
+def run_threads_api(token):
     """Test the threads API endpoint."""
     url = "http://localhost:8000/chat/threads"
     headers = {"Authorization": f"Bearer {token}"}
@@ -48,7 +48,7 @@ def test_threads_api(token):
         return None
 
 
-def test_database_direct(user_id):
+def run_database_direct(user_id):
     """Test direct database query."""
     supabase = get_supabase()
 
@@ -72,9 +72,9 @@ if __name__ == "__main__":
 
     if token and user_id:
         # Test API endpoint
-        test_threads_api(token)
+        run_threads_api(token)
 
         # Test direct database query
-        test_database_direct(user_id)
+        run_database_direct(user_id)
     else:
         print("\nCannot proceed without authentication.")
