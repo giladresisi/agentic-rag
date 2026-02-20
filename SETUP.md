@@ -98,7 +98,7 @@ Now that you have your Supabase credentials, fill them into **both** `.env` file
 
 Before running the migrations, you need to patch one migration file with a secret from your `.env`.
 
-Open `supabase/migrations/012_sql_tool.sql` and find this line:
+Open `supabase/migrations/013_sql_tool.sql` and find this line:
 
 ```sql
 CREATE ROLE sql_query_role WITH LOGIN PASSWORD '***';
@@ -170,11 +170,11 @@ The migrations will create:
 
 If you need to wipe the database and re-run the migrations from scratch, run `supabase/rollback_all.sql` in the **Supabase SQL Editor**. It drops all tables, functions, roles, and the pgvector extension created by the migrations. Once it completes, run `supabase db push` again as normal.
 
-> **Note:** Remember to re-patch the `sql_query_role` password in `012_sql_tool.sql` before pushing again (see "Prepare SQL Tool Migration" above).
+> **Note:** Remember to re-patch the `sql_query_role` password in `013_sql_tool.sql` before pushing again (see "Prepare SQL Tool Migration" above).
 
 #### Restore SQL Tool Migration Placeholder
 
-If you plan to commit the migration files, restore the password placeholder in `supabase/migrations/012_sql_tool.sql` so your real password is not stored in version control. Find the line you edited earlier and revert it back to:
+If you plan to commit the migration files, restore the password placeholder in `supabase/migrations/013_sql_tool.sql` so your real password is not stored in version control. Find the line you edited earlier and revert it back to:
 
 ```sql
 CREATE ROLE sql_query_role WITH LOGIN PASSWORD '***';

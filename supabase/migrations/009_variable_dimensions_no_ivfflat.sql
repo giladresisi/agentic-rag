@@ -23,8 +23,12 @@ CREATE INDEX IF NOT EXISTS idx_chunks_embedding_dimensions ON chunks(embedding_d
 
 -- Part 2: Convert embedding column to variable dimensions
 
--- Drop any existing indexes
-DROP INDEX IF EXISTS idx_chunks_embedding;
+-- Drop any existing indexes (DO block suppresses the NOTICE when index doesn't exist)
+DO $$ BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_chunks_embedding') THEN
+        DROP INDEX idx_chunks_embedding;
+    END IF;
+END $$;
 
 -- Convert to variable-dimension vector
 -- Add temporary column
