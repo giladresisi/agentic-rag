@@ -520,6 +520,59 @@ Stale closure bug causing duplicate HTTP requests on file upload validated throu
 
 ---
 
+### Bug Fix: PDF Upload Pipeline (Multi-Session Debug)
+
+**Status:** ✅ Complete
+**Completed:** 2026-02-20
+**Debug Log:** `.agents/debug_pdf_upload.md`
+
+#### Issues Found and Fixed
+
+**1. Docling version too old (`docling==0.4.0`)**
+The pinned version expected a `model.pt` layout file; the current HuggingFace repo (`ds4sd/docling-models`) switched to ONNX format. Fixed by upgrading to `docling>=2.0.0`.
+
+**2. Pre-download command didn't trigger all models**
+The original SETUP.md pre-download only called `DocumentConverter()` (initialization), which didn't load the layout pipeline. Layout models (`docling-layout-heron`, `docling-project/docling-models`) were lazy-loaded on first real upload, hitting a Windows symlink-creation restriction (`WinError 1314`) and failing. Fixed by running an actual minimal PDF conversion in the pre-download step to force all lazy models to cache. Added `HF_HUB_DISABLE_SYMLINKS_WARNING=1` to `.env.example`.
+
+**3. Non-ASCII filenames rejected by Supabase Storage**
+Hebrew filename `מצגת להסתדרות payrollai.pdf` produced `InvalidKey` 400 error. Fixed by replacing `user_id/filename` storage paths with `user_id/uuid.ext` — original filename preserved in the DB record for display. Also eliminates the pre-existing duplicate-path collision issue.
+
+**4. Supabase Realtime not delivering status updates**
+UI stuck at "Processing" even though DB showed `status=completed`. The `documents` table was missing `REPLICA IDENTITY FULL` — without it Supabase Realtime silently drops UPDATE events on RLS-enabled tables (can't verify user access against the old row state). Fixed via migration 015. Note: the table was already in the `supabase_realtime` publication; `REPLICA IDENTITY FULL` was the missing piece.
+
+**5. RapidOCR INFO logs on every upload**
+RapidOCR's `Logger.__init__` calls `setLevel(INFO)` at import time, overriding any earlier suppression. Fixed by adding a `logging.Filter` (immune to `setLevel` resets) to the `RapidOCR` logger in `main.py` after all router imports. Also refactored `DocumentConverter` to a module-level singleton to avoid re-initializing the OCR engine on every upload.
+
+#### Files Modified
+- `backend/requirements.txt`: `docling==0.4.0` → `docling>=2.0.0`
+- `backend/main.py`: Pydantic warning filter + RapidOCR `logging.Filter` (post-import)
+- `backend/services/embedding_service.py`: `DocumentConverter` singleton via `_get_converter()`
+- `backend/routers/ingestion.py`: UUID-based storage paths; `import uuid`
+- `backend/.env.example`: `HF_HUB_DISABLE_SYMLINKS_WARNING`
+- `SETUP.md`: Pre-download command now runs a real minimal PDF conversion
+- `supabase/migrations/015_realtime_documents.sql`: `REPLICA IDENTITY FULL` + publication
+
+---
+
+### New Project Setup Walkthrough
+
+**Status:** [-] In progress — paused at end of **SETUP.md → Initial Testing → Document Ingestion** subsection.
+
+---
+
+### Repository Maintenance: Secret Removal from Git History
+
+**Completed:** 2026-02-20
+
+Commit history was rewritten twice using `git-filter-repo` to purge secrets that had been accidentally version-controlled:
+
+1. **`git-filter-repo --replace-text`** — replaced secret values inside tracked file contents (e.g. hardcoded API keys, passwords in source files) with placeholder strings across all commits.
+2. **`git-filter-repo --replace-message`** — replaced secret values embedded in commit messages with placeholder strings across all commits.
+
+Both passes rewrote the full commit graph. The remote was force-pushed after each pass to propagate the cleaned history.
+
+---
+
 ## System Status
 
 **Servers:**

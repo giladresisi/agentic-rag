@@ -2,8 +2,18 @@ from config import settings
 from services.provider_service import provider_service
 from typing import List, Optional
 from pathlib import Path
+from docling.document_converter import DocumentConverter
 import tempfile
 import os
+
+_converter: Optional[DocumentConverter] = None
+
+
+def _get_converter() -> DocumentConverter:
+    global _converter
+    if _converter is None:
+        _converter = DocumentConverter()
+    return _converter
 
 
 class EmbeddingService:
@@ -34,13 +44,8 @@ class EmbeddingService:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return f.read()
 
-            # For complex formats, use docling
-            from docling.document_converter import DocumentConverter
-
-            # Initialize converter
-            converter = DocumentConverter()
-
-            # Convert document
+            # For complex formats, use docling (singleton converter)
+            converter = _get_converter()
             result = converter.convert(file_path)
 
             # Extract markdown text

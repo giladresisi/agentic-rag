@@ -34,11 +34,11 @@ cd agentic-rag
 
 #### Create and Activate Virtual Environment
 
-**Windows:**
+**Windows (Git Bash):**
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate
+source venv/Scripts/activate
 ```
 
 **Mac/Linux:**
@@ -53,6 +53,30 @@ source venv/bin/activate
 ```bash
 pip install -r requirements.txt
 ```
+
+#### Pre-download Document Parsing Models
+
+The PDF/DOCX parser (Docling) uses large neural network models (~500MB) that must be downloaded from Hugging Face before the first document upload. This is a one-time step per machine.
+
+```bash
+python -W ignore::UserWarning -c "
+import tempfile, os
+from docling.document_converter import DocumentConverter
+pdf = b'%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\n2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj\n3 0 obj<</Type/Page/MediaBox[0 0 3 3]>>endobj\nxref\n0 4\n0000000000 65535 f\n0000000009 00000 n\n0000000058 00000 n\n0000000115 00000 n\ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n190\n%%EOF'
+with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as f:
+    f.write(pdf); tmp = f.name
+try:
+    converter = DocumentConverter(); converter.convert(tmp); print('Models ready')
+finally:
+    os.unlink(tmp)
+"
+```
+
+This will take a few minutes on first run. It runs a real (minimal) PDF conversion to force all pipeline models to download — including layout models that are lazy-loaded on first use. Subsequent runs are instant (models are cached at `~/.cache/huggingface/hub/`).
+
+> **Windows note:** On Windows without Developer Mode enabled, HuggingFace Hub cannot create symlinks and will fall back to file copies. The pre-download step above handles this correctly. Set `HF_HUB_DISABLE_SYMLINKS_WARNING=1` in your `.env` to suppress the related warning.
+
+> **Note:** Simple text formats (`.txt`, `.md`, `.html`, `.json`, `.rtf`) do not use these models and will work without this step.
 
 #### Configure Environment Variables
 
@@ -221,7 +245,7 @@ cp .env.example .env
 
 ```bash
 cd backend
-venv\Scripts\activate  # Windows
+source venv/Scripts/activate  # Windows (Git Bash)
 # source venv/bin/activate  # Mac/Linux
 uvicorn main:app --reload --port 8000
 ```
@@ -270,7 +294,7 @@ npm run dev
 
 ### 3. Document Ingestion (Optional)
 
-1. Click on the "Ingestion" tab
+1. Click on the "Docuemnts" tab
 2. Upload a test document (PDF, DOCX, TXT, etc.)
 3. Wait for processing to complete
 4. Return to Chat tab

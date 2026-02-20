@@ -9,6 +9,7 @@ from pathlib import Path
 from config import settings
 import tempfile
 import os
+import uuid
 from datetime import datetime
 
 router = APIRouter()
@@ -228,8 +229,8 @@ async def upload_document(
             detail=f"File '{file.filename}' is too large ({file_size / 1024 / 1024:.1f}MB). Maximum size: {settings.MAX_FILE_SIZE_MB}MB"
         )
 
-    # Create storage path (user_id/filename)
-    storage_path = f"{current_user['id']}/{file.filename}"
+    # Use UUID-based storage path to avoid issues with non-ASCII filenames and duplicate paths
+    storage_path = f"{current_user['id']}/{uuid.uuid4()}{file_ext}"
 
     try:
         # Upload to Supabase Storage
