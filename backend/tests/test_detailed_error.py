@@ -1,8 +1,7 @@
 """Test to see detailed error from backend."""
 import requests
 from services.supabase_service import get_supabase
-
-# Test credentials
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 
 def test():
     # Get auth token

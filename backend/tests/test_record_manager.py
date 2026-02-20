@@ -46,7 +46,7 @@ def test_hash_generation_consistency():
     assert hash1 == hash2, "Same text should produce same hash"
     assert len(hash1) == 64, f"SHA-256 hash should be 64 characters, got {len(hash1)}"
     assert hash1.islower(), "Hash should be lowercase"
-    assert all(c in '0***789abcdef' for c in hash1), "Hash should be valid hex"
+    assert all(c in '0123456789abcdef' for c in hash1), "Hash should be valid hex"
 
     # Test different text produces different hash
     text2 = "Different content"

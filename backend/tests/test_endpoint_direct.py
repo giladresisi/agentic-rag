@@ -2,8 +2,7 @@
 from fastapi.testclient import TestClient
 from main import app
 from services.supabase_service import get_supabase
-
-# Test credentials
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 
 def test():
     print("=== Testing FastAPI Endpoint Directly ===\n")

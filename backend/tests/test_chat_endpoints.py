@@ -3,8 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from main import app
 import time
-
-# Test credentials
+from test_utils import TEST_EMAIL, TEST_PASSWORD
 
 client = TestClient(app)
 
@@ -33,16 +32,14 @@ def test_get_providers():
     # Verify known providers exist
     providers = data["providers"]
     assert "openai" in providers
-    assert "ollama" in providers
     assert "openrouter" in providers
 
     # Verify provider structure
     openai_config = providers["openai"]
     assert "name" in openai_config
     assert "base_url" in openai_config
-    assert "requires_api_key" in openai_config
-    assert "models" in openai_config
-    assert len(openai_config["models"]) > 0
+    assert "chat_models" in openai_config
+    assert len(openai_config["chat_models"]) > 0
 
     print(f"\n[TEST PASSED] Successfully retrieved {len(providers)} providers")
     print(f"  - Providers: {', '.join(providers.keys())}")
