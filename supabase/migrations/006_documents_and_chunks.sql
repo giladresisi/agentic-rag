@@ -33,13 +33,6 @@ CREATE INDEX idx_documents_created_at ON documents(created_at DESC);
 CREATE INDEX idx_chunks_document_id ON chunks(document_id);
 CREATE INDEX idx_chunks_user_id ON chunks(user_id);
 
--- Create IVFFlat index for efficient vector similarity search
--- Using lists = 100 as a starting point (can be tuned based on data size)
--- Lists should be roughly sqrt(total_rows) for optimal performance
-CREATE INDEX idx_chunks_embedding ON chunks
-    USING ivfflat (embedding vector_cosine_ops)
-    WITH (lists = 100);
-
 -- Enable Row-Level Security
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chunks ENABLE ROW LEVEL SECURITY;

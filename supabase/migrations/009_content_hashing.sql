@@ -1,4 +1,4 @@
--- Migration 011: Content Hashing for Deduplication
+-- Migration 009: Content Hashing for Deduplication
 -- Add SHA-256 hash columns and duplicate tracking to documents table
 
 -- Add hash columns to documents table

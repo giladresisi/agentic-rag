@@ -1,4 +1,4 @@
--- Migration 012: Metadata Extraction
+-- Migration 010: Metadata Extraction
 -- Add LLM-extracted metadata columns to documents table
 
 -- Add metadata columns to documents table

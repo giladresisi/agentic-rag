@@ -25,20 +25,6 @@ CREATE INDEX IF NOT EXISTS idx_chunks_embedding_dimensions ON chunks(embedding_d
 
 -- Drop any existing indexes
 DROP INDEX IF EXISTS idx_chunks_embedding;
-DROP INDEX IF EXISTS idx_chunks_embedding_1536;
-DROP INDEX IF EXISTS idx_chunks_embedding_3072;
-
--- Check current embedding column type
-DO $$
-DECLARE
-    current_type TEXT;
-BEGIN
-    SELECT data_type INTO current_type
-    FROM information_schema.columns
-    WHERE table_name = 'chunks' AND column_name = 'embedding';
-
-    RAISE NOTICE 'Current embedding column type: %', current_type;
-END $$;
 
 -- Convert to variable-dimension vector
 -- Add temporary column
@@ -113,10 +99,3 @@ COMMENT ON COLUMN chunks.embedding IS 'Variable-dimension embedding vector. No i
 COMMENT ON COLUMN chunks.embedding_dimensions IS 'Dimension of the embedding vector (e.g., 1536, 3072, 768). Must match query dimension for accurate similarity search.';
 COMMENT ON FUNCTION match_chunks_v2 IS 'Similarity search supporting variable dimensions. No ivfflat index - uses sequential scan. Filter by dimension_filter for accuracy.';
 
--- Success message
-DO $$
-BEGIN
-    RAISE NOTICE '✓ Migration complete: chunks.embedding now supports variable dimensions';
-    RAISE NOTICE '✓ match_chunks_v2 updated to handle any dimension';
-    RAISE NOTICE '⚠ Note: No ivfflat index - similarity search will be slower but more flexible';
-END $$;

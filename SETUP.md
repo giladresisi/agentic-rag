@@ -61,23 +61,56 @@ Copy the example file:
 cp .env.example .env
 ```
 
-Edit `backend/.env` and fill in your credentials. The file contains placeholders for all required and optional services. At minimum, you need:
-- Supabase credentials (URL, anon key, service role key)
-- OpenAI API key
+> **Note:** Leave this file as-is for now. You'll fill in the Supabase credentials after creating your Supabase project in Step 3. You cannot obtain the URL and API keys until a project exists.
+
+The only credential you can add immediately is your OpenAI API key:
+- `OPENAI_API_KEY` — from https://platform.openai.com
 
 Optional services can be left blank - the application will gracefully degrade functionality (e.g., web search won't work without Tavily, but other tools will).
 
 ### 3. Supabase Setup
 
-#### Create Project
+#### Create Account and Project
 
-1. Go to https://supabase.com and create a new project
-2. Wait for the project to finish provisioning (2-3 minutes)
-3. Copy your project credentials:
-   - Project URL (Settings → API → Project URL)
-   - Anon/Public Key (Settings → API → anon public)
-   - Service Role Key (Settings → API → service_role)
-4. Add these to `backend/.env`
+> **Important:** You must create both a Supabase account **and** a new project before you can obtain credentials. The URL and API keys in Step 2 come from a specific project — they do not exist until you create one.
+
+1. Go to https://supabase.com, sign up (or log in), and create a new project
+2. During project creation you'll choose a database password — save it somewhere safe. You won't need it for this project, but you cannot recover it later.
+3. Wait for the project to finish provisioning (2-3 minutes)
+4. Copy your project credentials from the dashboard:
+   - **Project URL**: Settings → General → Project ID. Replace the `xxxxxxxxxxxxx` placeholder in `SUPABASE_URL` with your Project ID — the full value should look like `https://<project-id>.supabase.co`
+   - **Anon & Service Role keys**: Settings → API → **API Keys** section → **"Legacy anon, service_role API keys"** tab
+
+#### Fill in Environment Variables
+
+Now that you have your Supabase credentials, fill them into **both** `.env` files:
+
+**`backend/.env`** — add:
+- `SUPABASE_URL` — `https://<your-project-id>.supabase.co`
+- `SUPABASE_ANON_KEY` — from the "Legacy anon, service_role API keys" tab
+- `SUPABASE_SERVICE_ROLE_KEY` — from the "Legacy anon, service_role API keys" tab
+
+**`frontend/.env`** — add:
+- `VITE_SUPABASE_URL` (same value as `SUPABASE_URL` above)
+- `VITE_SUPABASE_ANON_KEY` (same value as `SUPABASE_ANON_KEY` above)
+
+#### Prepare SQL Tool Migration
+
+Before running the migrations, you need to patch one migration file with a secret from your `.env`.
+
+Open `supabase/migrations/012_sql_tool.sql` and find this line:
+
+```sql
+CREATE ROLE sql_query_role WITH LOGIN PASSWORD '***';
+```
+
+Replace `***` with the value of `SQL_QUERY_ROLE_PASSWORD` from your `backend/.env`. The line should end up looking like:
+
+```sql
+CREATE ROLE sql_query_role WITH LOGIN PASSWORD 'your_actual_password';
+```
+
+Save the file. Do **not** commit this file with a real password in it.
 
 #### Run Database Migrations
 
@@ -85,11 +118,34 @@ You need to run all migration files in the `supabase/migrations/` directory in n
 
 **Option A - Using Supabase CLI (Recommended):**
 
-```bash
-# Install Supabase CLI globally
-npm install -g supabase
+**Install the CLI:**
 
-# Link to your project (you'll need your project ref from Supabase dashboard)
+*Mac/Linux:*
+```bash
+npm install -g supabase
+```
+
+*Windows — `npm install -g supabase` is unreliable on Windows due to file permission errors during cleanup. Use the binary directly instead:*
+```bash
+# Download the latest Windows binary from GitHub releases
+curl -L https://github.com/supabase/cli/releases/latest/download/supabase_windows_amd64.tar.gz -o supabase.tar.gz
+tar -xzf supabase.tar.gz supabase.exe
+
+# Move it to a directory already on your PATH (npm's global bin directory works)
+mv supabase.exe "$APPDATA/npm/supabase.exe"
+
+# Verify
+supabase --version
+```
+
+> **Note:** `supabase==2.9.1` in `backend/requirements.txt` is the Python Supabase client SDK — a completely separate package used by the backend to connect to Supabase. It is not the CLI and was already installed in Step 2.
+
+**Authenticate, link, and push migrations:**
+```bash
+# Log in to your Supabase account (opens a browser window to complete auth)
+supabase login
+
+# Link to your project (project ref is Settings → General → Project ID)
 supabase link --project-ref your-project-ref
 
 # Push all migrations
@@ -110,6 +166,22 @@ The migrations will create:
 - Storage buckets
 - Database functions
 
+#### Starting Over (Optional)
+
+If you need to wipe the database and re-run the migrations from scratch, run `supabase/rollback_all.sql` in the **Supabase SQL Editor**. It drops all tables, functions, roles, and the pgvector extension created by the migrations. Once it completes, run `supabase db push` again as normal.
+
+> **Note:** Remember to re-patch the `sql_query_role` password in `012_sql_tool.sql` before pushing again (see "Prepare SQL Tool Migration" above).
+
+#### Restore SQL Tool Migration Placeholder
+
+If you plan to commit the migration files, restore the password placeholder in `supabase/migrations/012_sql_tool.sql` so your real password is not stored in version control. Find the line you edited earlier and revert it back to:
+
+```sql
+CREATE ROLE sql_query_role WITH LOGIN PASSWORD '***';
+```
+
+The role and password already exist in your database — this change only affects the file, not the live schema.
+
 #### Enable Storage
 
 1. In Supabase dashboard, go to Storage
@@ -123,7 +195,7 @@ Create a test user to verify authentication:
 2. Click "Add user" → "Create new user"
 3. Enter email and password
 4. Click "Create user"
-5. Keep these credentials for testing
+5. Save these credentials in both `backend/.env` and `frontend/.env`, replacing the placeholders in `TEST_EMAIL` and `TEST_PASSWORD`
 
 ### 4. Frontend Setup
 
@@ -140,8 +212,7 @@ npm install
 cp .env.example .env
 ```
 
-Edit `frontend/.env` with:
-- Your Supabase URL and anon key (same as backend)
+> **Note:** Supabase credentials should already be filled in from Step 3. Verify `frontend/.env` also has:
 - Backend API URL (default: `http://localhost:8000`)
 
 ## Running the Application

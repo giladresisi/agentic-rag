@@ -1,4 +1,4 @@
--- Migration 015: Sub-Agent Metadata Support
+-- Sub-Agent Metadata Support
 -- Add JSONB column to messages table for storing sub-agent execution metadata
 
 -- Add subagent_metadata column to messages table (nullable for backward compatibility)

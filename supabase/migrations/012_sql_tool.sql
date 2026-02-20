@@ -42,7 +42,6 @@ GRANT SELECT ON books TO sql_query_role;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON books FROM sql_query_role;
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM sql_query_role;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM sql_query_role;
-REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM sql_query_role;
 
 -- Grant SELECT ONLY on books (re-grant after revoke all)
 GRANT SELECT ON books TO sql_query_role;

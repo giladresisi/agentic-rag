@@ -24,7 +24,12 @@ BEGIN
 END
 $$ LANGUAGE plpgsql;
 
-DROP TRIGGER IF EXISTS chunks_content_tsv_update ON chunks;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'chunks_content_tsv_update') THEN
+        DROP TRIGGER chunks_content_tsv_update ON chunks;
+    END IF;
+END $$;
 CREATE TRIGGER chunks_content_tsv_update
     BEFORE INSERT OR UPDATE OF content
     ON chunks
