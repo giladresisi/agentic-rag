@@ -4,13 +4,8 @@ import os
 import sys
 import time
 
-# Add backend to path and change to backend directory
-backend_path = os.path.join(os.path.dirname(__file__), 'backend')
-sys.path.insert(0, backend_path)
-os.chdir(backend_path)
-
 from dotenv import load_dotenv
-load_dotenv('../.env')
+load_dotenv()
 
 from fastapi.testclient import TestClient
 from main import app

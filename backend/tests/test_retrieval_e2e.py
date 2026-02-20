@@ -10,7 +10,7 @@ Test will PASS if:
 import asyncio
 import sys
 from dotenv import load_dotenv
-from test_utils import TEST_EMAIL, TEST_PASSWORD
+from test_utils import TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
 from services.supabase_service import get_supabase_admin
 from services.retrieval_service import retrieval_service
 from services.chat_service import chat_service

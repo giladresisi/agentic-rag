@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin
 from services.retrieval_service import retrieval_service
 from services.chat_service import chat_service
-from test_utils import cleanup_test_documents_and_storage
+from test_utils import cleanup_test_documents_and_storage, TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
 
 load_dotenv()
 
