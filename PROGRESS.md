@@ -556,7 +556,60 @@ RapidOCR's `Logger.__init__` calls `setLevel(INFO)` at import time, overriding a
 
 ### New Project Setup Walkthrough
 
-**Status:** [-] In progress — paused at end of **SETUP.md → Initial Testing → Document Ingestion** subsection.
+**Status:** [-] In progress — test suite cleaned up; two tasks remain before walkthrough is complete.
+
+#### Test Suite Fixes Applied (2026-02-21)
+
+The following issues were found and fixed during the setup walkthrough. All commits are on `main`.
+
+**Commits:**
+- `21959f4` — Stale test expectations, missing imports, hex validation bug, `.env.example` SUPPORTED_FILE_TYPES
+- `b69b2b0` — Collection errors (module-level code ran on import), stale fixture param names, SSE event loop flakiness
+- `0d0e119` — Wrong `os.chdir` path in test_upload_now.py, missing `TEST_USER_EMAIL`/`TEST_USER_PASSWORD` import aliases in 4 retrieval test files, deleted 2 stale tests referencing removed `openai_service`
+
+**`.env` fix required by user:**
+- `SUPPORTED_FILE_TYPES` in `backend/.env` was restricted to 5 types; must include the full list: `pdf,docx,pptx,html,md,txt,csv,json,xml,rtf`
+
+**Current test suite state (after fixes):**
+```
+89 collected, 49 passed, 40 skipped, 0 failed, 0 errors
+```
+
+#### Remaining Tasks for Next Agent
+
+**Task 1: Fix async tests (40 skipped)**
+
+All 40 skipped tests are `async def` functions skipped because `pytest-asyncio` is not installed. These are legitimate automated tests (hybrid search, SQL service, subagent service, web search, RAG retrieval, etc.) — not manual scripts.
+
+Fix:
+1. `pip install pytest-asyncio` and add to `backend/requirements.txt`
+2. Configure asyncio mode in `backend/pytest.ini` (or `pyproject.toml`):
+   ```ini
+   [pytest]
+   asyncio_mode = auto
+   ```
+3. Re-run full suite — expect ~89 passed, 0 skipped
+
+**Task 2: Split tests into `auto/` and `manual/` subfolders**
+
+Some test files are standalone scripts requiring a live server at `localhost:8000` — they should not be collected by pytest at all. Split `backend/tests/` into two subfolders:
+
+- `backend/tests/auto/` — pytest-runnable automated tests (all current passing + the 40 async ones)
+- `backend/tests/manual/` — live-server scripts, run directly with `python <file>.py`
+
+Files to move to `manual/`:
+- `test_stream.py`
+- `test_simple_send.py`
+- `test_strategic_retrieval.py`
+- `test_strategic_final.py`
+- `test_detailed_error.py`
+- `test_endpoint_direct.py`
+
+**Subfolder setup notes:**
+- Each subfolder needs its own `conftest.py` (copy current one — adds `backend/` to `sys.path`)
+- Or keep a single `conftest.py` at `backend/tests/` root (pytest inherits it into subdirs)
+- Configure `testpaths = tests/auto` in `pytest.ini` so `pytest` from `backend/` only runs automated tests
+- `manual/` scripts should have a top-level comment explaining they require `uvicorn` running
 
 ---
 
