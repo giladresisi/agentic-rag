@@ -1,7 +1,25 @@
-"""Test to see detailed error from backend."""
+"""
+MANUAL TEST - Requires a live server.
+  Run: cd backend && uvicorn main:app --reload
+  Then: python tests/manual/test_detailed_error.py
+
+Test to see detailed error from backend.
+"""
+import sys
+from pathlib import Path
+# Make backend modules importable when run directly
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # backend/
+sys.path.insert(0, str(Path(__file__).parent.parent))         # backend/tests/
+
+import os
+from dotenv import load_dotenv
 import requests
 from services.supabase_service import get_supabase
-from test_utils import TEST_EMAIL, TEST_PASSWORD
+
+load_dotenv()
+TEST_EMAIL = os.getenv("TEST_EMAIL")
+TEST_PASSWORD = os.getenv("TEST_PASSWORD")
+
 
 def test():
     # Get auth token

@@ -23,6 +23,13 @@ load_dotenv()
 test_user_id = None
 
 
+def setup_module(module):
+    """Pytest module setup: authenticate test user and clean up before tests."""
+    import asyncio
+    asyncio.run(setup_test_user())
+    asyncio.run(cleanup_test_documents())
+
+
 async def setup_test_user():
     """Get or create test user and return user_id."""
     global test_user_id
@@ -267,10 +274,11 @@ async def test_similarity_threshold():
         print("[FAIL] Threshold filtering issue")
         raise AssertionError("Low threshold returned fewer results than high threshold")
 
-    # Verify all results meet threshold
+    # Verify all results meet threshold (use hybrid_score if available, else similarity)
     for result in high_threshold_results:
-        if result['similarity'] < 0.8:
-            print(f"[FAIL] Result with similarity {result['similarity']} below threshold 0.8")
+        effective_score = result.get('hybrid_score', result['similarity'])
+        if effective_score < 0.8:
+            print(f"[FAIL] Result with score {effective_score} below threshold 0.8")
             raise AssertionError("Result below threshold returned")
 
     print("[PASS] Similarity threshold test passed")

@@ -1,9 +1,24 @@
 """
+MANUAL TEST - Requires a live server.
+  Run: cd backend && uvicorn main:app --reload
+  Then: python tests/manual/test_stream.py
+
 Test SSE streaming endpoint manually
 """
+import sys
+from pathlib import Path
+# Make backend and test utilities importable when run directly
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # backend/
+sys.path.insert(0, str(Path(__file__).parent.parent))         # backend/tests/
+
 import requests
 import json
-from test_utils import TEST_EMAIL, TEST_PASSWORD
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+TEST_EMAIL = os.getenv("TEST_EMAIL")
+TEST_PASSWORD = os.getenv("TEST_PASSWORD")
 
 
 def main():

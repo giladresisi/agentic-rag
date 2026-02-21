@@ -1,4 +1,10 @@
-"""Test strategic retrieval with proper SSE format handling."""
+"""
+MANUAL TEST - Requires a live server.
+  Run: cd backend && uvicorn main:app --reload
+  Then: python tests/manual/test_strategic_final.py
+
+Test strategic retrieval with proper SSE format handling.
+"""
 import requests
 import json
 import os

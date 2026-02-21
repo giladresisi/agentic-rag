@@ -1,8 +1,26 @@
-"""Test the FastAPI endpoint directly with detailed error output."""
+"""
+MANUAL TEST - Requires a live server.
+  Run: cd backend && uvicorn main:app --reload
+  Then: python tests/manual/test_endpoint_direct.py
+
+Test the FastAPI endpoint directly with detailed error output.
+"""
+import sys
+from pathlib import Path
+# Make backend modules importable when run directly
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))  # backend/
+sys.path.insert(0, str(Path(__file__).parent.parent))         # backend/tests/
+
+import os
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from main import app
 from services.supabase_service import get_supabase
-from test_utils import TEST_EMAIL, TEST_PASSWORD
+
+load_dotenv()
+TEST_EMAIL = os.getenv("TEST_EMAIL")
+TEST_PASSWORD = os.getenv("TEST_PASSWORD")
+
 
 def test():
     print("=== Testing FastAPI Endpoint Directly ===\n")

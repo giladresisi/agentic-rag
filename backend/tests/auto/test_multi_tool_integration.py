@@ -20,6 +20,12 @@ FAIL = "[FAIL]"
 WARN = "[WARN]"
 
 
+def setup_module(module):
+    """Pytest module setup: authenticate and clean up before tests."""
+    import asyncio
+    asyncio.run(setup())
+
+
 async def setup():
     """Authenticate test user and clean up existing test documents."""
     global test_user_id

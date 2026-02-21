@@ -39,7 +39,7 @@ async def test():
     full_response = ""
     sources = None
 
-    async for delta, chunk_sources in chat_service.stream_response(
+    async for delta, chunk_sources, _ in chat_service.stream_response(
         conversation_history=conversation_history,
         user_id=user_id,
         model="gpt-4o-mini",

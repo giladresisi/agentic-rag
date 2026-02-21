@@ -15,6 +15,12 @@ test_user_id = None
 test_document_id = None
 
 
+def setup_module(module):
+    """Pytest module setup: authenticate, create test document before tests."""
+    import asyncio
+    asyncio.run(setup())
+
+
 async def setup():
     """Authenticate test user and create a test document with chunks."""
     global test_user_id, test_document_id

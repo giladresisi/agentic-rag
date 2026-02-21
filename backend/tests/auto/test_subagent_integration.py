@@ -14,6 +14,12 @@ load_dotenv()
 test_user_id = None
 
 
+def setup_module(module):
+    """Pytest module setup: authenticate and clean up before tests."""
+    import asyncio
+    asyncio.run(setup())
+
+
 async def setup():
     global test_user_id
     supabase = get_supabase_admin()

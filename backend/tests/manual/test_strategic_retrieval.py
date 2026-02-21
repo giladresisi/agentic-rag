@@ -1,4 +1,9 @@
-"""Test strategic retrieval with multiple tool calls.
+"""
+MANUAL TEST - Requires a live server.
+  Run: cd backend && uvicorn main:app --reload
+  Then: python tests/manual/test_strategic_retrieval.py
+
+Test strategic retrieval with multiple tool calls.
 
 This test demonstrates the enhanced system prompt that encourages
 the LLM to generate a retrieval strategy and make multiple tool calls.

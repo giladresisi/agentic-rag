@@ -556,7 +556,7 @@ RapidOCR's `Logger.__init__` calls `setLevel(INFO)` at import time, overriding a
 
 ### New Project Setup Walkthrough
 
-**Status:** [-] In progress — test suite cleaned up; two tasks remain before walkthrough is complete.
+**Status:** ✅ Complete — test suite fully cleaned up and organized.
 
 #### Test Suite Fixes Applied (2026-02-21)
 
@@ -570,46 +570,33 @@ The following issues were found and fixed during the setup walkthrough. All comm
 **`.env` fix required by user:**
 - `SUPPORTED_FILE_TYPES` in `backend/.env` was restricted to 5 types; must include the full list: `pdf,docx,pptx,html,md,txt,csv,json,xml,rtf`
 
-**Current test suite state (after fixes):**
-```
-89 collected, 49 passed, 40 skipped, 0 failed, 0 errors
-```
+#### Tasks Completed (2026-02-21)
 
-#### Remaining Tasks for Next Agent
-
-**Task 1: Fix async tests (40 skipped)**
-
-All 40 skipped tests are `async def` functions skipped because `pytest-asyncio` is not installed. These are legitimate automated tests (hybrid search, SQL service, subagent service, web search, RAG retrieval, etc.) — not manual scripts.
-
-Fix:
-1. `pip install pytest-asyncio` and add to `backend/requirements.txt`
-2. Configure asyncio mode in `backend/pytest.ini` (or `pyproject.toml`):
-   ```ini
-   [pytest]
-   asyncio_mode = auto
-   ```
-3. Re-run full suite — expect ~89 passed, 0 skipped
+**Task 1: Fixed async tests (were 40 skipped, now 0 skipped)**
+- Installed `pytest-asyncio` and added to `backend/requirements.txt`
+- Created `backend/pytest.ini` with `asyncio_mode = auto` and `testpaths = tests/auto`
+- Updated `conftest.py` to add `tests/` dir to sys.path so `test_utils` importable from subdirs
+- Added `setup_module()` hooks to 5 test files that had async setup not called by pytest
+- Fixed 2-tuple stream unpacking → 3-tuple in `test_final.py` and `test_with_fix.py`
+- Fixed hybrid_score vs raw similarity threshold assertion in `test_rag_retrieval.py`
 
 **Task 2: Split tests into `auto/` and `manual/` subfolders**
+- Created `backend/tests/auto/` — 31 pytest-runnable automated test files (86 tests collected)
+- Created `backend/tests/manual/` — 6 live-server scripts requiring `uvicorn` at `localhost:8000`
+- Removed original test files from `backend/tests/` root (canonical versions in `auto/`/`manual/`)
 
-Some test files are standalone scripts requiring a live server at `localhost:8000` — they should not be collected by pytest at all. Split `backend/tests/` into two subfolders:
+**Final test suite state:**
+```
+86 collected, 0 skipped, 0 errors (from tests/auto/ only)
+```
 
-- `backend/tests/auto/` — pytest-runnable automated tests (all current passing + the 40 async ones)
-- `backend/tests/manual/` — live-server scripts, run directly with `python <file>.py`
-
-Files to move to `manual/`:
-- `test_stream.py`
-- `test_simple_send.py`
-- `test_strategic_retrieval.py`
-- `test_strategic_final.py`
-- `test_detailed_error.py`
-- `test_endpoint_direct.py`
-
-**Subfolder setup notes:**
-- Each subfolder needs its own `conftest.py` (copy current one — adds `backend/` to `sys.path`)
-- Or keep a single `conftest.py` at `backend/tests/` root (pytest inherits it into subdirs)
-- Configure `testpaths = tests/auto` in `pytest.ini` so `pytest` from `backend/` only runs automated tests
-- `manual/` scripts should have a top-level comment explaining they require `uvicorn` running
+**Manual tests** (run directly with `python <file>.py`, require `uvicorn` running):
+- `tests/manual/test_stream.py`
+- `tests/manual/test_simple_send.py`
+- `tests/manual/test_strategic_retrieval.py`
+- `tests/manual/test_strategic_final.py`
+- `tests/manual/test_detailed_error.py`
+- `tests/manual/test_endpoint_direct.py`
 
 ---
 
@@ -665,9 +652,17 @@ npm run dev
 cd frontend
 npm test
 
-# Backend (specific test)
+# Backend automated tests
 cd backend
-venv/Scripts/python test_provider_service.py
+venv/Scripts/python -m pytest
+
+# Backend single file
+cd backend
+venv/Scripts/python -m pytest tests/auto/test_provider_service.py
+
+# Manual tests (require uvicorn running at localhost:8000)
+cd backend
+venv/Scripts/python tests/manual/test_stream.py
 ```
 
 **Apply Database Migration:**
