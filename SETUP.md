@@ -302,11 +302,14 @@ npm run dev
 
 ### 4. LangSmith Traces (Optional)
 
-If you configured LangSmith:
-1. Go to https://smith.langchain.com
-2. Open your project (default: "default")
-3. Look for traces from your test messages
-4. Verify input, output, and timing are captured
+If you configured `LANGSMITH_API_KEY` in `backend/.env`, run the automated trace verification tests instead of checking the dashboard manually:
+
+```bash
+cd frontend
+npx playwright test langsmith-traces
+```
+
+This sends a real chat message through the UI and queries the LangSmith API to verify that a `chat_completions_stream` run was created with inputs, outputs, and a closed end_time. All 3 tests pass in ~50 seconds. The suite auto-skips if `LANGSMITH_API_KEY` is not configured.
 
 ## Verification Checklist
 
@@ -369,10 +372,7 @@ Use this checklist to verify your setup:
 - [ ] Subagent delegation triggers on analysis tasks
 
 ### Observability (Optional)
-- [ ] LangSmith traces appear in dashboard
-- [ ] Traces include input, output, timing
-- [ ] Tool calls visible in traces
-- [ ] Errors captured in traces
+- [ ] `npx playwright test langsmith-traces` — all 3 tests pass (auto-skips if no API key)
 
 ## Troubleshooting
 

@@ -285,8 +285,8 @@ Hierarchical agent delegation system enabling main chat agent to spawn isolated 
 Child LangSmith traces for all tool executions providing detailed observability into tool inputs, outputs, and execution metadata. Trace closure guaranteed via finally block pattern ensures traces complete even when streams are interrupted or errors occur.
 
 ### Test Status
-- **Automated Tests:** ⚠️ Not applicable (observability feature - validated manually via LangSmith dashboard)
-- **Manual Tests:** ✅ All passing
+- **Automated Tests:** ✅ 3/3 passing — see [Enhancement: LangSmith Trace Automated Tests](#enhancement-langsmith-trace-automated-tests) below
+- **Manual Tests (original validation):** ✅ All passing
   - retrieve_documents: Shows query, chunk_count, similarity scores
   - query_books_database: Shows SQL query, row count, sample results
   - search_web: Shows search query, result count, top URLs
@@ -597,6 +597,29 @@ The following issues were found and fixed during the setup walkthrough. All comm
 - `tests/manual/test_strategic_final.py`
 - `tests/manual/test_detailed_error.py`
 - `tests/manual/test_endpoint_direct.py`
+
+---
+
+### Enhancement: LangSmith Trace Automated Tests
+
+**Status:** ✅ Complete
+**Completed:** 2026-02-21
+
+#### Core Validation
+Playwright tests verifying that chat messages produce LangSmith traces with correct structure, content, and guaranteed closure. Tests connect directly to the LangSmith REST API to poll for runs after sending messages through the UI.
+
+#### Test Status
+- **Automated Tests:** ✅ 3/3 passing (`frontend/tests/langsmith-traces.spec.ts`)
+  - `chat message creates a LangSmith run with inputs and outputs` — verifies `chat_completions_stream` run appears with populated inputs, outputs, and end_time
+  - `LangSmith run captures the user message in inputs` — verifies user message text is present in run inputs
+  - `failed chat still closes the LangSmith run without leaving it open` — verifies `end_time` is always set (finally-block cleanup guaranteed)
+- Auto-skips if `LANGSMITH_API_KEY` is absent from `backend/.env`
+
+#### Notes
+- Run: `cd frontend && npx playwright test langsmith-traces`
+- REST API pattern discovered: `GET /api/v1/sessions?name=<project>` to resolve session UUID, then `POST /api/v1/runs/query` with `{"session": [uuid], ...}` — the simple `GET /api/v1/runs?session_name=...` returns 405
+- Polls every 4s up to 40s to account for LangSmith's 10–30s propagation delay
+- Loads `LANGSMITH_API_KEY` from `backend/.env` at test time (not frontend env)
 
 ---
 
