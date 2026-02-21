@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { ProvidersResponse } from '../types/chat';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_URL } from '../lib/api';
 
 export function useProviders() {
   const [providers, setProviders] = useState<ProvidersResponse | null>(null);

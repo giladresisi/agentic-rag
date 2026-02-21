@@ -3,7 +3,7 @@ import type { Document, Chunk } from '@/types/ingestion';
 import type { ProviderConfig } from '@/types/chat';
 import { supabase } from '@/lib/supabase';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '@/lib/api';
 
 export function useIngestion(token: string | null) {
   const [documents, setDocuments] = useState<Document[]>([]);

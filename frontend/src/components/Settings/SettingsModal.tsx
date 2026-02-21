@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import type { ProviderConfig } from '@/types/chat';
 import { supabase } from '@/lib/supabase';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+import { API_URL } from '@/lib/api';
 
 interface SettingsModalProps {
   isOpen: boolean;

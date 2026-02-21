@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import type { AuthState, User } from '@/types/auth';
+import type { AuthState } from '@/types/auth';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '@/lib/api';
 
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
@@ -36,7 +36,7 @@ export function useAuth() {
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         if (session) {
           setAuthState({
             user: {

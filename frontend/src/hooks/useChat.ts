@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { Message, ProviderConfig } from '@/types/chat';
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+import { API_URL } from '@/lib/api';
 
 export function useChat(threadId: string | null, token: string | null) {
   const [messages, setMessages] = useState<Message[]>([]);
