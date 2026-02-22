@@ -623,6 +623,29 @@ Playwright tests verifying that chat messages produce LangSmith traces with corr
 
 ---
 
+### Bug Fix: PDF Parsing Failure on Real-World Documents (2026-02-22)
+
+**Status:** ✅ Complete
+
+#### Root Cause
+PDF uploads were failing with `"Failed to parse document: Missing ONNX file: ...beehive_v0.0.5\model.pt"`. The chain of failures:
+
+1. **PyTorch 2.2.2 too old** — Docling's layout-heron model (already cached in `~/.cache/huggingface/hub/`) requires PyTorch ≥ 2.4. With PyTorch disabled, docling fell back to the old `beehive_v0.0.5` ONNX model from `ds4sd/docling-models`, which was never fully downloaded (only tableformer was cached, layout was missing).
+2. **Server not using venv** — `uvicorn` was being called bare, picking up the system Python (PyTorch 2.2.2) instead of the venv (which had 2.10.0 after the fix). Activation alone is unreliable on Windows.
+3. **Warmup crash blocked server start** — The new lifespan warmup was non-fatal after fix, but confirmed the startup failure was PyTorch-version-related.
+
+#### Fixes Applied
+- **`requirements.txt`:** Added `torch>=2.4`, `torchvision>=0.19`, `huggingface_hub[hf_xet]>=0.27`
+- **`main.py`:** Lifespan warmup made non-fatal (logs warning instead of crashing server)
+- **`start_scripts/`:** All 4 scripts updated to call `venv/Scripts/uvicorn` directly instead of relying on PATH after activation
+- **`SETUP.md`:** Run commands updated to `venv/Scripts/uvicorn`; Windows HuggingFace symlinks limitation documented in Prerequisites with fix steps (Developer Mode or run as admin)
+- **`debugging/check_failed_documents.py`:** Fixed `UnicodeEncodeError` on Hebrew filenames via `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`
+
+#### Key Lesson
+Simple test PDFs (single text block) bypass docling's layout pipeline and succeed even with broken model setup. Real-world complex PDFs (tables, images, multi-column) require the layout model. Always test with a real document, not a synthetic one.
+
+---
+
 ### Repository Maintenance: Secret Removal from Git History
 
 **Completed:** 2026-02-20
@@ -660,7 +683,7 @@ Both passes rewrote the full commit graph. The remote was force-pushed after eac
 **Run Backend:**
 ```bash
 cd backend
-venv/Scripts/python -m uvicorn main:app --reload
+venv/Scripts/uvicorn main:app --reload --port 8000
 ```
 
 **Run Frontend:**
