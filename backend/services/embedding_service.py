@@ -2,16 +2,16 @@ from config import settings
 from services.provider_service import provider_service
 from typing import List, Optional
 from pathlib import Path
-from docling.document_converter import DocumentConverter
 import tempfile
 import os
 
-_converter: Optional[DocumentConverter] = None
+_converter = None
 
 
-def _get_converter() -> DocumentConverter:
+def _get_converter():
     global _converter
     if _converter is None:
+        from docling.document_converter import DocumentConverter
         _converter = DocumentConverter()
     return _converter
 
