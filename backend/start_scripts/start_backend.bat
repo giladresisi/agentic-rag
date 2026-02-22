@@ -25,6 +25,6 @@ echo Starting uvicorn server on port 8000...
 echo Press Ctrl+C to stop
 echo.
 
-REM Activate venv and start server
-call venv\Scripts\activate.bat
-uvicorn main:app --reload --port 8000
+REM Use venv's uvicorn directly — avoids relying on PATH after activation
+REM (system Python may shadow venv if activation doesn't propagate correctly)
+venv\Scripts\uvicorn main:app --reload --port 8000

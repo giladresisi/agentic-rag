@@ -7,7 +7,8 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd "$SCRIPT_DIR/.." || exit 1
 
 echo "Working directory: $(pwd)"
-echo "Activating virtual environment..."
+echo ""
 
-source venv/Scripts/activate
-python -m uvicorn main:app --host 0.0.0.0 --port 8000
+# Use venv's uvicorn directly — avoids relying on PATH after activation
+# (system Python may shadow venv if activation doesn't propagate correctly)
+venv/Scripts/uvicorn main:app --host 0.0.0.0 --port 8000

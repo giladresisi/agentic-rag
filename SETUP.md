@@ -21,6 +21,26 @@ Before starting, ensure you have:
 - **OpenRouter API key** - Access to multiple LLM providers (https://openrouter.ai)
 - **LM Studio** - Run local models (https://lmstudio.ai)
 
+### Windows: Enable Symlinks for HuggingFace Model Cache
+
+Document parsing (Docling) downloads neural network models from HuggingFace Hub and caches them at `~/.cache/huggingface/hub/`. HuggingFace's cache system uses **symlinks** to avoid re-downloading the same model files across different versions — but Windows disables symlink creation for regular users by default.
+
+**Without symlinks**, HuggingFace falls back to copying files instead. This still works, but means the same model file may be stored multiple times on disk if multiple versions are cached.
+
+**To enable symlinks on Windows** (recommended), do one of the following:
+
+**Option A — Enable Developer Mode** (recommended, no admin required after):
+1. Open **Settings** → **System** → **For developers**
+2. Toggle **Developer Mode** on
+3. Restart your terminal
+
+**Option B — Run Python as Administrator**:
+- Right-click your terminal and select **Run as administrator** before starting the backend
+
+> **Reference:** [HuggingFace Hub cache limitations on Windows](https://huggingface.co/docs/huggingface_hub/v1.4.0/guides/manage-cache#limitations)
+
+> **Suppress the warning without fixing it:** Add `HF_HUB_DISABLE_SYMLINKS_WARNING=1` to `backend/.env` to silence the warning if you choose not to enable symlinks. Document parsing will still work — only cache efficiency is affected.
+
 ## Installation
 
 ### 1. Clone the Repository
@@ -74,7 +94,7 @@ finally:
 
 This will take a few minutes on first run. It runs a real (minimal) PDF conversion to force all pipeline models to download — including layout models that are lazy-loaded on first use. Subsequent runs are instant (models are cached at `~/.cache/huggingface/hub/`).
 
-> **Windows note:** On Windows without Developer Mode enabled, HuggingFace Hub cannot create symlinks and will fall back to file copies. The pre-download step above handles this correctly. Set `HF_HUB_DISABLE_SYMLINKS_WARNING=1` in your `.env` to suppress the related warning.
+> **Windows note:** See [Windows: Enable Symlinks for HuggingFace Model Cache](#windows-enable-symlinks-for-huggingface-model-cache) in Prerequisites above.
 
 > **Note:** Simple text formats (`.txt`, `.md`, `.html`, `.json`, `.rtf`) do not use these models and will work without this step.
 
