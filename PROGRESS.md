@@ -646,6 +646,100 @@ Simple test PDFs (single text block) bypass docling's layout pipeline and succee
 
 ---
 
+### Render Deployment Fixes (2026-02-22)
+
+**Status:** ✅ Complete
+
+Three issues diagnosed and fixed to unblock Render deployment:
+
+**1. Wrong Python version file name and format**
+- `backend/runtime.txt` is not recognized by Render — correct filename is `backend/.python-version`
+- Content was `python-3.12.0`; correct format is `3.12.0` (version number only)
+- Render was defaulting to Python 3.14, causing `pydantic-core==2.23.4` to fail compilation (no pre-built wheel for 3.14, Cargo filesystem is read-only)
+- Fix: renamed to `.python-version`, corrected content
+
+**2. `huggingface_hub` extra name changed in newer versions**
+- `huggingface_hub[hf_xet]` (underscore) was renamed to `huggingface_hub[hf-xet]` (hyphen) in 1.x releases, producing pip warnings on every build
+- Fix: updated `requirements.txt` to `huggingface_hub[hf-xet]>=0.27`
+
+**3. Start command should use hardcoded port, not `$PORT`**
+- Render's `$PORT` variable can cause health check failures if port detection mismatches
+- Using `--port 8000` (hardcoded) is reliable: Render detects and routes to whichever port the app binds on
+- Fix: updated `SETUP.md` start command to `uvicorn main:app --host 0.0.0.0 --port 8000` and corrected the troubleshooting section accordingly
+
+---
+
+### Cloud Run Migration (2026-02-22) — IN PROGRESS
+
+**Status:** 🔴 Incomplete — deployment command was not executed
+
+#### Context
+Render's free tier (512MB RAM) is insufficient even with the lazy-import fix. Loading torch+docling during the first document upload still OOM-kills the process. Decision: migrate backend to **Google Cloud Run** (2GB RAM, generous free tier).
+
+#### What Was Done
+
+**GCP project setup (complete):**
+- Project `agentic-rag-gilad` created
+- APIs enabled: `cloudbuild`, `run`, `artifactregistry`, `secretmanager`
+- Artifact Registry repo `agentic-rag` created in `us-central1`
+- Cloud Build service account granted `secretmanager.admin`
+
+**GitHub CI/CD connection (incomplete):**
+- `gcloud builds connections create github agentic-rag-github` succeeded but requires browser OAuth to complete
+- The generated OAuth URL returned 404 → Cloud Build GitHub OAuth is broken
+- **Decision: use GitHub Actions for CI/CD instead** (avoids Cloud Build's OAuth flow entirely)
+- The `agentic-rag-github` connection object still exists in the project but is in `PENDING_USER_OAUTH` state — can be deleted
+
+**Dockerfile (complete, pushed):**
+- `backend/Dockerfile` added and pushed to repo (`c95bb8a`)
+- Base: `python:3.12-slim`, system deps: `libgomp1`, `libglib2.0-0`, `libgl1`
+- Deps layer cached separately from source code for fast rebuilds
+
+**Env vars (prepared, not applied):**
+- `.cloudrun_env.yaml` generated at repo root from `backend/.env`
+- `CORS_ORIGINS` set to `*` (must be tightened to actual frontend URL after deployment)
+- `PORT` omitted (hardcoded in Dockerfile CMD)
+- File is gitignored — do not commit
+
+#### What the Next Agent Needs to Do
+
+1. **Deploy to Cloud Run:**
+   ```bash
+   gcloud run deploy agentic-rag \
+     --source backend/ \
+     --region=us-central1 \
+     --project=agentic-rag-gilad \
+     --allow-unauthenticated \
+     --memory=2Gi \
+     --cpu=1 \
+     --timeout=300 \
+     --env-vars-file=.cloudrun_env.yaml
+   ```
+   This uses Cloud Build to build the image (~15–20 min first run). If it fails, fall back to building/pushing the Docker image manually then deploying with `--image`.
+
+2. **Set up GitHub Actions CI/CD** — create `.github/workflows/deploy.yml`:
+   - On push to `main`, build Docker image and push to Artifact Registry
+   - Then deploy the new image to Cloud Run
+   - Needs a GCP service account with `roles/run.admin`, `roles/artifactregistry.writer`, `roles/storage.admin`, `roles/iam.serviceAccountUser`
+   - Store service account JSON key as GitHub secret `GCP_SA_KEY`
+
+3. **Update `CORS_ORIGINS`** — after first deploy, get the `*.run.app` URL and update the Cloud Run env var:
+   ```bash
+   gcloud run services update agentic-rag \
+     --region=us-central1 \
+     --update-env-vars=CORS_ORIGINS=https://<service-url>.run.app
+   ```
+   Also update `frontend/.env` (and Vercel env vars) `VITE_API_URL` to the Cloud Run URL.
+
+4. **Clean up Render** — once Cloud Run is working, the Render service can be left to sleep (free tier) or deleted.
+
+#### Key Files
+- `backend/Dockerfile` — container definition
+- `.cloudrun_env.yaml` — env vars for deployment (gitignored, contains secrets)
+- `.gitignore` — updated to exclude `.cloudrun_env.yaml`
+
+---
+
 ### Repository Maintenance: Secret Removal from Git History
 
 **Completed:** 2026-02-20
