@@ -671,7 +671,7 @@ Three issues diagnosed and fixed to unblock Render deployment:
 
 ### Cloud Run Migration (2026-02-22) — IN PROGRESS
 
-**Status:** 🔴 Incomplete — deployment command was not executed
+**Status:** 🔴 Incomplete — build failing
 
 #### Context
 Render's free tier (512MB RAM) is insufficient even with the lazy-import fix. Loading torch+docling during the first document upload still OOM-kills the process. Decision: migrate backend to **Google Cloud Run** (2GB RAM, generous free tier).
@@ -682,13 +682,9 @@ Render's free tier (512MB RAM) is insufficient even with the lazy-import fix. Lo
 - Project `agentic-rag-gilad` created
 - APIs enabled: `cloudbuild`, `run`, `artifactregistry`, `secretmanager`
 - Artifact Registry repo `agentic-rag` created in `us-central1`
-- Cloud Build service account granted `secretmanager.admin`
 
-**GitHub CI/CD connection (incomplete):**
-- `gcloud builds connections create github agentic-rag-github` succeeded but requires browser OAuth to complete
-- The generated OAuth URL returned 404 → Cloud Build GitHub OAuth is broken
-- **Decision: use GitHub Actions for CI/CD instead** (avoids Cloud Build's OAuth flow entirely)
-- The `agentic-rag-github` connection object still exists in the project but is in `PENDING_USER_OAUTH` state — can be deleted
+**GitHub connection (complete):**
+- User connected `giladresisi/agentic-rag` repo directly to the Cloud Run service via the GCP console (Continuous Deployment tab) — CI/CD is wired up, pushes to `main` will trigger builds automatically
 
 **Dockerfile (complete, pushed):**
 - `backend/Dockerfile` added and pushed to repo (`c95bb8a`)
@@ -701,37 +697,38 @@ Render's free tier (512MB RAM) is insufficient even with the lazy-import fix. Lo
 - `PORT` omitted (hardcoded in Dockerfile CMD)
 - File is gitignored — do not commit
 
+**Build (failing):**
+- First automated build triggered after GitHub connection — failed
+- Failure reason unknown; next agent must check Cloud Build logs
+
 #### What the Next Agent Needs to Do
 
-1. **Deploy to Cloud Run:**
+1. **Diagnose the build failure** — check Cloud Build logs:
    ```bash
-   gcloud run deploy agentic-rag \
-     --source backend/ \
-     --region=us-central1 \
-     --project=agentic-rag-gilad \
-     --allow-unauthenticated \
-     --memory=2Gi \
-     --cpu=1 \
-     --timeout=300 \
-     --env-vars-file=.cloudrun_env.yaml
+   gcloud builds list --project=agentic-rag-gilad --limit=5
+   gcloud builds log <BUILD_ID> --project=agentic-rag-gilad
    ```
-   This uses Cloud Build to build the image (~15–20 min first run). If it fails, fall back to building/pushing the Docker image manually then deploying with `--image`.
+   Or via Render MCP / `gcloud run services describe agentic-rag --region=us-central1 --project=agentic-rag-gilad`
 
-2. **Set up GitHub Actions CI/CD** — create `.github/workflows/deploy.yml`:
-   - On push to `main`, build Docker image and push to Artifact Registry
-   - Then deploy the new image to Cloud Run
-   - Needs a GCP service account with `roles/run.admin`, `roles/artifactregistry.writer`, `roles/storage.admin`, `roles/iam.serviceAccountUser`
-   - Store service account JSON key as GitHub secret `GCP_SA_KEY`
+2. **Fix whatever is causing the build to fail** and push — the GitHub connection will auto-trigger a new build
 
-3. **Update `CORS_ORIGINS`** — after first deploy, get the `*.run.app` URL and update the Cloud Run env var:
+3. **Apply env vars** after a successful build:
    ```bash
    gcloud run services update agentic-rag \
      --region=us-central1 \
+     --project=agentic-rag-gilad \
+     --env-vars-file=.cloudrun_env.yaml
+   ```
+
+4. **Update `CORS_ORIGINS`** — get the `*.run.app` URL and update:
+   ```bash
+   gcloud run services describe agentic-rag --region=us-central1 --project=agentic-rag-gilad --format='value(status.url)'
+   gcloud run services update agentic-rag --region=us-central1 --project=agentic-rag-gilad \
      --update-env-vars=CORS_ORIGINS=https://<service-url>.run.app
    ```
-   Also update `frontend/.env` (and Vercel env vars) `VITE_API_URL` to the Cloud Run URL.
+   Also update `VITE_API_URL` in Vercel env vars to the Cloud Run URL.
 
-4. **Clean up Render** — once Cloud Run is working, the Render service can be left to sleep (free tier) or deleted.
+5. **Clean up Render** — once Cloud Run is working, the Render service can be left to sleep or deleted.
 
 #### Key Files
 - `backend/Dockerfile` — container definition
