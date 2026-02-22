@@ -243,10 +243,19 @@ cp .env.example .env
 
 ### Start Backend (Terminal 1)
 
+> **Important:** Always run uvicorn from inside the venv — it packages large ML models (PyTorch, docling) that are only installed there. Using the system Python will cause document parsing to fail.
+
+**Windows (Git Bash) — recommended: use venv's uvicorn directly:**
 ```bash
 cd backend
-source venv/Scripts/activate  # Windows (Git Bash)
-# source venv/bin/activate  # Mac/Linux
+venv/Scripts/uvicorn main:app --reload --port 8000
+```
+
+**Alternatively, activate the venv first:**
+```bash
+cd backend
+source venv/Scripts/activate   # Windows (Git Bash)
+# source venv/bin/activate      # Mac/Linux
 uvicorn main:app --reload --port 8000
 ```
 
@@ -374,7 +383,68 @@ Use this checklist to verify your setup:
 ### Observability (Optional)
 - [ ] `npx playwright test langsmith-traces` — all 3 tests pass (auto-skips if no API key)
 
+## Cloud Deployment
+
+### Deploying Backend to Render
+
+The repository includes `backend/runtime.txt` (pins Python 3.12), which is required for a successful first-time deploy. Some dependencies (`pydantic-core`) have no pre-built wheels for Python 3.14+ and will fail to compile from source in Render's build environment. Python 3.12 has full pre-built wheel support for all dependencies.
+
+#### Create a New Web Service
+
+1. Go to https://render.com and create an account (free tier works)
+2. Click **New** → **Web Service** and connect your GitHub repository
+3. Configure the service:
+
+| Setting | Value |
+|---------|-------|
+| **Root Directory** | `backend` |
+| **Runtime** | Python |
+| **Build Command** | `pip install -r requirements.txt` |
+| **Start Command** | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+
+> **Important:** Never use `--reload` in production and never hardcode `--port 8000`. Render assigns a dynamic port via the `$PORT` environment variable — using a hardcoded port will cause the health check to fail.
+
+#### Configure Environment Variables
+
+In the Render dashboard under **Environment**, add the same variables as `backend/.env`:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `SUPABASE_URL` | Yes | Your Supabase project URL |
+| `SUPABASE_ANON_KEY` | Yes | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
+| `OPENAI_API_KEY` | Yes | OpenAI API key |
+| `CORS_ORIGINS` | Yes | Frontend URL (e.g. `https://your-app.vercel.app`). Misconfigured CORS is the most common post-deploy issue. |
+| `LANGSMITH_API_KEY` | No | LangSmith observability |
+| `LANGSMITH_PROJECT` | No | LangSmith project name |
+| `COHERE_API_KEY` | No | Cohere reranking |
+| `TAVILY_API_KEY` | No | Tavily web search |
+
+#### Build Time Warning
+
+`torch`, `torchvision`, and `docling` are large ML packages (~2GB). Builds take 10–20 minutes. On the free tier, builds may time out — upgrade to the Starter plan if this happens.
+
+Docling's neural network models are not cached between deploys. They download on first document upload after each new deployment (~500MB, takes a few minutes). Simple text formats (`.txt`, `.md`, `.json`) are unaffected.
+
+#### Free Tier Behavior
+
+Render's free tier sleeps after 15 minutes of inactivity. The first request after sleep takes ~30 seconds as the service cold-starts. This is normal — upgrade to a paid plan to keep the service always-on.
+
 ## Troubleshooting
+
+### Render Deployment Issues
+
+**Build fails with `pydantic-core` / `maturin` / Rust errors**
+- **Cause:** Wrong Python version — Render defaulted to Python 3.14+ which has no pre-built wheels
+- **Fix:** Ensure `backend/runtime.txt` exists and contains `python-3.12.0` (already included in this repo)
+
+**Health check fails / service crashes on start**
+- **Cause:** Start command uses wrong port or Windows-only path
+- **Fix:** Start command must be exactly: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- **Check:** Do not use `venv/Scripts/uvicorn` (Windows path), `--port 8000` (hardcoded), or `--reload` (dev-only flag)
+
+**CORS errors after deploy**
+- **Fix:** Set `CORS_ORIGINS` environment variable in Render dashboard to your exact frontend URL (no trailing slash)
 
 ### Backend Won't Start
 
@@ -507,17 +577,18 @@ Once everything is working:
 
 ### Backend
 ```bash
-# Start server
-uvicorn main:app --reload --port 8000
+# Start server (use venv's uvicorn to avoid system Python)
+venv/Scripts/uvicorn main:app --reload --port 8000  # Windows
+# venv/bin/uvicorn main:app --reload --port 8000    # Mac/Linux
 
 # Run tests
-python -m pytest
+venv/Scripts/python -m pytest
 
 # Check installed packages
-pip list
+venv/Scripts/pip list
 
 # Update dependencies
-pip install -r requirements.txt --upgrade
+venv/Scripts/pip install -r requirements.txt --upgrade
 ```
 
 ### Frontend
@@ -550,7 +621,8 @@ supabase db reset
 ### Debugging
 ```bash
 # View backend logs (verbose)
-uvicorn main:app --reload --log-level debug
+venv/Scripts/uvicorn main:app --reload --log-level debug  # Windows
+# venv/bin/uvicorn main:app --reload --log-level debug    # Mac/Linux
 
 # Check backend connectivity
 curl http://localhost:8000/docs

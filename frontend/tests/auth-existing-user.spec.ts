@@ -29,7 +29,7 @@ test.describe('Authentication with Existing User', () => {
     // Verify we're in the chat interface - should see either:
     // 1. "Select a thread" message (no active thread), OR
     // 2. Thread sidebar with "New" button
-    const emptyStateOrSidebar = page.getByText(/Select a thread|Agentic RAG Masterclass/i).or(page.getByRole('button', { name: /new/i }));
+    const emptyStateOrSidebar = page.getByText(/Select a thread|Agentic RAG/i).or(page.getByRole('button', { name: /new/i }));
     await expect(emptyStateOrSidebar.first()).toBeVisible({ timeout: 10000 });
 
     // Verify user email is shown in header

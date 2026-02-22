@@ -1,6 +1,6 @@
 # Progress
 
-Track progress through the RAG Masterclass modules.
+Track progress through the Agentic RAG modules.
 
 ## Convention
 - `[x]` = Completed and validated

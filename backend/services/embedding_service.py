@@ -169,3 +169,13 @@ class EmbeddingService:
 
 
 embedding_service = EmbeddingService()
+
+
+def warmup_converter() -> None:
+    """Initialize the DocumentConverter singleton at server startup.
+
+    Calling this early forces docling to download any missing HuggingFace models
+    before the first real request arrives. If a model download fails, the error
+    surfaces here (at boot) rather than silently during a user's document upload.
+    """
+    _get_converter()

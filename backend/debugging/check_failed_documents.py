@@ -1,4 +1,7 @@
 """Check for failed document processing."""
+import sys
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+
 import _setup_path  # noqa - sets up Python path for imports
 from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin

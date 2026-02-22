@@ -88,7 +88,7 @@ export function ChatInterface() {
           <h1 className="text-xl font-semibold">
             {currentThreadId
               ? threads.find(t => t.id === currentThreadId)?.title || 'Chat'
-              : 'Agentic RAG Masterclass'}
+              : 'Agentic RAG'}
           </h1>
         </header>
         {currentThreadId ? (

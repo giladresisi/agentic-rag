@@ -7,6 +7,7 @@ warnings.filterwarnings("ignore", category=UserWarning, module="pydantic._intern
 # This must happen before routers are imported (they import openai_service)
 import services.langsmith_service  # noqa: F401
 
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from config import settings
@@ -23,7 +24,34 @@ class _RapidOCRWarningFilter(logging.Filter):
 
 logging.getLogger("RapidOCR").addFilter(_RapidOCRWarningFilter())
 
-app = FastAPI(title="Agentic RAG Masterclass API", version="1.0.0")
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Warm up docling's DocumentConverter at startup.
+    # Docling downloads its ML models (layout, tableformer, OCR) lazily on first use.
+    # Without this, a partial/interrupted HuggingFace download is only discovered
+    # mid-upload — failing silently for the end user. Warming up here ensures:
+    #   1. Models are downloaded once at boot (not during a user's first upload).
+    #   2. Any model issue surfaces as a visible WARNING rather than a silent per-upload failure.
+    #   3. The DocumentConverter singleton is ready before the first request.
+    # Non-fatal: a warmup failure logs a warning but does not prevent the server from starting,
+    # so auth/chat endpoints still work even if docling has a model issue.
+    from services.embedding_service import warmup_converter
+    try:
+        warmup_converter()
+    except Exception as e:
+        logger.warning(
+            "Docling warmup failed — PDF/DOCX parsing will fail until this is resolved. "
+            "Run 'python -c \"from docling.document_converter import DocumentConverter; DocumentConverter()\"' "
+            "in the venv to diagnose. Error: %s", e
+        )
+    yield
+
+
+app = FastAPI(title="Agentic RAG API", version="1.0.0", lifespan=lifespan)
 
 # CORS middleware
 origins = settings.CORS_ORIGINS.split(",")
@@ -46,7 +74,7 @@ app.include_router(ingestion.router, prefix="/ingestion", tags=["ingestion"])
 @app.get("/")
 def read_root():
     return {
-        "message": "Agentic RAG Masterclass API",
+        "message": "Agentic RAG API",
         "version": "1.0.0",
         "docs": "/docs"
     }
