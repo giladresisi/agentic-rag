@@ -235,5 +235,5 @@ While all 8 modules have been implemented and core functionality is working, sev
 
 ## About This Project
 
-This is a complete implementation of the **[Claude Code RAG Masterclass](https://www.youtube.com/watch?v=xgPWCuqLoek)** [![Claude Code RAG Masterclass](./video-thumbnail.png)](https://www.youtube.com/watch?v=xgPWCuqLoek), built through collaboration with Claude Code. The repository demonstrates the full capabilities of building complex AI applications with AI coding tools.
+This is a complete implementation of the **[Claude Code RAG Masterclass](https://www.youtube.com/watch?v=xgPWCuqLoek)** built through collaboration with Claude Code. The repository demonstrates the full capabilities of building complex AI applications with AI coding tools.
 This is a POC-level implementation demonstrating the full RAG architecture. Use it as a learning resource and reference implementation, but apply production-grade engineering practices before deploying to real users, see 'Known Limitations' above for more info.
