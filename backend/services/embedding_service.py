@@ -2,6 +2,7 @@ from config import settings
 from services.provider_service import provider_service
 from typing import List, Optional
 from pathlib import Path
+import asyncio
 import tempfile
 import os
 
@@ -44,12 +45,16 @@ class EmbeddingService:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return f.read()
 
-            # For complex formats, use docling (singleton converter)
+            # For complex formats, run docling in a thread executor to avoid
+            # blocking the asyncio event loop during CPU-intensive ML inference.
             converter = _get_converter()
-            result = converter.convert(file_path)
 
-            # Extract markdown text
-            text_content = result.document.export_to_markdown()
+            def _convert():
+                result = converter.convert(file_path)
+                return result.document.export_to_markdown()
+
+            loop = asyncio.get_running_loop()
+            text_content = await loop.run_in_executor(None, _convert)
 
             return text_content
 
