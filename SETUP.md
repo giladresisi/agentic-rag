@@ -405,66 +405,113 @@ Use this checklist to verify your setup:
 
 ## Cloud Deployment
 
-### Deploying Backend to Render
+### Backend: Google Cloud Run
 
-The repository includes `backend/runtime.txt` (pins Python 3.12), which is required for a successful first-time deploy. Some dependencies (`pydantic-core`) have no pre-built wheels for Python 3.14+ and will fail to compile from source in Render's build environment. Python 3.12 has full pre-built wheel support for all dependencies.
+The backend is deployed to Google Cloud Run with continuous deployment wired to the `main` branch via Cloud Build.
 
-#### Create a New Web Service
+**Live service:** `https://agentic-rag-94676406483.me-west1.run.app`
 
-1. Go to https://render.com and create an account (free tier works)
-2. Click **New** → **Web Service** and connect your GitHub repository
-3. Configure the service:
+#### GCP Project Setup (one-time)
 
-| Setting | Value |
-|---------|-------|
-| **Root Directory** | `backend` |
-| **Runtime** | Python |
-| **Build Command** | `pip install -r requirements.txt` |
-| **Start Command** | `uvicorn main:app --host 0.0.0.0 --port $PORT` |
+1. Create a GCP project at https://console.cloud.google.com
+2. Enable the required APIs:
+   ```bash
+   gcloud services enable cloudbuild.googleapis.com run.googleapis.com \
+     artifactregistry.googleapis.com --project=YOUR_PROJECT_ID
+   ```
+3. Create an Artifact Registry repository:
+   ```bash
+   gcloud artifacts repositories create cloud-run-source-deploy \
+     --repository-format=docker --location=YOUR_REGION --project=YOUR_PROJECT_ID
+   ```
 
-> **Important:** Never use `--reload` in production and never hardcode `--port 8000`. Render assigns a dynamic port via the `$PORT` environment variable — using a hardcoded port will cause the health check to fail.
+#### Wire GitHub Continuous Deployment
+
+1. Open the [Cloud Run console](https://console.cloud.google.com/run)
+2. Click **Create Service** → **Continuously deploy from a repository**
+3. Connect your GitHub account and select the repository
+4. Set **Branch** to `main` and **Build type** to `Dockerfile`
+5. Set **Dockerfile location** to `backend/Dockerfile`
+6. Set **Memory** to **2 GiB** (required — default 512 MiB is insufficient for torch+docling startup)
+7. Click **Create**
+
+Every push to `main` now triggers an automatic build and deploy.
 
 #### Configure Environment Variables
 
-In the Render dashboard under **Environment**, add the same variables as `backend/.env`:
+Create `.cloudrun_env.yaml` at the repo root (this file is gitignored — never commit it):
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `SUPABASE_URL` | Yes | Your Supabase project URL |
-| `SUPABASE_ANON_KEY` | Yes | Supabase anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Yes | Supabase service role key |
-| `OPENAI_API_KEY` | Yes | OpenAI API key |
-| `CORS_ORIGINS` | Yes | Frontend URL (e.g. `https://your-app.vercel.app`). Misconfigured CORS is the most common post-deploy issue. |
-| `LANGSMITH_API_KEY` | No | LangSmith observability |
-| `LANGSMITH_PROJECT` | No | LangSmith project name |
-| `COHERE_API_KEY` | No | Cohere reranking |
-| `TAVILY_API_KEY` | No | Tavily web search |
+```yaml
+SUPABASE_URL: https://your-project-id.supabase.co
+SUPABASE_ANON_KEY: your-anon-key
+SUPABASE_SERVICE_ROLE_KEY: your-service-role-key
+OPENAI_API_KEY: your-openai-key
+CORS_ORIGINS: https://your-app.vercel.app
+LANGSMITH_API_KEY: your-langsmith-key   # optional
+LANGSMITH_PROJECT: default              # optional
+COHERE_API_KEY: your-cohere-key         # optional
+TAVILY_API_KEY: your-tavily-key         # optional
+```
 
-#### Build Time Warning
+Apply the env vars to the service (do this **before or immediately after** the first push — the app crashes at startup without them):
 
-`torch`, `torchvision`, and `docling` are large ML packages (~2GB). Builds take 10–20 minutes. On the free tier, builds may time out — upgrade to the Starter plan if this happens.
+```bash
+gcloud run services update SERVICE_NAME \
+  --region=YOUR_REGION \
+  --project=YOUR_PROJECT_ID \
+  --env-vars-file=.cloudrun_env.yaml
+```
 
-Docling's neural network models are not cached between deploys. They download on first document upload after each new deployment (~500MB, takes a few minutes). Simple text formats (`.txt`, `.md`, `.json`) are unaffected.
+Then shift traffic to the latest revision:
 
-#### Free Tier Behavior
+```bash
+gcloud run services update-traffic SERVICE_NAME \
+  --region=YOUR_REGION \
+  --project=YOUR_PROJECT_ID \
+  --to-latest
+```
 
-Render's free tier sleeps after 15 minutes of inactivity. The first request after sleep takes ~30 seconds as the service cold-starts. This is normal — upgrade to a paid plan to keep the service always-on.
+#### Key Configuration Notes
+
+- **Port:** The Dockerfile CMD uses `${PORT:-8000}`. Cloud Run injects `PORT=8080` and health-checks on that port — never hardcode port 8000 in the CMD.
+- **Memory:** Must be set to 2 GiB. torch+docling exceed the default 512 MiB limit during startup warmup.
+- **Traffic routing:** Use `--to-latest` after any `--no-traffic` update, or new revision deployments will sit at 0% traffic.
+- **Env vars file:** `.cloudrun_env.yaml` is gitignored. Regenerate it from `backend/.env` if lost. Apply it again after any key rotation.
+
+#### Build Time
+
+`torch`, `torchvision`, and `docling` are large ML packages (~2GB). Builds take 15–20 minutes. Docker layer caching is not enabled by default in Cloud Build, so every build reinstalls all dependencies.
+
+Docling's neural network models download on first document upload after each new deployment (~500MB, a few minutes). Simple text formats (`.txt`, `.md`, `.json`) are unaffected.
+
+#### Cold Starts
+
+Cloud Run scales to zero when idle. Cold starts take 30–60 seconds as the service instance initialises. This is normal on the free tier.
 
 ## Troubleshooting
 
-### Render Deployment Issues
+### Cloud Run Deployment Issues
 
-**Build fails with `pydantic-core` / `maturin` / Rust errors**
-- **Cause:** Wrong Python version — Render defaulted to Python 3.14+ which has no pre-built wheels
-- **Fix:** Ensure `backend/runtime.txt` exists and contains `python-3.12.0` (already included in this repo)
+**App crashes immediately on startup (Pydantic `ValidationError`)**
+- **Cause:** Env vars not applied — the service only has Cloud Run's injected `PORT` variable
+- **Fix:** Apply `.cloudrun_env.yaml` to the service: `gcloud run services update ... --env-vars-file=.cloudrun_env.yaml`
+- **Verify:** Check Cloud Run logs; you should see `INFO: Started server process` not a traceback
 
-**Health check fails / service crashes on start**
-- **Cause:** Start command uses wrong port or Windows-only path
-- **Fix:** Start command must be exactly: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-- **Check:** Do not use `venv/Scripts/uvicorn` (Windows path), `--port 8000` (hardcoded), or `--reload` (dev-only flag)
+**Health check fails / container times out on port 8080**
+- **Cause:** Dockerfile CMD hardcodes `--port 8000` instead of using `$PORT`
+- **Fix:** CMD must be: `CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]`
+- **Note:** Never hardcode port 8000 in the CMD for Cloud Run; it health-checks on `PORT=8080`
+
+**OOM killed during startup**
+- **Cause:** Default Cloud Run memory (512 MiB) is insufficient for torch+docling initialisation
+- **Fix:** Set memory to 2 GiB: `gcloud run services update ... --memory=2Gi`
+
+**New revision deployed but traffic not shifting**
+- **Cause:** Traffic is pinned to a specific revision (often caused by a prior `--no-traffic` flag)
+- **Fix:** `gcloud run services update-traffic SERVICE --region=REGION --project=PROJECT --to-latest`
 
 **CORS errors after deploy**
-- **Fix:** Set `CORS_ORIGINS` environment variable in Render dashboard to your exact frontend URL (no trailing slash)
+- **Fix:** Set `CORS_ORIGINS` in `.cloudrun_env.yaml` to your exact frontend URL (no trailing slash), then re-apply: `gcloud run services update ... --env-vars-file=.cloudrun_env.yaml && gcloud run services update-traffic ... --to-latest`
 
 ### Backend Won't Start
 

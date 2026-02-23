@@ -194,17 +194,19 @@ These methods improve retrieval relevance by ensuring chunks represent coherent,
 
 While all 8 modules have been implemented and core functionality is working, several areas need attention before production deployment:
 
-1. **Incomplete Items from PROGRESS.md** - See [PROGRESS.md](./PROGRESS.md) for specific items marked as incomplete or requiring manual validation across modules.
+1. **Metadata-Enhanced Retrieval Not Implemented** - Module 4 extracts and stores document metadata (summary, document_type, key_topics) but the retrieval pipeline does not yet use this metadata for filtering or boosting. Documents are retrieved purely by vector/hybrid search score. Metadata-filtered retrieval (e.g. "search only within PDFs" or "find chunks from documents about finance") is a genuine unimplemented gap.
 
-2. **Agentic Flow Refinement** - The LLM's multi-step retrieval flow (triggering document retrieval → subagent analysis) needs further testing and system prompt refinement. Both tools work when invoked separately, but the orchestration pattern requires validation and prompt optimization.
+2. **Provider Settings Not Persisted Across Sessions** - The model provider configuration (chat model, embeddings model) is stored in React in-memory state only (`useModelConfig` hook, `useState`). Settings reset to backend defaults every time the browser is refreshed or a new session starts. There is no backend persistence or localStorage for user provider preferences.
 
-3. **Frontend Enhancements** - Several UX improvements would upgrade the look & feel:
+3. **Agentic Flow Refinement** - The LLM's multi-step retrieval flow (triggering document retrieval → subagent analysis) needs further testing and system prompt refinement. Both tools work when invoked separately, but the orchestration pattern requires validation and prompt optimization.
+
+4. **Frontend Enhancements** - Several UX improvements would upgrade the look & feel:
    - Display tool calls in conversation history (collapsible boxes)
    - Persist tool calls as messages in the database
    - Show LLM "thinking" responses in the UI
    - Improve visual feedback for multi-step agentic workflows
 
-4. **Production Hardening** - Additional validation and security updates needed:
+5. **Production Hardening** - Additional validation and security updates needed:
    - Comprehensive input validation and sanitization
    - Rate limiting and abuse prevention
    - Error handling and recovery patterns
