@@ -2,7 +2,11 @@
 
 A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities.
 
+See it in action:
+
 [![Agentic RAG App](./video-thumbnail.png)](https://youtu.be/iybjMFp-JdQ?si=BjiJO3fdn7ontHe7)
+
+---
 
 ## Why? What is it for?
 
@@ -34,12 +38,16 @@ For structured data sources (codebases, API documentation with organized folders
 
 </details>
 
+---
+
 ## Features
 
 - **Multi-tenant chat interface** - User auth, threaded streamed chats, model selection (OpenAI, OpenRouter, local via LM Studio)
 - **Document ingestion pipeline** - Multi-format document support, processing status tracking, content hashing + deduplication
 - **Advanced RAG pipeline** - Intelligent chunking, embeddings, pgvector storage, metadata filtering, hybrid search, reranking
 - **Agentic capabilities** - LLM tool selection (text-to-SQL, web search, retrieval), subagent delegation for complex analysis
+
+---
 
 ## Tech Stack
 
@@ -51,6 +59,8 @@ For structured data sources (codebases, API documentation with organized folders
 | Document Processing | Docling |
 | AI Models | OpenAI, OpenRouter, LM Studio (local) |
 | Observability | LangSmith |
+
+---
 
 ## Getting Started
 
@@ -64,6 +74,8 @@ For structured data sources (codebases, API documentation with organized folders
 - **Test:** Sign up, create thread, upload documents, start chatting
 
 👉 **[Read SETUP.md for detailed instructions](./SETUP.md)**
+
+---
 
 ## Usage
 
@@ -102,6 +114,10 @@ The system automatically selects the appropriate tool based on your question:
 The LLM intelligently routes your question to the right tool(s) and can combine multiple tools in a single conversation.
 
 ---
+
+## More Details
+
+<br>
 
 <details>
 <summary><strong>📚 Documentation</strong></summary>
@@ -237,3 +253,9 @@ While all 8 modules have been implemented and core functionality is working, sev
 
 This is a complete implementation of the **[Claude Code RAG Masterclass](https://www.youtube.com/watch?v=xgPWCuqLoek)** built through collaboration with Claude Code. The repository demonstrates the full capabilities of building complex AI applications with AI coding tools.
 This is a POC-level implementation demonstrating the full RAG architecture. Use it as a learning resource and reference implementation, but apply production-grade engineering practices before deploying to real users, see 'Known Limitations' above for more info.
+
+---
+
+## License
+
+MIT License
