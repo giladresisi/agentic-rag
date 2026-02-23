@@ -2,30 +2,44 @@
 
 A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities.
 
+[![Agentic RAG App](./video-thumbnail.png)](https://youtu.be/iybjMFp-JdQ?si=BjiJO3fdn7ontHe7)
+
 ## Why? What is it for?
 
-This is a complete, production-grade foundation for building agentic RAG-based chat applications that retrieve precise information from unstructured data sources. It's designed for real-world use cases where organizations need intelligent document retrieval and Q&A systems:
+This is a complete foundation for building agentic RAG-based chat applications that retrieve precise information from unstructured data sources. It's designed for real-world use cases where organizations need intelligent document retrieval and Q&A systems:
 
 - **Internal knowledge bases** - Corporate documentation, policies, procedures, onboarding materials
 - **Customer support systems** - Product documentation, troubleshooting guides, FAQs
 - **Research and analysis** - Academic papers, market research, technical reports
 - **Legal and compliance** - Contracts, regulations, case law, compliance documents
 
-**When to use RAG (vector search):**
+<details>
+<summary><strong>When to use RAG (vector search):</strong></summary>
+
+<br>
+
 - Your data is unstructured (documents, PDFs, manuals, reports)
 - Information is scattered across many files
 - Questions require semantic understanding, not exact keyword matches
 - Content changes frequently (new documents added regularly)
 
-**When NOT to use RAG:**
+</details>
+
+<details>
+<summary><strong>When NOT to use RAG:</strong></summary>
+
+<br>
+
 For structured data sources (codebases, API documentation with organized folders), consider **agentic search** instead. Modern LLMs can efficiently navigate folder structures and table-of-contents files without the overhead of chunking, embedding, and vector search. This approach has less infrastructure complexity and works better when data is already well-organized.
+
+</details>
 
 ## Features
 
-- **Multi-tenant chat interface** - User authentication, threaded conversations, streaming responses, model selection (OpenAI, OpenRouter, local models via LM Studio)
-- **Document ingestion pipeline** - Multi-format support (PDF, DOCX, PPTX, HTML, Markdown, TXT, CSV, JSON, XML, RTF), processing status tracking, content hashing + deduplication
-- **Advanced RAG pipeline** - Intelligent chunking, embeddings, pgvector storage, metadata filtering, hybrid search (vector + keyword), reranking
-- **Agentic capabilities** - LLM tool selection (text-to-SQL, web search, document retrieval), subagent delegation with isolated context for complex analysis
+- **Multi-tenant chat interface** - User auth, threaded streamed chats, model selection (OpenAI, OpenRouter, local via LM Studio)
+- **Document ingestion pipeline** - Multi-format document support, processing status tracking, content hashing + deduplication
+- **Advanced RAG pipeline** - Intelligent chunking, embeddings, pgvector storage, metadata filtering, hybrid search, reranking
+- **Agentic capabilities** - LLM tool selection (text-to-SQL, web search, retrieval), subagent delegation for complex analysis
 
 ## Tech Stack
 
@@ -40,7 +54,7 @@ For structured data sources (codebases, API documentation with organized folders
 
 ## Getting Started
 
-**Complete setup instructions are in [SETUP.md](./SETUP.md)** - including prerequisites, installation, configuration, and troubleshooting.
+**Complete setup instructions are in [SETUP.md](./SETUP.md)** - including prerequisites, installation, configuration, deployment, and troubleshooting.
 
 **Quick overview:**
 - **Prerequisites:** Python 3.10+, Node.js 18+, Supabase account, OpenAI API key
