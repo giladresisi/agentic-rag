@@ -2,16 +2,17 @@
   "mcpServers": {
     "cloud-run": {
       "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@google-cloud/cloud-run-mcp"
-      ],
+      "command": "cloud-run-mcp",
+      "args": [],
       "env": {
         "GOOGLE_CLOUD_PROJECT": "agentic-rag-gilad",
         "GOOGLE_CLOUD_REGION": "me-west1",
         "DEFAULT_SERVICE_NAME": "agentic-rag"
       }
+    },
+    "vercel": {
+      "type": "http",
+      "url": "https://mcp.vercel.com"
     }
   }
 }

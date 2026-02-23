@@ -488,6 +488,51 @@ Docling's neural network models download on first document upload after each new
 
 Cloud Run scales to zero when idle. Cold starts take 30–60 seconds as the service instance initialises. This is normal on the free tier.
 
+#### Claude Code MCP Integration
+
+The project includes a `.mcp.json` that wires Claude Code to the Cloud Run service, allowing Claude to diagnose deployments, read logs, and inspect service configuration directly in-session.
+
+Install the Cloud Run MCP server globally (one-time):
+
+```bash
+npm install -g @google-cloud/cloud-run-mcp
+```
+
+After installation, start a new Claude Code session in this project directory. Claude Code will pick up `.mcp.json` automatically and connect to the `cloud-run` MCP server using your existing `gcloud` credentials (Application Default Credentials). Approve the server when prompted.
+
+You can verify the connection at any time with `/mcp` in the Claude Code chat.
+
+---
+
+### Frontend: Vercel
+
+The React frontend is deployed to Vercel with automatic deployments on every push to `main`.
+
+**Live site:** `https://agentic-rag-giladresisis-projects.vercel.app`
+
+#### Deploy
+
+1. Go to https://vercel.com and import your GitHub repository
+2. Set the **Root Directory** to `frontend`
+3. Vercel auto-detects Vite — no build command changes needed
+4. Click **Deploy**
+
+#### Configure Environment Variables
+
+In the Vercel dashboard under **Settings → Environment Variables**, add:
+
+| Variable | Value |
+|----------|-------|
+| `VITE_SUPABASE_URL` | Your Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon key |
+| `VITE_API_URL` | Your Cloud Run backend URL |
+
+#### Claude Code MCP Integration
+
+The project's `.mcp.json` includes the Vercel MCP as a **remote HTTP server** — no installation required. Claude Code connects to `https://mcp.vercel.com` automatically when a session starts. You will be prompted to authenticate with your Vercel account on first use.
+
+This allows Claude to inspect deployments, check build logs, and manage environment variables directly from the Claude Code session.
+
 ## Troubleshooting
 
 ### Cloud Run Deployment Issues
