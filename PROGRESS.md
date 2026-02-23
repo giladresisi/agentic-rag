@@ -677,8 +677,8 @@ Three issues diagnosed and fixed to unblock Render deployment:
 
 #### Service Details
 - **URL:** `https://agentic-rag-94676406483.me-west1.run.app`
-- **Region:** `me-west1`, **Project:** `agentic-rag-gilad`, **Memory:** 2 GiB
-- **CD:** GitHub pushes to `main` auto-build and deploy via Cloud Build
+- **Region:** `me-west1`, **Project:** `agentic-rag-gilad`, **Memory:** 4 GiB
+- **CD:** GitHub pushes to `main` auto-build and deploy via Cloud Build (`cloudbuild.yaml`)
 - **Frontend:** `VITE_API_URL` updated in Vercel; `CORS_ORIGINS` locked to Vercel URL
 
 #### Issues Found and Fixed During Deployment
@@ -688,16 +688,25 @@ Three issues diagnosed and fixed to unblock Render deployment:
 4. **Traffic pinned to placeholder** — `--no-traffic` flag pinned traffic to the placeholder revision; new deployments sat at 0%. Fix: `gcloud run services update-traffic --to-latest`
 5. **Stale us-central1 service** — Initial manual setup created a duplicate in `us-central1`. Deleted.
 
+#### Post-Migration Fixes (2026-02-23)
+6. **OOM during PDF upload** — 2 GiB limit exceeded (2.1 GiB used) when docling processes complex PDFs. Fix: `--memory=4Gi`.
+7. **504 on concurrent uploads** — `converter.convert()` (docling ML inference) was called directly inside an `async def`, blocking the asyncio event loop. A second upload while the first was processing background tasks would stall for 40–50 s until Cloud Run timed out. Fix: wrap `converter.convert()` in `asyncio.run_in_executor` (`embedding_service.py`).
+8. **CI build failing** — Default Cloud Build trigger used an inline config looking for `Dockerfile` at repo root; our Dockerfile is in `backend/`. Fix: added `cloudbuild.yaml` at repo root; ran one-time `gcloud builds triggers update` to point the trigger at it; deleted the duplicate trigger.
+9. **`.md` upload rejected by Supabase Storage** — Browser sends `application/octet-stream` for `.md` files; Supabase rejects this MIME type. Fix: added `_MIME_TYPE_MAP` in `ingestion.py` to override `octet-stream` with correct types for known text formats.
+
 #### Key Files
 - `backend/Dockerfile` — container definition (`${PORT:-8000}`, `EXPOSE 8080`)
 - `.cloudrun_env.yaml` — env vars (gitignored, contains secrets; `CORS_ORIGINS` = Vercel URL)
+- `cloudbuild.yaml` — CI build config (builds from `backend/`, owned by repo)
 
 #### Lessons Learned
 1. **Apply env vars before first push** (or immediately after). Without them, `Settings()` crashes the app at startup before it can bind any port.
 2. **Never hardcode port in Cloud Run CMD.** Use `${PORT:-8000}` — Cloud Run injects `PORT=8080` and health-checks on that port.
-3. **Set memory to 2 GiB minimum** for torch+docling. Default 512 MiB is insufficient even for startup warmup.
+3. **Set memory to 4 GiB** for torch+docling. 2 GiB is enough for startup but OOMs on real document uploads.
 4. **Avoid `--no-traffic` on a service with a pinned revision.** Future deploys will create revisions at 0% traffic forever. If you use it, follow up with `update-traffic --to-latest`.
 5. **Cloud Run has two URL formats** for the same service: `{name}-{project-number}.{region}.run.app` (GCP console) and `{name}-{hash}.a.run.app` (API `status.url`). Both work.
+6. **The default Cloud Build trigger uses an inline config** (not `cloudbuild.yaml`). After creating the service via the console, run the one-time `gcloud builds triggers update github` command documented in SETUP.md to point it at `cloudbuild.yaml`.
+7. **Never call CPU-intensive sync code directly in `async def`** without `run_in_executor`. It blocks the entire asyncio event loop, stalling all concurrent requests.
 
 ---
 

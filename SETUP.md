@@ -432,8 +432,45 @@ The backend is deployed to Google Cloud Run with continuous deployment wired to 
 3. Connect your GitHub account and select the repository
 4. Set **Branch** to `main` and **Build type** to `Dockerfile`
 5. Set **Dockerfile location** to `backend/Dockerfile`
-6. Set **Memory** to **2 GiB** (required — default 512 MiB is insufficient for torch+docling startup)
+6. Set **Memory** to **4 GiB** (required — torch+docling ML models exceed 2 GiB during document ingestion)
 7. Click **Create**
+
+> **One-time fix required after creation:** The Cloud Run console generates a Cloud Build trigger with an inline config that looks for `Dockerfile` at the repo root. This repo uses `cloudbuild.yaml` (at the repo root) which correctly points to `backend/Dockerfile`. You must update the trigger once to use it.
+>
+> **Prerequisite:** Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install), then authenticate:
+> ```bash
+> gcloud auth login
+> gcloud config set project YOUR_PROJECT_ID
+> ```
+>
+> **Find your trigger ID:**
+> ```bash
+> gcloud builds triggers list --project=YOUR_PROJECT_ID
+> ```
+> Note the `ID` of the trigger targeting your repo (e.g. `53871fa8-...`).
+>
+> **Update the trigger to use `cloudbuild.yaml`:**
+>
+> Create a file `/tmp/trigger-update.json`:
+> ```json
+> {
+>   "filename": "cloudbuild.yaml",
+>   "github": {
+>     "owner": "YOUR_GITHUB_USERNAME",
+>     "name": "YOUR_REPO_NAME",
+>     "push": { "branch": "^main$" }
+>   }
+> }
+> ```
+>
+> Then apply it:
+> ```bash
+> gcloud builds triggers update github TRIGGER_ID \
+>   --trigger-config=/tmp/trigger-update.json \
+>   --project=YOUR_PROJECT_ID
+> ```
+>
+> Push a commit to `main` to verify the build succeeds using `cloudbuild.yaml`.
 
 Every push to `main` now triggers an automatic build and deploy.
 
@@ -474,7 +511,7 @@ gcloud run services update-traffic SERVICE_NAME \
 #### Key Configuration Notes
 
 - **Port:** The Dockerfile CMD uses `${PORT:-8000}`. Cloud Run injects `PORT=8080` and health-checks on that port — never hardcode port 8000 in the CMD.
-- **Memory:** Must be set to 2 GiB. torch+docling exceed the default 512 MiB limit during startup warmup.
+- **Memory:** Must be set to 4 GiB. torch+docling ML models exceed 2 GiB during document ingestion (PDF/DOCX).
 - **Traffic routing:** Use `--to-latest` after any `--no-traffic` update, or new revision deployments will sit at 0% traffic.
 - **Env vars file:** `.cloudrun_env.yaml` is gitignored. Regenerate it from `backend/.env` if lost. Apply it again after any key rotation.
 

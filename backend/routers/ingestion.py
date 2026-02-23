@@ -14,6 +14,17 @@ from datetime import datetime
 
 router = APIRouter()
 
+# Explicit MIME type map for formats browsers often misreport as application/octet-stream
+_MIME_TYPE_MAP = {
+    ".md":   "text/markdown",
+    ".txt":  "text/plain",
+    ".html": "text/html",
+    ".json": "application/json",
+    ".rtf":  "application/rtf",
+    ".csv":  "text/csv",
+    ".xml":  "application/xml",
+}
+
 
 async def process_document(
     document_id: str,
@@ -232,12 +243,18 @@ async def upload_document(
     # Use UUID-based storage path to avoid issues with non-ASCII filenames and duplicate paths
     storage_path = f"{current_user['id']}/{uuid.uuid4()}{file_ext}"
 
+    # Resolve content type — browsers often send application/octet-stream for
+    # text formats like .md. Override with the correct type when we know better.
+    content_type = file.content_type or "application/octet-stream"
+    if content_type == "application/octet-stream" and file_ext in _MIME_TYPE_MAP:
+        content_type = _MIME_TYPE_MAP[file_ext]
+
     try:
         # Upload to Supabase Storage
         supabase.storage.from_("documents").upload(
             storage_path,
             content,
-            file_options={"content-type": file.content_type}
+            file_options={"content-type": content_type}
         )
     except Exception as e:
         error_msg = str(e).lower()
@@ -267,7 +284,7 @@ async def upload_document(
         response = supabase.table("documents").insert({
             "user_id": current_user["id"],
             "filename": file.filename,
-            "content_type": file.content_type or "application/octet-stream",
+            "content_type": content_type,
             "file_size_bytes": file_size,
             "storage_path": storage_path,
             "status": "processing",
