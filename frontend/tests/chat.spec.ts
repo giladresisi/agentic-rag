@@ -33,7 +33,7 @@ test.describe('Chat Functionality', () => {
     await messageInput.fill('Hello, this is a test message. Please respond with "Test successful".');
 
     // Send message
-    await page.getByRole('button', { name: /send/i }).or(page.keyboard.press('Enter')).click();
+    await page.getByRole('button', { name: /send/i }).click();
 
     // Wait for user message to appear
     await expect(page.getByText(/Hello, this is a test message/i)).toBeVisible({ timeout: 5000 });
