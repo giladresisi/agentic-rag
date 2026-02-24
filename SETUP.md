@@ -756,6 +756,10 @@ supabase migration new migration_name
 
 # Reset database (CAREFUL - deletes all data!)
 supabase db reset
+
+# Delete all documents, chunks, threads, and messages for the test user
+# (reads TEST_EMAIL / TEST_PASSWORD from backend/.env)
+cd backend && uv run python -m scripts.reset_user_data
 ```
 
 ### Tests

@@ -763,17 +763,51 @@ Both passes rewrote the full commit graph. The remote was force-pushed after eac
 
 ## Feature: IR-Copilot Theme Change
 
-### Planning Phase
-**Status**: 📋 Planned
-**Started**: 2026-02-24
+**Status**: ✅ Complete
+**Completed**: 2026-02-24
 **Plan File**: `.agents/plans/ir-copilot-theme-change.md`
-**Spec**: `.claude/specs/001-theme-change/`
+**Commit**: `80c92ea` (rebased onto main)
 
-Replaces the generic `books` table with a `production_incidents` table (15 seed rows, realistic incident data) and renames the project to **IR-Copilot** throughout. Drops `execute_books_query` RPC, creates `execute_incidents_query`. Updates `sql_service.py` schema + validation, renames the `query_books_database` tool to `query_incidents_database` in `chat_service.py` (8 occurrences), rewrites 4 backend test files and the Module 7 E2E test with incident-domain queries. Creates 6 postmortem markdown documents in `backend/eval/postmortems/` (used as both manual test fixtures and the RAGAS evaluation corpus). Updates README, SETUP.md, CONTRIBUTING.md.
+### What Was Done
 
-**Scope:** 1 new migration (016) · 2 service files · 4 backend tests · 1 E2E test · 6 postmortem docs · 4 doc files
-**Execution order:** 3 waves — service layer parallel → tests + docs parallel → final doc sweep
-**Manual step:** Apply migration 016 via Supabase SQL Editor; rename GitHub repo to `ir-copilot` via Settings UI
+Replaced the generic `books` table / "Agentic RAG" branding with a production incidents domain and IR-Copilot identity across the entire codebase. All code changes committed and pushed.
+
+**Wave 1 — Service Layer:**
+- [x] `supabase/migrations/016_production_incidents.sql` — DROP books, CREATE production_incidents (15 seed rows), `execute_incidents_query` RPC, permissions
+- [x] `backend/services/sql_service.py` — `INCIDENTS_SCHEMA`, `_validate_query` checks for `PRODUCTION_INCIDENTS`, RPC call renamed
+- [x] `backend/services/chat_service.py` — tool renamed `query_incidents_database`, description updated, system prompt updated, all 8 dispatch occurrences renamed
+
+**Wave 2 — Tests + Postmortems:**
+- [x] `backend/tests/auto/test_sql_service.py` — rewritten: `test_severity_filter` (P1), `test_service_filter` (auth-service), count threshold updated to ≥15
+- [x] `backend/tests/auto/test_multi_tool_integration.py` — `test_incidents_query` replaces `test_books_query`; multi-turn Turn 2 updated to P1 incidents
+- [x] `backend/tests/auto/test_simple_strategic.py` — incident-domain multi-part query
+- [x] `backend/tests/auto/test_debug_stream.py` — updated to P1 incidents query
+- [x] `backend/tests/manual/test_strategic_final.py` + `test_strategic_retrieval.py` — incident queries
+- [x] `frontend/tests/optional-e2e-validation.spec.ts` — Module 7 section renamed to incidents; query + assertions updated
+- [x] `backend/eval/postmortems/` — 6 postmortem markdown files created (464–535 words each, all sections present):
+  - `INC-2024-003-auth-outage.md` — Redis TTL misconfiguration → JWT cache miss cascade (database, P1)
+  - `INC-2024-011-payment-db-corruption.md` — PG 14.1 B-tree corruption after unclean shutdown (database, P1)
+  - `INC-2024-019-pipeline-memory-leak.md` — asyncio unbounded task list → OOM crash loop (deployment, P2)
+  - `INC-2024-027-gateway-timeout.md` — expired intermediate TLS cert → 504 on all routes (network, P1)
+  - `INC-2024-031-notif-queue-backup.md` — RabbitMQ consumer under-scaling → 4h delay (configuration, P2)
+  - `INC-2024-038-deploy-rollback.md` — nil pointer panic in new deployment → 503s (deployment, P3)
+
+**Wave 3 — Documentation:**
+- [x] `README.md` — title: "IR-Copilot — Incident Response AI Assistant"; SQL examples updated to incidents
+- [x] `SETUP.md` — table name, SQL validation example, troubleshooting updated
+- [x] `PROGRESS.md` — all `query_books_database` / `books` references replaced
+- [x] `CONTRIBUTING.md` — heading and opening paragraph updated to IR-Copilot
+
+### Validation (local file checks — no DB)
+- Level 1: `grep -rn "books|query_books|execute_books"` → 0 results across services/tests/docs
+- Level 4: 6 postmortem files, all contain "Follow-up Actions" section
+- Migration: 15 INSERT rows confirmed in `016_production_incidents.sql`
+
+### Manual Steps Completed
+1. ✅ **Migration 016 applied** — `production_incidents` table live with 15 seed rows; `execute_incidents_query` RPC verified
+2. ✅ **GitHub repo renamed** — `agentic-rag` → `ir-copilot`; local remote URL updated
+3. ✅ **Backend auto tests passed** — 10/10 (`test_sql_service.py` + `test_multi_tool_integration.py`)
+4. ✅ **Postmortems uploaded** — 6 files from `backend/eval/postmortems/` ingested via app UI
 
 ---
 
