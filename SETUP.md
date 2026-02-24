@@ -60,7 +60,7 @@ Document parsing (Docling) downloads neural network models from HuggingFace Hub 
 
 ```bash
 git clone <repository-url>
-cd agentic-rag
+cd ir-copilot
 ```
 
 ### 2. Backend Setup

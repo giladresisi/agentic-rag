@@ -6,7 +6,7 @@ Thank you for your interest in contributing! This project is an IR-Copilot (Inci
 
 ## Reporting Bugs
 
-Found a bug? Please open an issue in the [Issues tracker](https://github.com/giladresisi/agentic-rag/issues).
+Found a bug? Please open an issue in the [Issues tracker](https://github.com/giladresisi/ir-copilot/issues).
 
 Include:
 - A clear title and description of the problem
@@ -43,7 +43,7 @@ In the PR description, explain:
 
 ## Setting Up for Local Development
 
-Follow [SETUP.md](https://github.com/giladresisi/agentic-rag/blob/main/SETUP.md) for complete instructions on running the backend and frontend locally, configuring environment variables, and running the test suite.
+Follow [SETUP.md](https://github.com/giladresisi/ir-copilot/blob/main/SETUP.md) for complete instructions on running the backend and frontend locally, configuring environment variables, and running the test suite.
 
 ---
 
