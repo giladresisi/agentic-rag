@@ -4,7 +4,7 @@ A complete agentic RAG system with multi-tenant chat interface, document ingesti
 
 See it in action:
 
-[![Agentic RAG App](./video-thumbnail.png)](https://youtu.be/iybjMFp-JdQ?si=BjiJO3fdn7ontHe7)
+
 
 ---
 
