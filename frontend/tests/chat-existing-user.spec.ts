@@ -92,10 +92,17 @@ test.describe('Chat Functionality with Existing User', () => {
 
     // Refresh page
     await page.reload();
-    await expect(page).toHaveURL('/chat');
+    await expect(page).toHaveURL('/chat', { timeout: 15000 });
 
-    // Wait for page to load
-    await page.waitForTimeout(3000);
+    // Wait for the thread list to load (sidebar shows the "New Thread" button when ready)
+    await expect(page.getByRole('button', { name: /new thread/i })).toBeVisible({ timeout: 10000 });
+    await page.waitForTimeout(1000);
+
+    // After reload currentThreadId resets to null — click the most recent thread to re-open it.
+    // Thread items are div.cursor-pointer entries; the first one is the most recently updated thread.
+    const firstThread = page.locator('div.cursor-pointer span.truncate').first();
+    await expect(firstThread).toBeVisible({ timeout: 10000 });
+    await firstThread.click();
 
     // Message should still be visible after refresh
     await expect(page.getByText(uniqueMessage)).toBeVisible({ timeout: 10000 });

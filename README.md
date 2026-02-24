@@ -135,7 +135,7 @@ The LLM intelligently routes your question to the right tool(s) and can combine 
 
 - **[PRD.md](./PRD.md)** - Product requirements and detailed module breakdown
 - **[CLAUDE.md](./CLAUDE.md)** - Project context for Claude Code (development guidelines)
-- **[PROGRESS.md](./PROGRESS.md)** - Build progress tracking and completion status
+- **[PROGRESS.md](./PROGRESS.md)** - Build progress tracking, completion status, challenges overcome
 - **[SETUP.md](./SETUP.md)** - Installation and setup instructions
 - **[.agents/plans/](./.agents/plans/)** - Detailed implementation plans for each module
 - **[.agents/execution-reports/](./.agents/execution-reports/)** - Post-execution summaries and metrics

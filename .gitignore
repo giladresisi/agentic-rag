@@ -47,3 +47,6 @@ htmlcov/
 .pytest_cache/
 frontend/playwright-report/
 frontend/test-results/
+# Temporary test fixture files generated during test runs
+frontend/tests/fixtures/*.txt
+frontend/tests/fixtures/test-module5-*.pptx

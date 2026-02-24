@@ -240,6 +240,19 @@ async def upload_document(
             detail=f"File '{file.filename}' is too large ({file_size / 1024 / 1024:.1f}MB). Maximum size: {settings.MAX_FILE_SIZE_MB}MB"
         )
 
+    # Check for existing document with same filename (synchronous duplicate detection)
+    existing_docs = supabase.table("documents") \
+        .select("id, status") \
+        .eq("user_id", current_user["id"]) \
+        .eq("filename", file.filename) \
+        .execute()
+    non_failed = [d for d in existing_docs.data if d["status"] != "failed"]
+    if non_failed:
+        raise HTTPException(
+            status_code=409,
+            detail=f"File '{file.filename}' already exists. Please rename the file or delete the existing one."
+        )
+
     # Use UUID-based storage path to avoid issues with non-ASCII filenames and duplicate paths
     storage_path = f"{current_user['id']}/{uuid.uuid4()}{file_ext}"
 

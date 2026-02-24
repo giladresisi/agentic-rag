@@ -722,6 +722,45 @@ Commit history was rewritten twice using `git-filter-repo` to purge secrets that
 
 Both passes rewrote the full commit graph. The remote was force-pushed after each pass to propagate the cleaned history.
 
+---
+
+## Frontend Test Infrastructure Cleanup (2026-02-24)
+
+**Status:** ✅ Complete — infrastructure fixed, all 7 previously failing tests fixed (2026-02-24)
+
+### Changes Made
+
+- `playwright.config.ts` — load `backend/.env` first so `TEST_EMAIL`/`TEST_PASSWORD`/`LANGSMITH_API_KEY` are not shadowed by frontend placeholders; added backend uvicorn as a `webServer` entry (Windows-safe backslash path) so tests no longer require a manually running server
+- Deleted `auth.spec.ts` and `chat.spec.ts` — fully superseded by `auth-existing-user.spec.ts` and `chat-existing-user.spec.ts`; used `@example.com` signups that Supabase rejects
+- Deleted `auth-debug.spec.ts` — throwaway diagnostic file, no longer needed
+- Added `backend/tests/run_tests.sh` and `frontend/tests/run_tests.sh` — one-command test runners for each suite; forward extra args to pytest / playwright
+
+### Current Frontend Test State (run 2026-02-24, 39 tests total)
+
+**All 39 passing (was 32 passed, 7 failed)**
+
+### Fixes Applied (2026-02-24)
+
+**Group A — Wrong UI selectors:**
+
+- `should log out successfully`: Logout button is inside a dropdown that only opens when the profile button is clicked. Regex `/logout/i` also didn't match the "Log out" text (space in middle). Fix: click `getByText(TEST_EMAIL)` to open the dropdown, then `getByRole('button', { name: /log out/i })`.
+
+- `should verify JWT authentication persists after refresh`: `toHaveURL('/chat')` after `page.reload()` had no timeout — if auth restore takes any time the assertion raced. Fix: `{ timeout: 15000 }` on both `toHaveURL` and email `toBeVisible`.
+
+- `multi-file-upload.spec.ts` (both duplicate/stop tests): Page-ready indicator used `text=Upload Documents`; actual heading is `Document Ingestion` (`<h1>` in `IngestionInterface.tsx`). Fix: changed both occurrences.
+
+**Group B — Timing / app behaviour:**
+
+- `should enforce protected routes`: `page.goto('/chat')` returned before React fully initialised. Fix: `page.waitForLoadState('networkidle')` before asserting redirect; increased timeout to 15 s.
+
+- `should persist messages after page refresh`: After `page.reload()`, `currentThreadId` resets to `null`, so no thread is selected and messages are hidden. Fix: wait for the sidebar to be ready, then `page.locator('div.cursor-pointer span.truncate').first().click()` to re-open the most recent thread before asserting.
+
+**Group C — Test polling race:**
+
+- `langsmith-traces.spec.ts — failed chat still closes LangSmith run`: `pollForRuns` returned as soon as the run appeared in LangSmith (from `create_run`), before `update_run` (which sets `end_time`) had propagated. The backend `finally` block is correct. Fix: added optional `condition` parameter to `pollForRuns`; test 3 passes `runs => runs.some(r => r.end_time != null)` so polling continues until `end_time` is confirmed.
+
+---
+
 ## Feature: IR-Copilot Theme Change
 
 ### Planning Phase
@@ -772,42 +811,3 @@ Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.i
 2. Optional: Address pre-existing test failures (auth/chat suites)
 3. Optional: Complete manual testing checklist from Module 2
 
----
-
-# Quick Reference
-
-**Run Backend:**
-```bash
-cd backend
-venv/Scripts/uvicorn main:app --reload --port 8000
-```
-
-**Run Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-
-**Run Tests:**
-```bash
-# Frontend (Playwright)
-cd frontend
-npm test
-
-# Backend automated tests
-cd backend
-venv/Scripts/python -m pytest
-
-# Backend single file
-cd backend
-venv/Scripts/python -m pytest tests/auto/test_provider_service.py
-
-# Manual tests (require uvicorn running at localhost:8000)
-cd backend
-venv/Scripts/python tests/manual/test_stream.py
-```
-
-**Apply Database Migration:**
-1. Open Supabase Dashboard → SQL Editor
-2. Copy migration file contents from `supabase/migrations/`
-3. Run SQL commands sequentially (001 → 002 → ... → 015)

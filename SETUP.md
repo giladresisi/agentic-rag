@@ -730,9 +730,6 @@ Once everything is working:
 venv/Scripts/uvicorn main:app --reload --port 8000  # Windows
 # venv/bin/uvicorn main:app --reload --port 8000    # Mac/Linux
 
-# Run tests
-venv/Scripts/python -m pytest
-
 # Check installed packages
 venv/Scripts/pip list
 
@@ -760,11 +757,31 @@ npm run lint
 # Pull latest schema
 supabase db pull
 
+# Apply all pending migrations
+supabase db push
+
 # Create new migration
 supabase migration new migration_name
 
 # Reset database (CAREFUL - deletes all data!)
 supabase db reset
+```
+
+### Tests
+```bash
+# Frontend E2E (Playwright — servers auto-started by playwright.config.ts)
+bash frontend/tests/run_tests.sh
+bash frontend/tests/run_tests.sh --grep "LangSmith"   # with filter
+
+# Backend automated tests
+bash backend/tests/run_tests.sh
+bash backend/tests/run_tests.sh -k test_auth -v       # with filter
+
+# Backend single file (direct)
+cd backend && venv/Scripts/python -m pytest tests/auto/test_provider_service.py
+
+# Backend manual tests (require uvicorn running at localhost:8000)
+cd backend && venv/Scripts/python tests/manual/test_stream.py
 ```
 
 ### Debugging

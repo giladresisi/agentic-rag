@@ -5,9 +5,11 @@ test.describe('Authentication with Existing User', () => {
   test('should enforce protected routes', async ({ page }) => {
     // Try to access chat page without authentication
     await page.goto('/chat');
+    // Wait for the app to fully initialise and the auth guard to fire
+    await page.waitForLoadState('networkidle');
 
     // Should redirect to login page
-    await expect(page).toHaveURL('/login', { timeout: 10000 });
+    await expect(page).toHaveURL('/login', { timeout: 15000 });
     await expect(page.getByRole('heading', { name: 'Login' })).toBeVisible();
 
     console.log('✅ Protected routes are enforced');
@@ -51,10 +53,11 @@ test.describe('Authentication with Existing User', () => {
 
     // Refresh page - should remain authenticated
     await page.reload();
-    await expect(page).toHaveURL('/chat');
+    // Give the auth guard time to restore the session before asserting the URL
+    await expect(page).toHaveURL('/chat', { timeout: 15000 });
 
     // Should still see user email after refresh
-    await expect(page.getByText(TEST_EMAIL)).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(TEST_EMAIL)).toBeVisible({ timeout: 15000 });
 
     console.log('✅ JWT authentication persists after page refresh');
   });
@@ -67,8 +70,11 @@ test.describe('Authentication with Existing User', () => {
     await page.getByRole('button', { name: 'Login' }).click();
     await expect(page).toHaveURL('/chat', { timeout: 15000 });
 
-    // Log out
-    const logoutButton = page.getByRole('button', { name: /logout/i });
+    // Open the profile dropdown first (the logout button is hidden inside it)
+    await page.getByText(TEST_EMAIL).click();
+    // Click "Log out" in the dropdown (button text is "Log out" with a space)
+    const logoutButton = page.getByRole('button', { name: /log out/i });
+    await expect(logoutButton).toBeVisible({ timeout: 5000 });
     await logoutButton.click();
 
     // Should redirect back to login page

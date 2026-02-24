@@ -110,7 +110,7 @@ test.describe('Module 2: Settings Persistence Across Page Reload', () => {
 // ── Module 5: PPTX file upload ─────────────────────────────────────────────────
 
 test.describe('Module 5: PPTX File Upload and Processing', () => {
-  const pptxPath = path.join(FIXTURES_DIR, 'test-module5.pptx');
+  const pptxSourcePath = path.join(FIXTURES_DIR, 'test-module5.pptx');
 
   test.beforeEach(async ({ page }) => {
     await login(page);
@@ -118,22 +118,31 @@ test.describe('Module 5: PPTX File Upload and Processing', () => {
   });
 
   test('should accept and upload a PPTX file successfully', async ({ page }) => {
-    expect(fs.existsSync(pptxPath)).toBe(true);
+    expect(fs.existsSync(pptxSourcePath)).toBe(true);
 
-    const fileInput = page.locator('input[type="file"]').first();
-    await fileInput.setInputFiles([pptxPath]);
+    // Copy to a unique name to avoid filename collision with prior test runs
+    const ts = Date.now();
+    const tempPptxPath = path.join(FIXTURES_DIR, `test-module5-${ts}.pptx`);
+    fs.copyFileSync(pptxSourcePath, tempPptxPath);
+    const tempPptxName = path.basename(tempPptxPath);
 
-    // Use .first() — a previous run may have left test-module5.pptx in the documents list
-    await expect(page.locator('text=test-module5.pptx').first()).toBeVisible({ timeout: 5000 });
-    await expect(page.locator('text=1 file in queue')).toBeVisible();
+    try {
+      const fileInput = page.locator('input[type="file"]').first();
+      await fileInput.setInputFiles([tempPptxPath]);
 
-    await page.click('text=Upload All');
+      await expect(page.locator(`text=${tempPptxName}`).first()).toBeVisible({ timeout: 5000 });
+      await expect(page.locator('text=1 file in queue')).toBeVisible();
 
-    await expect(page.locator('text=Uploading 1 of 1')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('text=Upload Complete')).toBeVisible({ timeout: 90000 });
-    await expect(page.locator('text=1 succeeded')).toBeVisible();
+      await page.click('text=Upload All');
 
-    console.log('✅ PPTX file uploaded and processing started successfully');
+      await expect(page.locator('text=Uploading 1 of 1')).toBeVisible({ timeout: 10000 });
+      await expect(page.locator('text=Upload Complete')).toBeVisible({ timeout: 90000 });
+      await expect(page.locator('text=1 succeeded')).toBeVisible();
+
+      console.log('✅ PPTX file uploaded and processing started successfully');
+    } finally {
+      try { if (fs.existsSync(tempPptxPath)) fs.unlinkSync(tempPptxPath); } catch (_) {}
+    }
   });
 });
 

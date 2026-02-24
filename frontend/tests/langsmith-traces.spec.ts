@@ -22,14 +22,16 @@ async function getSessionId(projectName: string): Promise<string | null> {
 
 /**
  * Poll LangSmith REST API for runs created after `afterTime`.
- * Retries until matching runs are found or `timeoutMs` elapses (traces take 10-30s to appear).
+ * Retries until matching runs are found (and satisfy the optional `condition`) or `timeoutMs` elapses.
  * Optionally filter by run name (e.g. 'chat_completions_stream').
+ * Optionally supply a `condition` predicate — polling continues until it returns true for the found runs.
  */
 async function pollForRuns(
   afterTime: string,
   runName?: string,
   timeoutMs = 40000,
-  intervalMs = 4000
+  intervalMs = 4000,
+  condition?: (runs: any[]) => boolean
 ): Promise<any[]> {
   const sessionId = await getSessionId(LANGSMITH_PROJECT);
   if (!sessionId) return [];
@@ -50,7 +52,7 @@ async function pollForRuns(
       const data = await res.json();
       let runs: any[] = data.runs ?? data;
       if (runName) runs = runs.filter((r: any) => r.name === runName);
-      if (runs.length > 0) return runs;
+      if (runs.length > 0 && (!condition || condition(runs))) return runs;
     }
     await new Promise((r) => setTimeout(r, intervalMs));
   }
@@ -140,7 +142,15 @@ test.describe('LangSmith Trace Verification', () => {
 
     await expect(page.locator('text=/hello/i').last()).toBeVisible({ timeout: 45000 });
 
-    const runs = await pollForRuns(beforeTime, 'chat_completions_stream');
+    // Poll until the run exists AND has end_time set — the finally-block update_run call
+    // may propagate to LangSmith a few seconds after the browser sees the response.
+    const runs = await pollForRuns(
+      beforeTime,
+      'chat_completions_stream',
+      60000,
+      4000,
+      (found) => found.some((r: any) => r.end_time != null)
+    );
 
     expect(runs.length).toBeGreaterThan(0);
     expect(runs[0].end_time, 'Run must always have end_time set (finally block)').toBeTruthy();

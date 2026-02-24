@@ -16,14 +16,23 @@ export default defineConfig({
       '/auth': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) return '/index.html';
+        },
       },
       '/chat': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) return '/index.html';
+        },
       },
       '/ingestion': {
         target: 'http://localhost:8000',
         changeOrigin: true,
+        bypass: (req) => {
+          if (req.headers.accept?.includes('text/html')) return '/index.html';
+        },
       },
     },
   },
