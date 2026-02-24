@@ -34,8 +34,8 @@ export default defineConfig({
   webServer: [
     {
       // Backend (FastAPI/uvicorn) — must be running for auth, chat, and ingestion to work.
-      // On Windows (Git Bash) run from backend/: venv/Scripts/uvicorn main:app --reload --port 8000
-      command: 'cd ../backend && venv\\Scripts\\uvicorn main:app --port 8000',
+      // On Windows (Git Bash) run from backend/: uv run uvicorn main:app --reload --port 8000
+      command: 'cd ../backend && uv run uvicorn main:app --port 8000',
       url: 'http://localhost:8000/health',
       reuseExistingServer: true,
       timeout: 60000,

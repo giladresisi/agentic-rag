@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(venv/Scripts/pip install:*)",
+      "Bash(uv sync:*)",
       "WebFetch(domain:github.com)",
       "Bash(py -3.12 --version:*)",
       "Bash(py -3.13:*)",
@@ -9,7 +9,7 @@
       "Bash(/c/Python312/python.exe:*)",
       "Bash(/c/Users/gilad/AppData/Local/Programs/Python/Python312/python.exe:*)",
       "Bash(curl:*)",
-      "Bash(./venv/Scripts/python:*)",
+      "Bash(uv run:*)",
       "Bash(git tag:*)"
     ]
   }

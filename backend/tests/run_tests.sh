@@ -11,10 +11,10 @@ BACKEND_DIR="$(dirname "$SCRIPT_DIR")"
 
 cd "$BACKEND_DIR"
 
-if [ ! -f "venv/Scripts/python" ]; then
-  echo "ERROR: venv not found. Run: python -m venv venv && venv/Scripts/pip install -r requirements.txt"
+if ! command -v uv &>/dev/null; then
+  echo "ERROR: uv not found. Install from https://docs.astral.sh/uv/"
   exit 1
 fi
 
 echo "Running backend tests..."
-venv/Scripts/python -m pytest tests/auto/ "$@"
+uv run pytest tests/auto/ "$@"

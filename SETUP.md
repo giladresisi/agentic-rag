@@ -8,9 +8,22 @@ Before starting, ensure you have:
 
 ### Required
 - **Python 3.10+** - Backend runtime
+- **uv** - Python package manager (https://docs.astral.sh/uv/) - replaces pip + venv
 - **Node.js 18+** - Frontend build tooling
 - **Supabase account** - Database, auth, storage (https://supabase.com) - Free tier works
 - **OpenAI API key** - LLM and embeddings (https://platform.openai.com)
+
+**Installing uv:**
+
+*Windows (Git Bash / PowerShell):*
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+*Mac/Linux:*
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 ### Optional (Recommended)
 - **LangSmith account** - Observability and trace debugging (https://smith.langchain.com) - Free tier works
@@ -52,27 +65,14 @@ cd agentic-rag
 
 ### 2. Backend Setup
 
-#### Create and Activate Virtual Environment
-
-**Windows (Git Bash):**
-```bash
-cd backend
-python -m venv venv
-source venv/Scripts/activate
-```
-
-**Mac/Linux:**
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-```
-
 #### Install Dependencies
 
 ```bash
-pip install -r requirements.txt
+cd backend
+uv sync
 ```
+
+This creates a `.venv/` directory and installs all dependencies. No manual venv creation needed.
 
 #### Pre-download Document Parsing Models
 
@@ -182,7 +182,7 @@ mv supabase.exe "$APPDATA/npm/supabase.exe"
 supabase --version
 ```
 
-> **Note:** `supabase==2.9.1` in `backend/requirements.txt` is the Python Supabase client SDK — a completely separate package used by the backend to connect to Supabase. It is not the CLI and was already installed in Step 2.
+> **Note:** `supabase==2.9.1` in `backend/pyproject.toml` is the Python Supabase client SDK — a completely separate package used by the backend to connect to Supabase. It is not the CLI and was already installed in Step 2.
 
 **Authenticate, link, and push migrations:**
 ```bash
@@ -263,20 +263,9 @@ cp .env.example .env
 
 ### Start Backend (Terminal 1)
 
-> **Important:** Always run uvicorn from inside the venv — it packages large ML models (PyTorch, docling) that are only installed there. Using the system Python will cause document parsing to fail.
-
-**Windows (Git Bash) — recommended: use venv's uvicorn directly:**
 ```bash
 cd backend
-venv/Scripts/uvicorn main:app --reload --port 8000
-```
-
-**Alternatively, activate the venv first:**
-```bash
-cd backend
-source venv/Scripts/activate   # Windows (Git Bash)
-# source venv/bin/activate      # Mac/Linux
-uvicorn main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
 ```
 
 **Expected output:**
@@ -345,14 +334,14 @@ This sends a real chat message through the UI and queries the LangSmith API to v
 Use this checklist to verify your setup:
 
 ### Environment Setup
-- [ ] Python venv activates without errors
-- [ ] All backend dependencies installed (`pip list` shows packages)
+- [ ] uv installed (`uv --version` works)
+- [ ] Backend dependencies installed (`uv pip list` in backend/ shows packages)
 - [ ] All frontend dependencies installed (`npm list` shows packages)
 - [ ] Backend `.env` file exists with required credentials
 - [ ] Frontend `.env` file exists with required credentials
 
 ### Services Running
-- [ ] Backend starts with `uvicorn main:app --reload`
+- [ ] Backend starts with `uv run uvicorn main:app --reload`
 - [ ] FastAPI docs accessible at http://localhost:8000/docs
 - [ ] Frontend starts with `npm run dev`
 - [ ] Frontend accessible at http://localhost:5173
@@ -598,8 +587,8 @@ This allows Claude to inspect deployments, check build logs, and manage environm
 ### Backend Won't Start
 
 **Error: "No module named 'X'"**
-- **Solution:** Ensure venv is activated, run `pip install -r requirements.txt`
-- **Check:** `which python` should point to your venv
+- **Solution:** Run `uv sync` inside the `backend/` directory
+- **Check:** Use `uv run python` instead of bare `python` to ensure the project venv is used
 
 **Error: "Could not find .env file"**
 - **Solution:** Copy `backend/.env.example` to `backend/.env` and fill in credentials
@@ -651,7 +640,7 @@ This allows Claude to inspect deployments, check build logs, and manage environm
 **Processing status stuck**
 - **Solution:** Check backend logs for errors
 - **Common:** Missing dependencies for document parsing (Docling)
-- **Fix:** Reinstall requirements: `pip install -r requirements.txt`
+- **Fix:** Reinstall dependencies: `uv sync` in the `backend/` directory
 
 **Duplicate detection not working**
 - **Solution:** Verify content_hash column exists in documents table
@@ -726,15 +715,17 @@ Once everything is working:
 
 ### Backend
 ```bash
-# Start server (use venv's uvicorn to avoid system Python)
-venv/Scripts/uvicorn main:app --reload --port 8000  # Windows
-# venv/bin/uvicorn main:app --reload --port 8000    # Mac/Linux
+# Start server
+uv run uvicorn main:app --reload --port 8000
 
 # Check installed packages
-venv/Scripts/pip list
+uv pip list
 
-# Update dependencies
-venv/Scripts/pip install -r requirements.txt --upgrade
+# Add a new dependency
+uv add <package>
+
+# Update all dependencies
+uv sync --upgrade
 ```
 
 ### Frontend
@@ -778,17 +769,16 @@ bash backend/tests/run_tests.sh
 bash backend/tests/run_tests.sh -k test_auth -v       # with filter
 
 # Backend single file (direct)
-cd backend && venv/Scripts/python -m pytest tests/auto/test_provider_service.py
+cd backend && uv run pytest tests/auto/test_provider_service.py
 
 # Backend manual tests (require uvicorn running at localhost:8000)
-cd backend && venv/Scripts/python tests/manual/test_stream.py
+cd backend && uv run python tests/manual/test_stream.py
 ```
 
 ### Debugging
 ```bash
 # View backend logs (verbose)
-venv/Scripts/uvicorn main:app --reload --log-level debug  # Windows
-# venv/bin/uvicorn main:app --reload --log-level debug    # Mac/Linux
+uv run uvicorn main:app --reload --log-level debug
 
 # Check backend connectivity
 curl http://localhost:8000/docs

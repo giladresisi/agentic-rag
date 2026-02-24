@@ -49,6 +49,4 @@ echo "Starting uvicorn server on port 8000..."
 echo "Press Ctrl+C to stop"
 echo ""
 
-# Use venv's uvicorn directly — avoids relying on PATH after activation
-# (system Python may shadow venv if activation doesn't propagate correctly)
-venv/Scripts/uvicorn main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000

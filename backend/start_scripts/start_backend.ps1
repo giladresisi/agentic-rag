@@ -50,6 +50,4 @@ Write-Host "Starting uvicorn server on port 8000..." -ForegroundColor Cyan
 Write-Host "Press Ctrl+C to stop" -ForegroundColor Yellow
 Write-Host ""
 
-# Use venv's uvicorn directly — avoids relying on PATH after activation
-# (system Python may shadow venv if activation doesn't propagate correctly)
-& ".\venv\Scripts\uvicorn.exe" main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
