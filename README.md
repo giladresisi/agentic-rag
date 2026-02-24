@@ -210,6 +210,10 @@ The current setup requires manual environment configuration across multiple serv
 - **CI testing environment**: GitHub Actions workflow running the full backend and E2E test suites against the containerized stack — requires test doubles or stubs for external APIs (OpenAI, LangSmith, Tavily, Cohere) and a structured logging policy (structured JSON logs, no stdout noise) so CI can parse and assert on output
 - **Automated 1-click setup**: Extend `setup.sh` to detect a Docker environment, skip manual Supabase steps, and wire credentials automatically — reducing new-user setup from ~15 manual steps to a single command
 
+### 5. Hallucination Resistance Scoring
+
+The current RAGAS golden dataset only covers in-distribution questions. Adding out-of-distribution queries (with ground truth "This information is not available") would give RAGAS a quantified hallucination resistance score alongside the existing retrieval quality metrics.
+
 </details>
 
 <details>
@@ -279,6 +283,14 @@ While all 8 modules have been implemented and core functionality is working, sev
 This project was inspired by the **[Claude Code RAG Masterclass](https://www.youtube.com/watch?v=xgPWCuqLoek)**. The original masterclass covered 8 modules of a RAG architecture, as detailed in [PRD.md](./PRD.md). On top of that foundation, many extras were added that weren't part of the original course — including RAG evaluation (RAGAS), a 1-click setup script, Cloud Run deployment, automated frontend (Playwright) and backend (pytest) tests, AI-assisted code review workflows, and observability via LangSmith.
 
 </details>
+
+---
+
+## Evaluation
+
+The RAG pipeline ships with a built-in [RAGAS](https://docs.ragas.io) evaluation suite — 15 golden Q&A pairs scored on faithfulness, answer relevancy, context precision, and context recall, with results pushed to LangSmith.
+
+👉 **[See backend/eval/README.md for full details and run instructions](./backend/eval/README.md)**
 
 ---
 

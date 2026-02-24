@@ -1,0 +1,19 @@
+# Eval-specific dependencies (not in pyproject.toml — cannot be added to the
+# dependency graph via uv sync because ragas 0.4.x requires langchain-community,
+# whose 0.4.x series (needed for langchain 1.x) requires pydantic-settings>=2.10.1,
+# conflicting with the production pin pydantic-settings==2.5.2 in pyproject.toml).
+#
+# Install instead with uv pip install, which resolves against the installed env:
+#
+#   cd backend
+#   uv pip install -r eval/requirements-eval.txt
+#
+# After install: ragas 0.4.x with langchain 1.x, pydantic-settings ~2.13.
+# Running `uv sync` afterwards restores the production env (removes ragas/langchain).
+# Re-run this install before each eval session if you ran uv sync in between.
+#
+# Note: pyarrow.dataset may be blocked on Windows by Application Control policy.
+# evaluate.py patches this automatically. No action needed on Linux/Cloud Run.
+
+ragas>=0.4
+datasets

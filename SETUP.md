@@ -810,6 +810,31 @@ cd backend && uv run pytest tests/auto/test_provider_service.py
 cd backend && uv run python tests/manual/test_stream.py
 ```
 
+### Evaluation
+
+Run the RAGAS evaluation pipeline to get objective RAG quality scores pushed to LangSmith:
+
+```bash
+# Install eval dependencies (separate from production deps due to version constraints)
+cd backend && uv pip install -r eval/requirements-eval.txt
+
+# Run evaluation (requires postmortem docs ingested and LANGSMITH_API_KEY set)
+cd backend && uv run python eval/evaluate.py
+
+# Unit tests only (no API calls, no ingested docs required)
+cd backend && uv run python -m pytest eval/tests/ -v
+```
+
+**Prerequisites for a full eval run:**
+1. Upload the 6 postmortem docs via the app UI (`backend/eval/postmortems/*.md`)
+2. Set `LANGSMITH_API_KEY` in `backend/.env`
+
+Results appear in LangSmith under dataset `ir-copilot-golden-set`. Expect ~$0.05–0.15 in OpenAI API costs per run (RAGAS uses an LLM to grade faithfulness and answer relevancy).
+
+**Reranking provider:** The eval pipeline uses whatever `RERANKING_PROVIDER` is set to in `backend/.env`. The recommended setting is `local` (no rate limits, no API key needed). If `RERANKING_PROVIDER=cohere`, the Cohere free tier caps at **10 requests/minute** — with 15 golden questions the run hits that limit at question 11 and fails. See `backend/eval/evaluate.py` for instructions on trimming the dataset to work within the limit.
+
+**Dependency note:** `ragas` is installed via `uv pip install` rather than `uv add` due to transitive version conflicts that cannot be resolved by `uv sync`. The full explanation is in `backend/eval/requirements-eval.txt`.
+
 ### Debugging
 ```bash
 # View backend logs (verbose)

@@ -14,17 +14,15 @@ class SQLQuery(BaseModel):
 # Schema context provided to the LLM for SQL generation
 INCIDENTS_SCHEMA = """production_incidents table columns:
 - id (INTEGER PRIMARY KEY)
-- incident_id (TEXT) - human-readable ID e.g. INC-2024-031
+- incident_id (TEXT) -- e.g. 'INC-2024-003'
 - title (TEXT)
-- severity (TEXT) - P1, P2, P3, P4
-- service_affected (TEXT)
-- status (TEXT) - resolved, open, monitoring
-- started_at (TIMESTAMPTZ)
-- resolved_at (TIMESTAMPTZ, nullable)
-- duration_minutes (INTEGER, nullable)
-- root_cause_category (TEXT) - database, deployment, network, third-party, configuration
-- description (TEXT)
-- postmortem_written (BOOLEAN)"""
+- affected_service (TEXT)
+- severity (TEXT) -- 'P1' or 'P2'
+- root_cause_category (TEXT)
+- detection_gap_minutes (INTEGER)
+- resolution_time_minutes (INTEGER)
+- incident_date (DATE)
+- status (TEXT)"""
 
 
 class SQLService:
@@ -34,7 +32,7 @@ class SQLService:
     def _get_sql_query_client():
         """Get Supabase admin client for executing validated SQL queries.
 
-        The production_incidents table is public reference data. Safety is enforced by:
+        The production_incidents table is eval reference data. Safety is enforced by:
         1. Application-level validation (_validate_query)
         2. Database-level RPC function (execute_incidents_query) restricts to production_incidents table
         """
@@ -55,6 +53,10 @@ class SQLService:
         """
         normalized = sql.strip().upper()
 
+        # Block semicolons first — prevents statement chaining before any other check
+        if ";" in sql:
+            return False, "Semicolons are not allowed in queries"
+
         # Must start with SELECT
         if not normalized.startswith("SELECT"):
             return False, "Only SELECT queries are allowed"
@@ -67,12 +69,14 @@ class SQLService:
             if re.search(rf'\b{keyword}\b', normalized):
                 return False, f"Query contains forbidden keyword: {keyword}"
 
-        # Only allow production_incidents table - check FROM clause
-        from_match = re.search(r'\bFROM\s+(\w+)', normalized)
-        if from_match:
-            table_name = from_match.group(1)
-            if table_name != "PRODUCTION_INCIDENTS":
-                return False, f"Only the 'production_incidents' table is allowed, got: {table_name.lower()}"
+        # Require FROM clause — queries without FROM are suspicious (e.g. SELECT version())
+        # Handle both unquoted and quoted identifiers
+        from_match = re.search(r'\bFROM\s+"?(\w+)"?', normalized)
+        if not from_match:
+            return False, "Query must contain a FROM clause referencing production_incidents"
+        table_name = from_match.group(1)
+        if table_name != "PRODUCTION_INCIDENTS":
+            return False, f"Only the 'production_incidents' table is allowed, got: {table_name.lower()}"
 
         # Check for JOIN on other tables
         join_matches = re.findall(r'\bJOIN\s+(\w+)', normalized)

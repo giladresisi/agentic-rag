@@ -874,18 +874,128 @@ After completing post-script steps, user can run:
 
 ## Feature: RAGAS Evaluation Pipeline
 
-### Planning Phase
-**Status**: 📋 Planned
+### Execution Phase
+**Status**: ✅ Complete — pipeline built, behavioral unit tests added, integration tests skippable
 **Started**: 2026-02-24
 **Plan File**: `.agents/plans/ragas-evaluation-pipeline.md`
 **Spec**: `.claude/specs/002-ragas-evaluation/`
 **Depends on**: IR-Copilot Theme Change (postmortem docs must exist and be ingested)
 
-Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.io) library. Calls retrieval + LLM services directly as Python imports (no HTTP, no running server needed). Scores 15 golden Q&A pairs drawn from the 6 postmortem documents across four metrics: `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`. Results are pushed to LangSmith as a named Experiment (`rag-eval-YYYY-MM-DD`). Includes 4 mocked unit tests that run with no live API calls.
+Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.io) library. Calls retrieval + LLM services directly as Python imports (no HTTP, no running server needed). Scores 15 golden Q&A pairs drawn from the 6 postmortem documents across four metrics: `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`. Results are pushed to LangSmith as dataset `ir-copilot-golden-set`.
 
-**New files:** `backend/eval/dataset.py` · `backend/eval/pipeline.py` · `backend/eval/evaluate.py` · `backend/eval/tests/test_eval_pipeline.py`
-**New dependency:** `ragas>=0.2` (+ `pytest-asyncio>=0.21` for unit tests)
-**Manual step:** Upload postmortem docs via app UI before running `evaluate.py`; live eval costs ~$0.05–0.15 in OpenAI API calls
+**Files created:**
+- `backend/eval/__init__.py`
+- `backend/eval/dataset.py` — 15 EvalSample golden Q&A pairs (5 root cause · 3 timeline · 3 detection gap · 3 remediation · 1 cross-doc)
+- `backend/eval/pipeline.py` — `run_rag_pipeline(question) -> {question, answer, contexts}`
+- `backend/eval/evaluate.py` — RAGAS scoring + LangSmith push
+- `backend/eval/tests/test_eval_pipeline.py` — 4 structural mocked unit tests (all passing)
+- `backend/eval/requirements-eval.txt` — eval-only deps (ragas, datasets)
+- `backend/eval/postmortems/*.md` — 6 incident postmortem documents
+
+**Dependency note:** `ragas` is not in `pyproject.toml` due to transitive conflicts; installed separately via `uv pip install -r eval/requirements-eval.txt`. Must be re-run after any `uv sync`. `langsmith` was upgraded from `==0.1.147` to `>=0.2.0` in `pyproject.toml` (resolved to 0.7.6) to fix the LangSmith trace closure issue (see bug fixes below).
+
+**RAGAS API adaptation:** Plan was written for RAGAS 0.1.x (`Dataset.from_dict()`). Installed version is 0.4.3, which uses `EvaluationDataset` + `SingleTurnSample`. `evaluate.py` uses the 0.4.3 API.
+
+**Windows constraint:** `pyarrow.dataset` DLL is blocked by Windows Application Control. `evaluate.py` patches `sys.modules` at startup to mock it — no-op on Linux/Cloud Run where the DLL loads normally.
+
+**Behavioral tests added (2026-02-25).** Test count expanded from 4 to 12 (10 automated + 2 skippable integration):
+
+| Test | Type | Covers |
+|------|------|--------|
+| `test_pipeline_includes_all_retrieved_contexts` | Unit | Multi-chunk retrieval, context list completeness |
+| `test_pipeline_passes_contexts_to_llm` | Unit | Context concatenation format sent to LLM |
+| `test_off_topic_queries_return_no_context_fallback[x3]` | Unit (parametrized) | Anti-hallucination for 3 off-topic queries |
+| `test_build_ragas_dataset_shape` | Unit | `build_ragas_dataset` produces valid `EvaluationDataset` |
+| `test_in_distribution_query_live` | Integration (skipped) | Golden dataset query retrieves relevant context |
+| `test_no_context_query_live` | Integration (skipped) | Off-topic query returns no-context fallback |
+
+**Remaining gap — new-document queries:** Uploading additional documents via the app UI and verifying retrieval is scoped to those docs requires a full E2E harness. Documented as a manual validation step; cannot be unit-tested.
+
+**Integration tests** run when `EVAL_DOCS_INGESTED=true` env var is set. Skipped otherwise.
+Both integration tests verified passing (2026-02-25): in-distribution retrieval returned relevant context; off-topic query returned anti-hallucination fallback.
+
+**evaluate.py — bugs fixed and first successful run (2026-02-25):**
+
+Four bugs prevented `evaluate.py` from running end-to-end. All fixed:
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| `TypeError: All metrics must be initialised metric objects` | `ragas.metrics.collections` exports a new API incompatible with legacy `evaluate()` — its classes don't inherit from `ragas.metrics.base.Metric` | Switched to legacy per-module singletons: `from ragas.metrics._faithfulness import faithfulness` etc. |
+| `answer_relevancy: nan` | `AnswerRelevancy` (`MetricWithEmbeddings`) requires an embeddings object; none was provided | Pass `embeddings=embedding_factory("openai")` to `evaluate()` |
+| LangSmith "ragas evaluation" trace stuck spinning | `langchain_core` 1.2.15 calls `RunTree.patch(exclude_inputs=...)` but langsmith 0.1.147's `patch()` took no arguments — callback threw, run never closed | Bumped `langsmith` to `>=0.2.0` in `pyproject.toml` (resolves to 0.7.6 which has `patch(*, exclude_inputs=False)`) |
+| Cohere 429 on question 11/15 | Trial API key rate-limited to 10 req/min; pipeline called reranker once per question | Workaround: `enable_reranking=False` in `eval/pipeline.py`. Permanent fix: switch `RERANKING_PROVIDER=local` in `.env` (no rate limits) |
+| Scores all 0 (no context retrieved) | `evaluate.py` used placeholder UUID `00000000-...` with no ingested docs | Sign in with `TEST_EMAIL`/`TEST_PASSWORD` via Supabase auth to get the real user UUID; pass it to `run_rag_pipeline` |
+
+**First clean run scores (2026-02-25, test user, reranking disabled):**
+```
+faithfulness          : 0.922
+answer_relevancy      : 0.973
+context_precision     : 0.863
+context_recall        : 0.967
+```
+15 examples pushed to LangSmith dataset `ir-copilot-golden-set`. LangSmith trace closes with green checkmark (no spinner).
+
+**Second run (2026-02-25, test user, local reranking enabled):**
+
+`eval/pipeline.py` updated to use config default (`enable_reranking=None`) instead of the Cohere workaround. `RERANKING_PROVIDER=local` in `.env` means the cross-encoder runs locally with no rate limits.
+
+```
+faithfulness          : 0.978  (+0.056 vs no-rerank baseline)
+answer_relevancy      : 0.958  (-0.015)
+context_precision     : 0.927  (+0.064)
+context_recall        : 0.922  (-0.045)
+```
+
+Local reranking improves faithfulness and context_precision meaningfully. answer_relevancy and context_recall are within noise. Overall: reranking raises retrieval quality with no rate-limit risk.
+
+**Dependency note (updated):** `ragas` cannot be added to `pyproject.toml` via `uv sync --group eval` because ragas 0.4.x requires `langchain-community`, whose 0.4.x series (compatible with langchain 1.x) requires `pydantic-settings>=2.10.1`, conflicting with the production pin `pydantic-settings==2.5.2`. Using `uv pip install -r eval/requirements-eval.txt` works because it installs into the already-resolved env (picking langchain-community 0.4.x + langchain 1.2.10) without re-solving project constraints. `requirements-eval.txt` updated with this explanation.
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/ragas-evaluation-pipeline.md`
+- Full implementation summary (both sessions)
+- Divergences and resolutions (FK constraint, skipif timing, RAGAS API version)
+- Test results and metrics (12/12 passing)
+- Recommendations for plan and process improvements
+
+---
+
+## Feature: RAGAS ToolCallAccuracy Evaluation
+
+**Status**: Implemented — pending migration apply + live SQL validation
+**Completed**: 2026-02-25
+**Plan File**: `.agents/plans/ragas-tool-call-accuracy.md`
+
+### What was built
+- `supabase/migrations/016_production_incidents.sql` — `production_incidents` table (6 seed rows) + `execute_incidents_query` RPC (mirrors 013 pattern)
+- `backend/services/sql_service.py` + `chat_service.py` — `books` domain fully replaced with `production_incidents`; tool renamed `query_incidents_database`
+- `backend/eval/tool_selection_dataset.py` — 12 single-turn + 3 multi-turn samples with `reference_goal` fields
+- `backend/eval/tool_selection_pipeline.py` — `run_tool_selection_pipeline()` (single-turn) + `run_multiturn_pipeline()` (real retrieve→analyze sequence)
+- `backend/eval/evaluate_tool_selection.py` — 3-pass orchestrator: `tool_routing_accuracy`, `sequence_accuracy`, `AgentGoalAccuracy` (gpt-4o-mini); `--dry-run` / `--single-only` CLI flags
+- `backend/eval/tests/test_tool_selection.py` — 11 unit tests, all mocked; full suite 23/23 passing
+
+### Next step for next agent
+Apply migration in Supabase SQL editor (`supabase/migrations/016_production_incidents.sql`), then run:
+```bash
+cd backend && uv run python tests/auto/test_sql_service.py
+cd backend && uv run python eval/evaluate_tool_selection.py --dry-run --single-only
+```
+All code changes are uncommitted — review with `git diff` before committing.
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/ragas-tool-call-accuracy.md`
+- Full implementation summary (all 4 waves)
+- Divergences: system prompt embedding, manual migration apply, test count fix
+- Test results: 23/23 passing (11 new + 12 pre-existing)
+- Alignment score: 9/10
+
+**System Review:** `.agents/system-reviews/ragas-tool-call-accuracy.md`
+- Alignment score: 9/10
+- Divergence analysis: 3 identified (2 GOOD ✅, 1 ENVIRONMENTAL ⚠️) — none problematic
+- Process improvements: CLAUDE.md additions for migration apply, symbol exportability,
+  eval boilerplate; plan template split for agent-executable vs manual validation steps
+- Key action: create `eval/compat.py` before next eval module to consolidate pyarrow mock
 
 ---
 
@@ -905,4 +1015,3 @@ Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.i
 1. Begin Module 3: Record Manager
 2. Optional: Address pre-existing test failures (auth/chat suites)
 3. Optional: Complete manual testing checklist from Module 2
-

@@ -32,7 +32,7 @@ def parse_sse_line(line_str):
 
 def main():
     print("\n" + "="*80)
-    print(" STRATEGIC RETRIEVAL TEST - Books Database")
+    print(" STRATEGIC RETRIEVAL TEST - Incidents Database")
     print("="*80 + "\n")
 
     # Authenticate
@@ -62,10 +62,10 @@ def main():
     print("Expected: Multiple query_incidents_database tool calls")
     print("="*80)
 
-    query = """I have two separate questions about the incidents database:
+    query = """I have two separate questions about the production incidents database:
 
-1. What P1 and P2 incidents affected the auth-service?
-2. Which incidents had a root cause of database?
+1. What P1 incidents had resolution times over 100 minutes?
+2. Which incidents affected the payment or auth service?
 
 Please answer both questions thoroughly using the incidents database."""
 

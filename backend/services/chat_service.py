@@ -52,7 +52,7 @@ class ChatService:
         "type": "function",
         "function": {
             "name": "query_incidents_database",
-            "description": "Query a database of production incidents using natural language. Use for questions about incidents, severity, affected services, resolution times, root causes. Examples: 'Show all P1 incidents', 'Which service had the most outages?', 'Average resolution time for database issues'",
+            "description": "Query a database of production incidents using natural language. Use for questions about incidents, severity, affected services, root causes, detection times, resolution times. Examples: 'P1 incidents in 2024', 'Incidents affecting auth service', 'Average resolution time by severity'",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -274,7 +274,7 @@ PATTERN B - Retrieval + Subagents (for comprehensive analysis):
   NEVER guess document names - always use names from Step 1!
 
 **Other Tools:**
-- Questions about incidents/severity/services → query_incidents_database (can query multiple times)
+- Questions about incidents, severity, services, resolution times → query_incidents_database (can query multiple times)
 - Current events/recent info → search_web (use after checking documents)
 - Incomplete information? Make additional tool calls with refined queries
 
@@ -467,7 +467,7 @@ QUALITY STANDARDS:
                                 metadata={"status": "failed"}
                             )
                         else:
-                            context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} incidents):\n"
+                            context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} rows):\n"
                             context_text += "\n".join([str(r) for r in sql_response.results[:20]])
 
                             # Track tool call for summary

@@ -105,7 +105,7 @@ async def test_incidents_query():
     print("-" * 50)
 
     conversation_history = [
-        {"role": "user", "content": "Show me all P1 incidents in the database."}
+        {"role": "user", "content": "What P1 incidents are in the database?"}
     ]
 
     try:
@@ -113,20 +113,17 @@ async def test_incidents_query():
 
         print(f"Response preview: {full_response[:200]}...")
 
-        # Check that the response mentions incidents or P1 severity content
         response_lower = full_response.lower()
-        has_incident = "incident" in response_lower
         has_p1 = "p1" in response_lower
-        has_severity = "severity" in response_lower
-        has_incident_content = has_incident or has_p1 or has_severity
+        has_inc = "inc-" in response_lower or "incident" in response_lower
+        has_incident_content = has_p1 or has_inc
 
         if has_incident_content:
-            print(f"{PASS} Response contains incident-related content (incident/P1/severity)")
+            print(f"{PASS} Response contains incident-related content (P1/INC-)")
         else:
             print(f"{WARN} Response may not contain expected incident content")
             print(f"Full response: {full_response}")
 
-        # Sources should be None for SQL queries (not document retrieval)
         if sources is None:
             print(f"{PASS} No document sources (expected for SQL tool)")
         else:
@@ -277,7 +274,7 @@ async def test_multi_tool_sequence():
     # Turn 2: Ask about incidents (SQL tool) - fresh conversation
     print("\n  Turn 2: Incidents question...")
     conversation_history = [
-        {"role": "user", "content": "Show me all P1 incidents in the database."}
+        {"role": "user", "content": "List all P2 incidents in the database."}
     ]
 
     try:
@@ -285,7 +282,7 @@ async def test_multi_tool_sequence():
         print(f"  Response: {response2[:150]}...")
 
         response2_lower = response2.lower()
-        has_incidents = any(w in response2_lower for w in ["incident", "p1", "severity", "service"])
+        has_incidents = any(w in response2_lower for w in ["p2", "incident", "inc-", "severity"])
 
         if has_incidents:
             print(f"  {PASS} Turn 2: SQL tool returned incident-related content")
