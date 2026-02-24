@@ -276,6 +276,8 @@ Hierarchical agent delegation system enabling main chat agent to spawn isolated 
 
 ---
 
+# Additional Features, Fixes & Enhancements
+
 ## Enhancement: LangSmith Tool Tracing ✅
 
 **Status:** ✅ Complete
@@ -491,24 +493,22 @@ Debug Log:
 
 ---
 
-## Additional Features
-
-### Bug Fix: Duplicate Upload Requests
+## Bug Fix: Duplicate Upload Requests
 
 **Status:** ✅ Complete
 **Completed:** 2026-02-16
 
-#### Core Validation
+### Core Validation
 Stale closure bug causing duplicate HTTP requests on file upload validated through systematic debugging with console logging (unique call IDs, timestamps, stack traces). Root cause identified as `useCallback` dependency on state causing function recreation in `setTimeout` continuation.
 
-#### Test Status
+### Test Status
 - **Manual Tests:** ✅ All passing
   - Single-file upload: No duplicates
   - Multi-file upload: Sequential processing without duplicates
   - Error handling: Continue/Stop buttons work correctly
   - React Strict Mode: No duplicates in development or production
 
-#### Notes
+### Notes
 - **Root Cause:** Stale closure - `uploadNext` recreated when `currentUploadIndex` changed, `setTimeout` captured new function reading stale state
 - **Primary Fix:** Use refs (`currentUploadIndexRef`) for state values read in async callbacks, remove state from `useCallback` dependencies
 - **Defense-in-Depth:** AbortController for request deduplication (handles React Strict Mode double-invocation)
@@ -521,13 +521,13 @@ Stale closure bug causing duplicate HTTP requests on file upload validated throu
 
 ---
 
-### Bug Fix: PDF Upload Pipeline (Multi-Session Debug)
+## Bug Fix: PDF Upload Pipeline (Multi-Session Debug)
 
 **Status:** ✅ Complete
 **Completed:** 2026-02-20
 **Debug Log:** `.agents/debug_pdf_upload.md`
 
-#### Issues Found and Fixed
+### Issues Found and Fixed
 
 **1. Docling version too old (`docling==0.4.0`)**
 The pinned version expected a `model.pt` layout file; the current HuggingFace repo (`ds4sd/docling-models`) switched to ONNX format. Fixed by upgrading to `docling>=2.0.0`.
@@ -544,7 +544,7 @@ UI stuck at "Processing" even though DB showed `status=completed`. The `document
 **5. RapidOCR INFO logs on every upload**
 RapidOCR's `Logger.__init__` calls `setLevel(INFO)` at import time, overriding any earlier suppression. Fixed by adding a `logging.Filter` (immune to `setLevel` resets) to the `RapidOCR` logger in `main.py` after all router imports. Also refactored `DocumentConverter` to a module-level singleton to avoid re-initializing the OCR engine on every upload.
 
-#### Files Modified
+### Files Modified
 - `backend/requirements.txt`: `docling==0.4.0` → `docling>=2.0.0`
 - `backend/main.py`: Pydantic warning filter + RapidOCR `logging.Filter` (post-import)
 - `backend/services/embedding_service.py`: `DocumentConverter` singleton via `_get_converter()`
@@ -555,11 +555,11 @@ RapidOCR's `Logger.__init__` calls `setLevel(INFO)` at import time, overriding a
 
 ---
 
-### New Project Setup Walkthrough
+## New Project Setup Walkthrough
 
 **Status:** ✅ Complete — test suite fully cleaned up and organized.
 
-#### Test Suite Fixes Applied (2026-02-21)
+### Test Suite Fixes Applied (2026-02-21)
 
 The following issues were found and fixed during the setup walkthrough. All commits are on `main`.
 
@@ -571,7 +571,7 @@ The following issues were found and fixed during the setup walkthrough. All comm
 **`.env` fix required by user:**
 - `SUPPORTED_FILE_TYPES` in `backend/.env` was restricted to 5 types; must include the full list: `pdf,docx,pptx,html,md,txt,csv,json,xml,rtf`
 
-#### Tasks Completed (2026-02-21)
+### Tasks Completed (2026-02-21)
 
 **Task 1: Fixed async tests (were 40 skipped, now 0 skipped)**
 - Installed `pytest-asyncio` and added to `backend/requirements.txt`
@@ -601,22 +601,22 @@ The following issues were found and fixed during the setup walkthrough. All comm
 
 ---
 
-### Enhancement: LangSmith Trace Automated Tests
+## Enhancement: LangSmith Trace Automated Tests
 
 **Status:** ✅ Complete
 **Completed:** 2026-02-21
 
-#### Core Validation
+### Core Validation
 Playwright tests verifying that chat messages produce LangSmith traces with correct structure, content, and guaranteed closure. Tests connect directly to the LangSmith REST API to poll for runs after sending messages through the UI.
 
-#### Test Status
+### Test Status
 - **Automated Tests:** ✅ 3/3 passing (`frontend/tests/langsmith-traces.spec.ts`)
   - `chat message creates a LangSmith run with inputs and outputs` — verifies `chat_completions_stream` run appears with populated inputs, outputs, and end_time
   - `LangSmith run captures the user message in inputs` — verifies user message text is present in run inputs
   - `failed chat still closes the LangSmith run without leaving it open` — verifies `end_time` is always set (finally-block cleanup guaranteed)
 - Auto-skips if `LANGSMITH_API_KEY` is absent from `backend/.env`
 
-#### Notes
+### Notes
 - Run: `cd frontend && npx playwright test langsmith-traces`
 - REST API pattern discovered: `GET /api/v1/sessions?name=<project>` to resolve session UUID, then `POST /api/v1/runs/query` with `{"session": [uuid], ...}` — the simple `GET /api/v1/runs?session_name=...` returns 405
 - Polls every 4s up to 40s to account for LangSmith's 10–30s propagation delay
@@ -624,30 +624,30 @@ Playwright tests verifying that chat messages produce LangSmith traces with corr
 
 ---
 
-### Bug Fix: PDF Parsing Failure on Real-World Documents (2026-02-22)
+## Bug Fix: PDF Parsing Failure on Real-World Documents (2026-02-22)
 
 **Status:** ✅ Complete
 
-#### Root Cause
+### Root Cause
 PDF uploads were failing with `"Failed to parse document: Missing ONNX file: ...beehive_v0.0.5\model.pt"`. The chain of failures:
 
 1. **PyTorch 2.2.2 too old** — Docling's layout-heron model (already cached in `~/.cache/huggingface/hub/`) requires PyTorch ≥ 2.4. With PyTorch disabled, docling fell back to the old `beehive_v0.0.5` ONNX model from `ds4sd/docling-models`, which was never fully downloaded (only tableformer was cached, layout was missing).
 2. **Server not using venv** — `uvicorn` was being called bare, picking up the system Python (PyTorch 2.2.2) instead of the venv (which had 2.10.0 after the fix). Activation alone is unreliable on Windows.
 3. **Warmup crash blocked server start** — The new lifespan warmup was non-fatal after fix, but confirmed the startup failure was PyTorch-version-related.
 
-#### Fixes Applied
+### Fixes Applied
 - **`requirements.txt`:** Added `torch>=2.4`, `torchvision>=0.19`, `huggingface_hub[hf_xet]>=0.27`
 - **`main.py`:** Lifespan warmup made non-fatal (logs warning instead of crashing server)
 - **`start_scripts/`:** All 4 scripts updated to call `venv/Scripts/uvicorn` directly instead of relying on PATH after activation
 - **`SETUP.md`:** Run commands updated to `venv/Scripts/uvicorn`; Windows HuggingFace symlinks limitation documented in Prerequisites with fix steps (Developer Mode or run as admin)
 - **`debugging/check_failed_documents.py`:** Fixed `UnicodeEncodeError` on Hebrew filenames via `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`
 
-#### Key Lesson
+### Key Lesson
 Simple test PDFs (single text block) bypass docling's layout pipeline and succeed even with broken model setup. Real-world complex PDFs (tables, images, multi-column) require the layout model. Always test with a real document, not a synthetic one.
 
 ---
 
-### Render Deployment Fixes (2026-02-22)
+## Render Deployment Fixes (2026-02-22)
 
 **Status:** ✅ Complete
 
@@ -670,36 +670,37 @@ Three issues diagnosed and fixed to unblock Render deployment:
 
 ---
 
-### Cloud Run Migration (2026-02-23) ✅
+## Cloud Run Migration (2026-02-23) ✅
 
 **Status:** ✅ Complete
 **Completed:** 2026-02-23
+**Reasoning:** Free plan on render.com includes only 512MiB, Cloud Run free tier is higher
 
-#### Service Details
+### Service Details
 - **URL:** `https://agentic-rag-94676406483.me-west1.run.app`
 - **Region:** `me-west1`, **Project:** `agentic-rag-gilad`, **Memory:** 4 GiB
 - **CD:** GitHub pushes to `main` auto-build and deploy via Cloud Build (`cloudbuild.yaml`)
 - **Frontend:** `VITE_API_URL` updated in Vercel; `CORS_ORIGINS` locked to Vercel URL
 
-#### Issues Found and Fixed During Deployment
+### Issues Found and Fixed During Deployment
 1. **Missing env vars** — `.cloudrun_env.yaml` was never applied; app crashed at startup with Pydantic `ValidationError`. Fix: `gcloud run services update --env-vars-file=.cloudrun_env.yaml`
 2. **Hardcoded port** — `--port 8000` in Dockerfile CMD; Cloud Run injects `PORT=8080`. Fix: `CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}"]`
 3. **OOM at startup** — Default 512 MiB exceeded (587 MiB) loading torch+docling. Fix: `--memory=2Gi`
 4. **Traffic pinned to placeholder** — `--no-traffic` flag pinned traffic to the placeholder revision; new deployments sat at 0%. Fix: `gcloud run services update-traffic --to-latest`
 5. **Stale us-central1 service** — Initial manual setup created a duplicate in `us-central1`. Deleted.
 
-#### Post-Migration Fixes (2026-02-23)
+### Post-Migration Fixes (2026-02-23)
 6. **OOM during PDF upload** — 2 GiB limit exceeded (2.1 GiB used) when docling processes complex PDFs. Fix: `--memory=4Gi`.
 7. **504 on concurrent uploads** — `converter.convert()` (docling ML inference) was called directly inside an `async def`, blocking the asyncio event loop. A second upload while the first was processing background tasks would stall for 40–50 s until Cloud Run timed out. Fix: wrap `converter.convert()` in `asyncio.run_in_executor` (`embedding_service.py`).
 8. **CI build failing** — Default Cloud Build trigger used an inline config looking for `Dockerfile` at repo root; our Dockerfile is in `backend/`. Fix: added `cloudbuild.yaml` at repo root; ran one-time `gcloud builds triggers update` to point the trigger at it; deleted the duplicate trigger.
 9. **`.md` upload rejected by Supabase Storage** — Browser sends `application/octet-stream` for `.md` files; Supabase rejects this MIME type. Fix: added `_MIME_TYPE_MAP` in `ingestion.py` to override `octet-stream` with correct types for known text formats.
 
-#### Key Files
+### Key Files
 - `backend/Dockerfile` — container definition (`${PORT:-8000}`, `EXPOSE 8080`)
 - `.cloudrun_env.yaml` — env vars (gitignored, contains secrets; `CORS_ORIGINS` = Vercel URL)
 - `cloudbuild.yaml` — CI build config (builds from `backend/`, owned by repo)
 
-#### Lessons Learned
+### Lessons Learned
 1. **Apply env vars before first push** (or immediately after). Without them, `Settings()` crashes the app at startup before it can bind any port.
 2. **Never hardcode port in Cloud Run CMD.** Use `${PORT:-8000}` — Cloud Run injects `PORT=8080` and health-checks on that port.
 3. **Set memory to 4 GiB** for torch+docling. 2 GiB is enough for startup but OOMs on real document uploads.
@@ -710,7 +711,7 @@ Three issues diagnosed and fixed to unblock Render deployment:
 
 ---
 
-### Repository Maintenance: Secret Removal from Git History
+## Repository Maintenance: Secret Removal from Git History
 
 **Completed:** 2026-02-20
 
@@ -723,7 +724,7 @@ Both passes rewrote the full commit graph. The remote was force-pushed after eac
 
 ---
 
-## System Status
+# System Status
 
 **Servers:**
 - Backend: http://localhost:8000 (FastAPI + Uvicorn)
@@ -742,7 +743,7 @@ Both passes rewrote the full commit graph. The remote was force-pushed after eac
 
 ---
 
-## Quick Reference
+# Quick Reference
 
 **Run Backend:**
 ```bash
@@ -778,4 +779,4 @@ venv/Scripts/python tests/manual/test_stream.py
 **Apply Database Migration:**
 1. Open Supabase Dashboard → SQL Editor
 2. Copy migration file contents from `supabase/migrations/`
-3. Run SQL commands sequentially (001 → 002 → ... → 013)
+3. Run SQL commands sequentially (001 → 002 → ... → 015)

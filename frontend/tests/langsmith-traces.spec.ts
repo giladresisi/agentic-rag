@@ -1,16 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { TEST_EMAIL, TEST_PASSWORD } from './utils';
-import dotenv from 'dotenv';
-import * as path from 'path';
-import { fileURLToPath } from 'url';
 
-// ES module equivalent of __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Load backend .env to access LangSmith credentials (not in frontend .env)
-dotenv.config({ path: path.resolve(__dirname, '../../backend/.env') });
-
+// LANGSMITH_API_KEY is loaded from backend/.env via playwright.config.ts
 const LANGSMITH_API_KEY = process.env.LANGSMITH_API_KEY;
 const LANGSMITH_PROJECT = process.env.LANGSMITH_PROJECT || 'default';
 const LANGSMITH_API_URL = 'https://api.smith.langchain.com';
