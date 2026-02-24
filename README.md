@@ -1,5 +1,7 @@
 # Agentic RAG Application
 
+![Static Badge](https://img.shields.io/badge/automated%20tests-135-blue)
+
 A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities.
 
 See it in action:
@@ -10,7 +12,8 @@ See it in action:
 
 ## Why? What is it for?
 
-This is a complete foundation for building agentic RAG-based chat applications that retrieve precise information from unstructured data sources. It's designed for real-world use cases where organizations need intelligent document retrieval and Q&A systems:
+This is a complete foundation for building agentic RAG-based chat applications that retrieve precise information from unstructured data sources without hallucinations.
+It's designed for real-world use cases where organizations need intelligent document retrieval and Q&A systems:
 
 - **Internal knowledge bases** - Corporate documentation, policies, procedures, onboarding materials
 - **Customer support systems** - Product documentation, troubleshooting guides, FAQs
@@ -244,6 +247,18 @@ While all 8 modules have been implemented and core functionality is working, sev
    - Performance optimization and caching strategies
    - Monitoring and alerting infrastructure
    - Load testing and scalability validation
+
+</details>
+
+<details>
+<summary><strong>💡 Learnings & Conclusions</strong></summary>
+
+<br>
+
+- AI-driven dev works great with clear and quantized context and requirements, without them it goes astray very quickly.
+- The setup for AI-driven dev must always be improved for next iterations to result better.
+- Take the time when validating AI-driven dev, AI won't make sure it fully covered a scenario, it's up to you.
+- Split the work you give AI so it has a better chance of completing and you have stable versions to deploy & revert to.
 
 </details>
 
