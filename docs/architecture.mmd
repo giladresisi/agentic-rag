@@ -1,0 +1,49 @@
+flowchart TD
+    User(["User"])
+
+    %% ── INGESTION ──
+    subgraph Ingestion["Document Ingestion"]
+        direction TB
+        Upload["File Upload"]
+        Parse["Parse & Extract Text"]
+        Metadata["Extract Metadata\n(LLM)"]
+        Chunk["Chunk Text"]
+        Embed["Generate Embeddings\n(OpenAI / OpenRouter)"]
+        Store[("Vector Store\n(pgvector)")]
+
+        Upload --> Parse --> Metadata --> Chunk --> Embed --> Store
+    end
+
+    %% ── CHAT ──
+    subgraph Chat["Chat"]
+        direction TB
+        Query["User Query\n+ Conversation History"]
+
+        subgraph ToolSelection["LLM — Tool Selection"]
+            LLM1["LLM receives query\nwith 4 tool definitions"]
+        end
+
+        subgraph ToolExecution["Tool Execution (LLM-ordered)"]
+            T1["retrieve_documents\nSemantic + keyword search"]
+            T2["analyze_document_with_subagent\nFull-doc deep analysis"]
+            T3["query_books_database\nText-to-SQL"]
+            T4["search_web\nLive web search"]
+        end
+
+        Compose["LLM composes final answer\nfrom tool results"]
+        Answer["Streamed Response\n(SSE)"]
+
+        Query --> LLM1
+        LLM1 -->|"selects & orders tools"| ToolExecution
+        T1 & T2 & T3 & T4 --> Compose --> Answer
+    end
+
+    User -->|"uploads"| Upload
+    User -->|"asks"| Query
+    Answer -->|"replies"| User
+    T1 -->|"query embedding\n+ vector search"| Store
+
+    style Ingestion fill:#fff8e1,stroke:#ffc107
+    style Chat fill:#e8f5e9,stroke:#4caf50
+    style ToolSelection fill:#e3f2fd,stroke:#2196f3
+    style ToolExecution fill:#fce4ec,stroke:#e91e63
