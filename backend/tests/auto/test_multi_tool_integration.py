@@ -98,14 +98,14 @@ async def collect_stream_response(conversation_history, model="gpt-4o-mini"):
     return full_response, sources
 
 
-async def test_books_query():
-    """Test 1: Books query - verify SQL tool is used for book questions."""
+async def test_incidents_query():
+    """Test 1: Incidents query - verify SQL tool is used for incident questions."""
     print("\n" + "-" * 50)
-    print("Test 1: Books Query (SQL Tool)")
+    print("Test 1: Incidents Query (SQL Tool)")
     print("-" * 50)
 
     conversation_history = [
-        {"role": "user", "content": "What books were written by J.K. Rowling?"}
+        {"role": "user", "content": "Show me all P1 incidents in the database."}
     ]
 
     try:
@@ -113,16 +113,17 @@ async def test_books_query():
 
         print(f"Response preview: {full_response[:200]}...")
 
-        # Check that the response mentions Harry Potter or Rowling-related content
+        # Check that the response mentions incidents or P1 severity content
         response_lower = full_response.lower()
-        has_harry_potter = "harry potter" in response_lower
-        has_rowling = "rowling" in response_lower
-        has_book_content = has_harry_potter or has_rowling
+        has_incident = "incident" in response_lower
+        has_p1 = "p1" in response_lower
+        has_severity = "severity" in response_lower
+        has_incident_content = has_incident or has_p1 or has_severity
 
-        if has_book_content:
-            print(f"{PASS} Response contains book-related content (Harry Potter/Rowling)")
+        if has_incident_content:
+            print(f"{PASS} Response contains incident-related content (incident/P1/severity)")
         else:
-            print(f"{WARN} Response may not contain expected book content")
+            print(f"{WARN} Response may not contain expected incident content")
             print(f"Full response: {full_response}")
 
         # Sources should be None for SQL queries (not document retrieval)
@@ -131,10 +132,10 @@ async def test_books_query():
         else:
             print(f"{WARN} Got document sources - retrieval tool may have been used instead of SQL")
 
-        return has_book_content
+        return has_incident_content
 
     except Exception as e:
-        print(f"{FAIL} Books query failed: {e}")
+        print(f"{FAIL} Incidents query failed: {e}")
         return False
 
 
@@ -249,7 +250,7 @@ async def test_multi_tool_sequence():
     print("Test 4: Multi-Tool Sequence")
     print("-" * 50)
 
-    results = {"document": False, "books": False, "web": False}
+    results = {"document": False, "incidents": False, "web": False}
 
     # Turn 1: Ask about the uploaded document (retrieval tool)
     print("\n  Turn 1: Document question...")
@@ -273,10 +274,10 @@ async def test_multi_tool_sequence():
     except Exception as e:
         print(f"  {FAIL} Turn 1 failed: {e}")
 
-    # Turn 2: Ask about books (SQL tool) - fresh conversation
-    print("\n  Turn 2: Books question...")
+    # Turn 2: Ask about incidents (SQL tool) - fresh conversation
+    print("\n  Turn 2: Incidents question...")
     conversation_history = [
-        {"role": "user", "content": "List some fantasy genre books from the database."}
+        {"role": "user", "content": "Show me all P1 incidents in the database."}
     ]
 
     try:
@@ -284,13 +285,13 @@ async def test_multi_tool_sequence():
         print(f"  Response: {response2[:150]}...")
 
         response2_lower = response2.lower()
-        has_books = any(w in response2_lower for w in ["book", "fantasy", "author", "title"])
+        has_incidents = any(w in response2_lower for w in ["incident", "p1", "severity", "service"])
 
-        if has_books:
-            print(f"  {PASS} Turn 2: SQL tool returned book-related content")
-            results["books"] = True
+        if has_incidents:
+            print(f"  {PASS} Turn 2: SQL tool returned incident-related content")
+            results["incidents"] = True
         else:
-            print(f"  {WARN} Turn 2: Response may not contain book content")
+            print(f"  {WARN} Turn 2: Response may not contain incident content")
 
     except Exception as e:
         print(f"  {FAIL} Turn 2 failed: {e}")
@@ -332,7 +333,7 @@ async def test_multi_tool_sequence():
     total = len(results)
     print(f"\n  Multi-tool sequence: {passed}/{total} turns passed")
     print(f"    Document retrieval: {'PASS' if results['document'] else 'FAIL'}")
-    print(f"    Books SQL: {'PASS' if results['books'] else 'FAIL'}")
+    print(f"    Incidents SQL: {'PASS' if results['incidents'] else 'FAIL'}")
     print(f"    Web search: {'PASS' if results['web'] else 'FAIL'}")
 
     return passed >= 2  # Pass if at least 2 out of 3 tools worked
@@ -361,7 +362,7 @@ async def main():
 
     results = {}
 
-    results["books_query"] = await test_books_query()
+    results["incidents_query"] = await test_incidents_query()
     results["document_retrieval"] = await test_document_retrieval()
     results["web_search"] = await test_web_search()
     results["multi_tool_sequence"] = await test_multi_tool_sequence()

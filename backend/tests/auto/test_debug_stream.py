@@ -36,7 +36,7 @@ def main():
     print(f"[OK] Thread: {thread_id}\n")
 
     # Send simple query
-    query = "What books by George Orwell are in the database?"
+    query = "What P1 incidents are in the database?"
 
     print(f"Query: {query}\n")
     print("Streaming response:\n" + "="*70)

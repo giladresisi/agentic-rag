@@ -1,6 +1,6 @@
 # Progress
 
-Track progress through the Agentic RAG modules.
+Track progress through the IR-Copilot modules.
 
 ## Convention
 - `[x]` = Completed and validated
@@ -234,7 +234,7 @@ Multi-tool agent with text-to-SQL and web search capabilities validated through 
 
 ### Notes
 - Team-based execution: 8 agents across 4 waves (~2x speedup)
-- Migration 014 applied: Books table, sql_query_role, execute_books_query RPC
+- Migration 014 applied: sql_query_role created; migration 016 replaces with production_incidents table and execute_incidents_query RPC
 - Dependencies: tavily-python, cohere, sentence-transformers
 - Security: Defense-in-depth (app validation + DB role + RPC function)
 - Files changed: 11 (7 new, 4 modified) - +1,221/-43 lines
@@ -291,7 +291,7 @@ Child LangSmith traces for all tool executions providing detailed observability 
 - **Automated Tests:** ✅ 3/3 passing — see [Enhancement: LangSmith Trace Automated Tests](#enhancement-langsmith-trace-automated-tests) below
 - **Manual Tests (original validation):** ✅ All passing
   - retrieve_documents: Shows query, chunk_count, similarity scores
-  - query_books_database: Shows SQL query, row count, sample results
+  - query_incidents_database: Shows SQL query, row count, sample results
   - search_web: Shows search query, result count, top URLs
   - analyze_document_with_subagent: Shows task, status, reasoning steps count
   - generate_thread_title: Shows title generation LLM call
@@ -342,7 +342,7 @@ Child LangSmith traces for all tool executions providing detailed observability 
 - **Trace hierarchy:** Parent chat_completions_stream → Child tool_* runs
 - **Tool metadata captured:**
   - retrieve_documents: query, chunk_count, document_names, similarity scores
-  - query_books_database: natural_language_query, sql_query, row_count, sample_results
+  - query_incidents_database: natural_language_query, sql_query, row_count, sample_results
   - search_web: search_query, result_count, top_urls, top_titles
   - analyze_document_with_subagent: task_description, document_name, status, reasoning_steps_count
 - **Error tracing:** Failed tool calls show error messages in LangSmith outputs

@@ -155,13 +155,13 @@ def run_strategic_retrieval(token, thread_id):
     print("[OK] Test 2 completed")
     print("="*80)
 
-    # Test Query 3: Should trigger query_books_database
+    # Test Query 3: Should trigger query_incidents_database
     print("\n" + "="*80)
-    print("TEST 3: Books database query")
+    print("TEST 3: Incidents database query")
     print("="*80)
 
-    query3 = """What fantasy books with high ratings are available?
-    Also show me books by George Orwell."""
+    query3 = """What P1 incidents affected the auth-service?
+    Also show me incidents with a root cause of database."""
 
     response = requests.post(
         f"{BASE_URL}/chat/threads/{thread_id}/messages",

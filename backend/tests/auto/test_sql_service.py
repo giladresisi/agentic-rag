@@ -12,7 +12,7 @@ load_dotenv()
 async def test_count_query():
     """Test: count query returns a reasonable number of rows."""
     print("\n--- Test: Count Query ---")
-    response = await sql_service.natural_language_to_sql("How many books are in the database?")
+    response = await sql_service.natural_language_to_sql("How many incidents are in the database?")
 
     if response.error:
         print(f"[FAIL] Count query returned error: {response.error}")
@@ -25,90 +25,79 @@ async def test_count_query():
         first_row = response.results[0]
         count_value = None
         for key, val in first_row.items():
-            if isinstance(val, int) and val >= 10:
+            if isinstance(val, int) and val >= 15:
                 count_value = val
                 break
 
-        if count_value is not None and count_value >= 10:
+        if count_value is not None and count_value >= 15:
             print(f"[PASS] Count query returned count: {count_value}")
             print(f"  SQL: {response.query}")
             return True
 
         # Fallback: LLM might have done SELECT * instead of COUNT
-        if response.row_count >= 10:
-            print(f"[PASS] Query returned {response.row_count} rows (>= 10)")
+        if response.row_count >= 15:
+            print(f"[PASS] Query returned {response.row_count} rows (>= 15)")
             print(f"  SQL: {response.query}")
             return True
 
-    print(f"[FAIL] Expected count >= 10, got row_count={response.row_count}")
+    print(f"[FAIL] Expected count >= 15, got row_count={response.row_count}")
     print(f"  SQL: {response.query}")
     print(f"  Results: {response.results}")
     return False
 
 
-async def test_author_filter():
-    """Test: filtering by author returns expected books."""
-    print("\n--- Test: Author Filter (George Orwell) ---")
-    response = await sql_service.natural_language_to_sql("Books by George Orwell")
+async def test_severity_filter():
+    """Test: filtering by severity returns expected incidents."""
+    print("\n--- Test: Severity Filter (P1) ---")
+    response = await sql_service.natural_language_to_sql("Show all P1 incidents")
 
     if response.error:
-        print(f"[FAIL] Author filter returned error: {response.error}")
+        print(f"[FAIL] Severity filter returned error: {response.error}")
         return False
 
     if response.row_count == 0:
-        print(f"[FAIL] No results for George Orwell")
+        print(f"[FAIL] No results for P1 incidents")
         print(f"  SQL: {response.query}")
         return False
 
-    titles = [r.get("title", "") for r in response.results]
-    titles_lower = [t.lower() for t in titles]
+    severities = [r.get("severity", "") for r in response.results]
+    has_p1 = any(s == "P1" for s in severities)
 
-    has_1984 = any("1984" in t for t in titles_lower)
-    has_animal_farm = any("animal farm" in t for t in titles_lower)
-
-    if has_1984 or has_animal_farm:
-        print(f"[PASS] Found Orwell books: {titles}")
+    if has_p1:
+        print(f"[PASS] Found {response.row_count} P1 incident(s): {severities}")
         print(f"  SQL: {response.query}")
         return True
 
-    # Check if results at least have Orwell as author
-    authors = [r.get("author", "") for r in response.results]
-    if any("orwell" in a.lower() for a in authors):
-        print(f"[PASS] Found books by Orwell: {titles}")
-        print(f"  SQL: {response.query}")
-        return True
-
-    print(f"[FAIL] Expected Orwell books, got: {titles}")
+    print(f"[FAIL] Expected P1 severity, got: {severities}")
     print(f"  SQL: {response.query}")
     return False
 
 
-async def test_genre_filter():
-    """Test: filtering by genre returns relevant results."""
-    print("\n--- Test: Genre Filter (Fantasy) ---")
-    response = await sql_service.natural_language_to_sql("Fantasy books")
+async def test_service_filter():
+    """Test: filtering by service returns relevant results."""
+    print("\n--- Test: Service Filter (auth-service) ---")
+    response = await sql_service.natural_language_to_sql("Incidents affecting auth-service")
 
     if response.error:
-        print(f"[FAIL] Genre filter returned error: {response.error}")
+        print(f"[FAIL] Service filter returned error: {response.error}")
         return False
 
     if response.row_count == 0:
-        print(f"[FAIL] No fantasy books found")
+        print(f"[FAIL] No results for auth-service incidents")
         print(f"  SQL: {response.query}")
         return False
 
-    # Verify at least some results have fantasy genre
-    genres = [r.get("genre", "").lower() for r in response.results]
-    has_fantasy = any("fantasy" in g for g in genres)
+    services = [r.get("service_affected", "").lower() for r in response.results]
+    has_auth = any("auth" in s for s in services)
 
-    if has_fantasy:
-        print(f"[PASS] Found {response.row_count} fantasy book(s)")
+    if has_auth:
+        print(f"[PASS] Found {response.row_count} auth-service incident(s)")
         for r in response.results[:5]:
-            print(f"  - {r.get('title', '?')} ({r.get('genre', '?')})")
+            print(f"  - {r.get('incident_id', '?')} ({r.get('service_affected', '?')})")
         print(f"  SQL: {response.query}")
         return True
 
-    print(f"[FAIL] No results with fantasy genre. Genres found: {genres}")
+    print(f"[FAIL] No results with auth-service. Services found: {services}")
     print(f"  SQL: {response.query}")
     return False
 
@@ -116,7 +105,7 @@ async def test_genre_filter():
 async def test_sql_injection():
     """Test: SQL injection attempt is rejected or handled safely."""
     print("\n--- Test: SQL Injection Prevention ---")
-    response = await sql_service.natural_language_to_sql("'; DROP TABLE books; --")
+    response = await sql_service.natural_language_to_sql("'; DROP TABLE production_incidents; --")
 
     # The service should either:
     # 1. Return an error (validation caught it)
@@ -142,7 +131,7 @@ async def test_sql_injection():
 
 
 async def test_table_access_control():
-    """Test: querying non-books tables is blocked."""
+    """Test: querying non-incidents tables is blocked."""
     print("\n--- Test: Table Access Control (documents table) ---")
     response = await sql_service.natural_language_to_sql(
         "Show me all records from the documents table"
@@ -150,7 +139,7 @@ async def test_table_access_control():
 
     if response.error:
         error_lower = response.error.lower()
-        if "books" in error_lower or "not allowed" in error_lower or "permission" in error_lower or "forbidden" in error_lower or "validation" in error_lower:
+        if "production_incidents" in error_lower or "not allowed" in error_lower or "permission" in error_lower or "forbidden" in error_lower or "validation" in error_lower:
             print(f"[PASS] Table access denied: {response.error}")
             print(f"  SQL: {response.query}")
             return True
@@ -159,10 +148,10 @@ async def test_table_access_control():
         print(f"  SQL: {response.query}")
         return True
 
-    # If no error, check that the LLM stayed within bounds (queried books instead)
+    # If no error, check that the LLM stayed within bounds (queried production_incidents instead)
     query_upper = response.query.upper()
     if "DOCUMENTS" not in query_upper:
-        print(f"[PASS] LLM redirected to books table instead of documents")
+        print(f"[PASS] LLM redirected to production_incidents table instead of documents")
         print(f"  SQL: {response.query}")
         return True
 
@@ -177,7 +166,7 @@ async def test_write_prevention():
     print("\n--- Test: Write Prevention ---")
     # Ask something that might trick the LLM into generating a write query
     response = await sql_service.natural_language_to_sql(
-        "Insert a new book called 'Test Book' by 'Test Author' into the books table"
+        "Insert a new incident called 'Test Incident' into the production_incidents table"
     )
 
     if response.error:
@@ -210,8 +199,8 @@ async def main():
 
     tests = [
         ("Count Query", test_count_query),
-        ("Author Filter", test_author_filter),
-        ("Genre Filter", test_genre_filter),
+        ("Severity Filter", test_severity_filter),
+        ("Service Filter", test_service_filter),
         ("SQL Injection", test_sql_injection),
         ("Table Access Control", test_table_access_control),
         ("Write Prevention", test_write_prevention),
