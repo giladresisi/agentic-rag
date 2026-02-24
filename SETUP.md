@@ -1,6 +1,6 @@
 # Setup Guide
 
-This guide walks you through setting up and running the complete Agentic RAG application.
+This guide walks you through setting up and running the complete IR-Copilot application.
 
 ## Prerequisites
 
@@ -349,7 +349,7 @@ Use this checklist to verify your setup:
 
 ### Database & Storage
 - [ ] All migrations applied successfully (check Supabase SQL Editor history)
-- [ ] Tables exist: threads, messages, documents, chunks, books
+- [ ] Tables exist: threads, messages, documents, chunks, production_incidents
 - [ ] Storage bucket `documents` exists
 - [ ] RLS policies enabled on all tables
 
@@ -385,7 +385,7 @@ Use this checklist to verify your setup:
 
 ### Tool Calling
 - [ ] Document retrieval tool works ("What is in my documents?")
-- [ ] Text-to-SQL tool works ("What books are in the database?")
+- [ ] Text-to-SQL tool works ("Show all P1 incidents in the database")
 - [ ] Web search tool attempts to work ("What's the weather today?")
 - [ ] Subagent delegation triggers on analysis tasks
 
@@ -654,7 +654,7 @@ This allows Claude to inspect deployments, check build logs, and manage environm
 - **Test:** Upload a simple text file, ask direct question about it
 
 **SQL tool not working**
-- **Solution:** Verify books table exists and has sample data
+- **Solution:** Verify production_incidents table exists and has sample data
 - **Check:** `TEXT_TO_SQL_ENABLED=true` in backend `.env`
 
 **Web search fails**
@@ -756,6 +756,10 @@ supabase migration new migration_name
 
 # Reset database (CAREFUL - deletes all data!)
 supabase db reset
+
+# Delete all documents, chunks, threads, and messages for the test user
+# (reads TEST_EMAIL / TEST_PASSWORD from backend/.env)
+cd backend && uv run python -m scripts.reset_user_data
 ```
 
 ### Tests

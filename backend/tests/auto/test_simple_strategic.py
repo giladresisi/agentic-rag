@@ -1,4 +1,4 @@
-"""Simple test for strategic retrieval - books database only."""
+"""Simple test for strategic retrieval - incidents database only."""
 import requests
 import json
 import os
@@ -41,13 +41,13 @@ def main():
 
     # Send complex query that should trigger multiple tool calls
     print("="*70)
-    print("QUERY: Multi-part books database question")
-    print("(Should trigger multiple query_books_database calls)")
+    print("QUERY: Multi-part incidents database question")
+    print("(Should trigger multiple query_incidents_database calls)")
     print("="*70)
 
-    query = """I have two separate questions about books:
-    1. What fantasy books with ratings above 4.0 are available?
-    2. What books did George Orwell write?
+    query = """I have two separate questions about production incidents:
+    1. What P1 and P2 incidents affected the auth-service?
+    2. Which incidents had a root cause of database?
 
     Please answer both questions thoroughly."""
 

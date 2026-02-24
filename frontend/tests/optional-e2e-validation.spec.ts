@@ -5,7 +5,7 @@
  *   - Module 2:  Settings persistence across page reload
  *   - Module 5:  PPTX file upload and processing
  *   - Module 6:  Hybrid search retrieval quality
- *   - Module 7:  Text-to-SQL tool (books database)
+ *   - Module 7:  Text-to-SQL tool (incidents database)
  *   - Module 7:  Web search tool (Tavily)
  *   - Module 8:  Sub-agent document analysis
  *
@@ -196,23 +196,23 @@ test.describe('Module 6: Hybrid Search Retrieval Quality', () => {
   });
 });
 
-// ── Module 7: Text-to-SQL (books) ──────────────────────────────────────────────
+// ── Module 7: Text-to-SQL (incidents) ──────────────────────────────────────────
 
-test.describe('Module 7: Text-to-SQL Tool - Books Database', () => {
+test.describe('Module 7: Text-to-SQL Tool - Incidents Database', () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
   });
 
-  test('should query books database when asked about a specific author', async ({ page }) => {
+  test('should query incidents database when asked about P1 incidents', async ({ page }) => {
     await openNewThread(page);
-    await sendMessage(page, 'What books were written by George Orwell?');
+    await sendMessage(page, 'Show me all P1 incidents in the database');
 
-    // Books DB has "1984" and "Animal Farm" by George Orwell
+    // Incidents DB has P1 records with severity and service fields
     await expect(
-      page.locator('text=/1984|Animal Farm/i').last()
+      page.locator('text=/incident|P1|severity/i').last()
     ).toBeVisible({ timeout: 90000 });
 
-    console.log('✅ Text-to-SQL tool returned George Orwell books from database');
+    console.log('Text-to-SQL tool returned P1 incidents from database');
   });
 });
 

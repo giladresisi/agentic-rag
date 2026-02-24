@@ -1,4 +1,4 @@
-# Agentic RAG Application
+# IR-Copilot — Incident Response AI Assistant
 
 ![Static Badge](https://img.shields.io/badge/automated%20tests-135-blue)
 
@@ -6,7 +6,7 @@ A complete agentic RAG system with multi-tenant chat interface, document ingesti
 
 See it in action:
 
-[![Agentic RAG App](./video-thumbnail.png)](https://youtu.be/iybjMFp-JdQ?si=BjiJO3fdn7ontHe7)
+[![IR-Copilot App](./video-thumbnail.png)](https://youtu.be/iybjMFp-JdQ?si=BjiJO3fdn7ontHe7)
 
 ---
 
@@ -99,11 +99,11 @@ The system automatically selects the appropriate tool based on your question:
 "What is the IT support extension number?"
 ```
 
-**Text-to-SQL Tool** - Queries the structured books database:
+**Text-to-SQL Tool** - Queries the structured incidents database:
 ```
-"What books were written by J.K. Rowling?"
-"List some fantasy genre books from the database."
-"Show me all books published after 2010."
+"Show all P1 incidents from the last 30 days"
+"Which service had the most outages this year?"
+"Average resolution time for database-related incidents"
 ```
 
 **Web Search Tool** - Falls back to real-time web search when documents don't have the answer:

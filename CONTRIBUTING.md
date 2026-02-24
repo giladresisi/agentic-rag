@@ -1,6 +1,6 @@
-# Contributing to Agentic RAG
+# Contributing to IR-Copilot
 
-Thank you for your interest in contributing! This project is a reference RAG implementation — contributions that improve its value as a learning template are especially welcome.
+Thank you for your interest in contributing! This project is an IR-Copilot (Incident Response AI Assistant) — contributions that improve its value as a portfolio and learning template are especially welcome.
 
 ---
 
