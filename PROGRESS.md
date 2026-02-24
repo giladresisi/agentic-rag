@@ -722,6 +722,37 @@ Commit history was rewritten twice using `git-filter-repo` to purge secrets that
 
 Both passes rewrote the full commit graph. The remote was force-pushed after each pass to propagate the cleaned history.
 
+## Feature: IR-Copilot Theme Change
+
+### Planning Phase
+**Status**: 📋 Planned
+**Started**: 2026-02-24
+**Plan File**: `.agents/plans/ir-copilot-theme-change.md`
+**Spec**: `.claude/specs/001-theme-change/`
+
+Replaces the generic `books` table with a `production_incidents` table (15 seed rows, realistic incident data) and renames the project to **IR-Copilot** throughout. Drops `execute_books_query` RPC, creates `execute_incidents_query`. Updates `sql_service.py` schema + validation, renames the `query_books_database` tool to `query_incidents_database` in `chat_service.py` (8 occurrences), rewrites 4 backend test files and the Module 7 E2E test with incident-domain queries. Creates 6 postmortem markdown documents in `backend/eval/postmortems/` (used as both manual test fixtures and the RAGAS evaluation corpus). Updates README, SETUP.md, CONTRIBUTING.md.
+
+**Scope:** 1 new migration (016) · 2 service files · 4 backend tests · 1 E2E test · 6 postmortem docs · 4 doc files
+**Execution order:** 3 waves — service layer parallel → tests + docs parallel → final doc sweep
+**Manual step:** Apply migration 016 via Supabase SQL Editor; rename GitHub repo to `ir-copilot` via Settings UI
+
+---
+
+## Feature: RAGAS Evaluation Pipeline
+
+### Planning Phase
+**Status**: 📋 Planned
+**Started**: 2026-02-24
+**Plan File**: `.agents/plans/ragas-evaluation-pipeline.md`
+**Spec**: `.claude/specs/002-ragas-evaluation/`
+**Depends on**: IR-Copilot Theme Change (postmortem docs must exist and be ingested)
+
+Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.io) library. Calls retrieval + LLM services directly as Python imports (no HTTP, no running server needed). Scores 15 golden Q&A pairs drawn from the 6 postmortem documents across four metrics: `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`. Results are pushed to LangSmith as a named Experiment (`rag-eval-YYYY-MM-DD`). Includes 4 mocked unit tests that run with no live API calls.
+
+**New files:** `backend/eval/dataset.py` · `backend/eval/pipeline.py` · `backend/eval/evaluate.py` · `backend/eval/tests/test_eval_pipeline.py`
+**New dependency:** `ragas>=0.2` (+ `pytest-asyncio>=0.21` for unit tests)
+**Manual step:** Upload postmortem docs via app UI before running `evaluate.py`; live eval costs ~$0.05–0.15 in OpenAI API calls
+
 ---
 
 # System Status
