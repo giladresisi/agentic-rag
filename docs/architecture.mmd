@@ -1,49 +1,56 @@
+%%{init: {'theme': 'base', 'themeVariables': {'fontSize': '18px', 'fontFamily': 'arial'}}}%%
 flowchart TD
     User(["User"])
 
     %% ── INGESTION ──
-    subgraph Ingestion["Document Ingestion"]
+    subgraph Ingestion["📄  Document Ingestion"]
         direction TB
         Upload["File Upload"]
         Parse["Parse & Extract Text"]
-        Metadata["Extract Metadata\n(LLM)"]
+        Metadata["Extract Metadata<br/>(LLM)"]
         Chunk["Chunk Text"]
-        Embed["Generate Embeddings\n(OpenAI / OpenRouter)"]
-        Store[("Vector Store\n(pgvector)")]
+        Embed["Generate Embeddings<br/>(OpenAI / OpenRouter)"]
+        Store[("Vector Store<br/>(pgvector)")]
 
         Upload --> Parse --> Metadata --> Chunk --> Embed --> Store
     end
 
     %% ── CHAT ──
-    subgraph Chat["Chat"]
+    subgraph Chat["💬  Chat"]
         direction TB
-        Query["User Query\n+ Conversation History"]
+        Query["User Query<br/>+ Conversation History"]
 
         subgraph ToolSelection["LLM — Tool Selection"]
-            LLM1["LLM receives query\nwith 4 tool definitions"]
+            LLM1["Query + 4 tool definitions<br/>sent to LLM"]
         end
 
-        subgraph ToolExecution["Tool Execution (LLM-ordered)"]
-            T1["retrieve_documents\nSemantic + keyword search"]
-            T2["analyze_document_with_subagent\nFull-doc deep analysis"]
-            T3["query_books_database\nText-to-SQL"]
-            T4["search_web\nLive web search"]
+        subgraph ToolExecution["Tool Execution  (LLM-ordered)"]
+            direction TB
+            T1["retrieve_documents<br/>Semantic + keyword search"]
+            Rerank["Rerank results<br/>(Cohere / local)"]
+            T2["analyze_document_with_subagent<br/>Full-doc deep analysis"]
+            T3["query_books_database<br/>Text-to-SQL"]
+            T4["search_web<br/>Live web search"]
         end
 
-        Compose["LLM composes final answer\nfrom tool results"]
-        Answer["Streamed Response\n(SSE)"]
+        Compose["LLM composes final answer<br/>from tool results"]
+        Answer["Streamed Response (SSE)"]
 
         Query --> LLM1
-        LLM1 -->|"selects & orders tools"| ToolExecution
-        T1 & T2 & T3 & T4 --> Compose --> Answer
+        LLM1 -->|"selects & orders tools"| T1
+        LLM1 -->|"selects & orders tools"| T2
+        LLM1 -->|"selects & orders tools"| T3
+        LLM1 -->|"selects & orders tools"| T4
+        T1 --> Rerank
+        Rerank & T2 & T3 & T4 --> Compose --> Answer
     end
 
     User -->|"uploads"| Upload
     User -->|"asks"| Query
     Answer -->|"replies"| User
-    T1 -->|"query embedding\n+ vector search"| Store
+    T1 -->|"query embedding<br/>+ vector search"| Store
 
-    style Ingestion fill:#fff8e1,stroke:#ffc107
-    style Chat fill:#e8f5e9,stroke:#4caf50
-    style ToolSelection fill:#e3f2fd,stroke:#2196f3
-    style ToolExecution fill:#fce4ec,stroke:#e91e63
+    style Ingestion fill:#fff8e1,stroke:#ffc107,color:#000
+    style Chat fill:#e8f5e9,stroke:#4caf50,color:#000
+    style ToolSelection fill:#e3f2fd,stroke:#2196f3,color:#000
+    style ToolExecution fill:#fce4ec,stroke:#e91e63,color:#000

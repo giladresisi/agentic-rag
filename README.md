@@ -43,6 +43,12 @@ For structured data sources (codebases, API documentation with organized folders
 
 ---
 
+## Architecture
+
+![System Architecture](docs/architecture.svg)
+
+---
+
 ## Features
 
 - **Multi-tenant chat interface** - User auth, threaded streamed chats, model selection (OpenAI, OpenRouter, local via LM Studio)
