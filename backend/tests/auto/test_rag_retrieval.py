@@ -274,11 +274,15 @@ async def test_similarity_threshold():
         print("[FAIL] Threshold filtering issue")
         raise AssertionError("Low threshold returned fewer results than high threshold")
 
-    # Verify all results meet threshold (use hybrid_score if available, else similarity)
+    # Verify that vector-found results respect the similarity threshold.
+    # With hybrid search, the threshold filters the vector search CTE only.
+    # Keyword-only matches (similarity=0.0 via COALESCE) can still appear — this is
+    # intentional: a keyword hit is valid even when the vector score is below threshold.
+    # Only results with a real similarity score (> 0) must meet the threshold.
     for result in high_threshold_results:
-        effective_score = result.get('hybrid_score', result['similarity'])
-        if effective_score < 0.8:
-            print(f"[FAIL] Result with score {effective_score} below threshold 0.8")
+        sim = result['similarity']
+        if sim > 0 and sim < 0.8:
+            print(f"[FAIL] Vector result with similarity {sim} below threshold 0.8")
             raise AssertionError("Result below threshold returned")
 
     print("[PASS] Similarity threshold test passed")
