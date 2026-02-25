@@ -2,7 +2,7 @@
 # 15 hand-crafted questions derived from the 6 postmortem documents in postmortems/.
 # Ground truths are used by RAGAS context_recall to verify retrieval completeness.
 # Each question maps to a specific postmortem file via source_doc for traceability.
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 
 
@@ -11,6 +11,9 @@ class EvalSample:
     question: str
     ground_truth: str
     source_doc: str  # postmortem filename for traceability
+    # Domain keywords expected in the LLM's retrieval query arg.
+    # Used by chat quality eval to deterministically check arg relevance.
+    required_arg_keywords: List[str] = field(default_factory=list)
 
 
 GOLDEN_DATASET: List[EvalSample] = [
@@ -23,6 +26,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "token expiry and cache-poisoning of auth state."
         ),
         source_doc="INC-2024-003-auth-outage.md",
+        required_arg_keywords=["INC-2024-003", "auth", "redis"],
     ),
     EvalSample(
         question="How long did the INC-2024-003 auth outage last?",
@@ -30,6 +34,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "The INC-2024-003 auth outage lasted 47 minutes, from 14:32 UTC to 15:19 UTC."
         ),
         source_doc="INC-2024-003-auth-outage.md",
+        required_arg_keywords=["INC-2024-003", "auth"],
     ),
     EvalSample(
         question="What monitoring gap allowed the INC-2024-003 auth outage to go undetected for 6 minutes?",
@@ -39,6 +44,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "6 minutes after the incident began."
         ),
         source_doc="INC-2024-003-auth-outage.md",
+        required_arg_keywords=["INC-2024-003", "monitoring"],
     ),
     # ── INC-2024-011 payment-db-corruption (2 questions: root cause, remediation) ──
     EvalSample(
@@ -49,6 +55,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "left 1,847 payment records with NULL payment_method fields."
         ),
         source_doc="INC-2024-011-payment-db-corruption.md",
+        required_arg_keywords=["INC-2024-011", "payment"],
     ),
     EvalSample(
         question="How was the INC-2024-011 payment database corruption resolved?",
@@ -58,6 +65,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "and the migration was re-run with a proper transaction wrapper."
         ),
         source_doc="INC-2024-011-payment-db-corruption.md",
+        required_arg_keywords=["INC-2024-011", "payment"],
     ),
     # ── INC-2024-019 pipeline-memory-leak (2 questions: root cause, detection gap) ──
     EvalSample(
@@ -68,6 +76,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "added in v2.3.1, causing handles to leak until the pod was OOM killed."
         ),
         source_doc="INC-2024-019-pipeline-memory-leak.md",
+        required_arg_keywords=["INC-2024-019", "memory", "pipeline"],
     ),
     EvalSample(
         question="Why was the INC-2024-019 memory leak not detected for over 6 hours?",
@@ -77,6 +86,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "Kubernetes OOM kill alert fired at 07:15 UTC, a 6 hour 11 minute detection gap."
         ),
         source_doc="INC-2024-019-pipeline-memory-leak.md",
+        required_arg_keywords=["INC-2024-019", "memory"],
     ),
     # ── INC-2024-027 gateway-timeout (3 questions: root cause, timeline, remediation) ──
     EvalSample(
@@ -88,6 +98,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "causing the gateway to queue and drop requests with 504 errors."
         ),
         source_doc="INC-2024-027-gateway-timeout.md",
+        required_arg_keywords=["INC-2024-027", "gateway", "timeout"],
     ),
     EvalSample(
         question="How long did it take to identify the root cause of INC-2024-027?",
@@ -97,6 +108,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "to trace the root cause to the ML inference service near-timeout responses."
         ),
         source_doc="INC-2024-027-gateway-timeout.md",
+        required_arg_keywords=["INC-2024-027", "gateway"],
     ),
     EvalSample(
         question="What remediation steps were taken for the INC-2024-027 gateway timeout cascade?",
@@ -106,6 +118,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "added for the ML inference service."
         ),
         source_doc="INC-2024-027-gateway-timeout.md",
+        required_arg_keywords=["INC-2024-027", "gateway"],
     ),
     # ── INC-2024-031 notif-queue-backup (2 questions: root cause, detection gap) ──
     EvalSample(
@@ -117,6 +130,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "provider rate limit was 500 emails per minute."
         ),
         source_doc="INC-2024-031-notif-queue-backup.md",
+        required_arg_keywords=["INC-2024-031", "notification", "queue"],
     ),
     EvalSample(
         question="How long did it take to detect the INC-2024-031 notification queue backup?",
@@ -126,6 +140,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "because no queue depth alert or email delivery lag tracking existed."
         ),
         source_doc="INC-2024-031-notif-queue-backup.md",
+        required_arg_keywords=["INC-2024-031", "notification"],
     ),
     # ── INC-2024-038 deploy-rollback (2 questions: root cause, remediation) ──
     EvalSample(
@@ -136,6 +151,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "about the new column and crashed on startup, leaving the service down."
         ),
         source_doc="INC-2024-038-deploy-rollback.md",
+        required_arg_keywords=["INC-2024-038", "rollback"],
     ),
     EvalSample(
         question="How was the INC-2024-038 failed deployment rollback resolved?",
@@ -145,6 +161,7 @@ GOLDEN_DATASET: List[EvalSample] = [
             "and then deployed to production to restore the service."
         ),
         source_doc="INC-2024-038-deploy-rollback.md",
+        required_arg_keywords=["INC-2024-038", "rollback"],
     ),
     # ── Cross-document question (1 question) ──
     EvalSample(
@@ -155,5 +172,6 @@ GOLDEN_DATASET: List[EvalSample] = [
             "on Day 2."
         ),
         source_doc="INC-2024-031-notif-queue-backup.md",
+        required_arg_keywords=["resolution", "longest"],
     ),
 ]
