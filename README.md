@@ -143,7 +143,7 @@ The LLM intelligently routes your question to the right tool(s) and can combine 
 
 - **[PRD.md](./PRD.md)** - Product requirements and detailed module breakdown
 - **[CLAUDE.md](./CLAUDE.md)** - Project context for Claude Code (development guidelines)
-- **[PROGRESS.md](./PROGRESS.md)** - Build progress tracking, completion status, challenges overcome
+- **[PROGRESS.md](./PROGRESS.md)** - Build progress tracking, completion status, challenges and solutions
 - **[SETUP.md](./SETUP.md)** - Installation and setup instructions
 - **[.agents/plans/](./.agents/plans/)** - Detailed implementation plans for each module
 - **[.agents/execution-reports/](./.agents/execution-reports/)** - Post-execution summaries and metrics
@@ -276,14 +276,31 @@ While all 8 modules have been implemented and core functionality is working, sev
 </details>
 
 <details>
+<summary><strong>🏆 Main Challenges Overcome</strong></summary>
+
+<br>
+
+- **LangSmith traces not closing** — Caught independently via dashboard inspection, diagnosed as an async generator cleanup bug, then converted the one-time finding into automated Playwright tests that poll the LangSmith API to verify trace closure on every run.
+
+- **API lock-in spotted before it compounded** — Recognized mid-build that the OpenAI Responses API would block multi-provider support in the next module; drove the migration to stateless completions before the constraint became structural debt.
+
+- **Bugs only real files could expose** — Synthetic PDFs passed; real-world uploads (including Hebrew filenames and complex multi-column layouts) surfaced 9 separate bugs across two sessions, all caught through hands-on validation.
+
+- **9-issue Cloud Run gauntlet** — Identified memory constraints on Render, drove migration to Cloud Run, and resolved 9 production issues — including a blocking event loop from synchronous ML inference inside `async def` that only appeared under concurrent load.
+
+- **Clean-slate QA pass** — After all modules shipped, set up the project from scratch as a first-time user, found 40 silently skipped tests and multiple broken selectors, and drove fixes to 86/86 backend and 39/39 E2E tests before closing.
+
+</details>
+
+<details>
 <summary><strong>💡 Learnings & Conclusions</strong></summary>
 
 <br>
 
-- AI-driven dev works great with clear and quantized context and requirements, without them it goes astray very quickly.
-- The setup for AI-driven dev must always be improved for next iterations to result better.
-- Take the time when validating AI-driven dev, AI won't make sure it fully covered a scenario, it's up to you.
-- Split the work you give AI so it has a better chance of completing and you have stable versions to deploy & revert to.
+- AI-driven dev works great with clear and meaningful context and requirements, without them it goes astray and doesn't fully cover what you wanted
+- The setup for AI-driven dev must always be improved, I've built and improved my [ai-dev-env](https://github.com/giladresisi/ai-dev-env) plugin while building this project
+- Take the time when validating AI-driven dev, it's up to you to check if the AI fully covered all relevant scenarios and to help to complete the coverage if it didn't
+- Split the work you give AI to features / phases / fixes so it has a better chance of completing them well and you have stable versions to deploy & revert to
 
 </details>
 
