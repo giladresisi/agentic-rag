@@ -2,7 +2,7 @@
 
 ![Static Badge](https://img.shields.io/badge/automated%20tests-135-blue)
 
-A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities.
+A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities — with **out-of-the-box LLM observability** via [LangSmith](https://smith.langchain.com): every LLM call, tool invocation, and subagent trace is automatically captured and inspectable.
 
 See it in action:
 
@@ -55,6 +55,7 @@ For structured data sources (codebases, API documentation with organized folders
 - **Document ingestion pipeline** - Multi-format document support, processing status tracking, content hashing + deduplication
 - **Advanced RAG pipeline** - Intelligent chunking, embeddings, pgvector storage, metadata filtering, hybrid search, reranking
 - **Agentic capabilities** - LLM tool selection (text-to-SQL, web search, retrieval), subagent delegation for complex analysis
+- **Built-in observability** - Every LLM call, tool invocation, and subagent trace automatically captured in [LangSmith](https://smith.langchain.com) with zero extra instrumentation
 
 ---
 
@@ -81,6 +82,7 @@ For structured data sources (codebases, API documentation with organized folders
 - **Setup:** Run database migrations, configure `.env` files, install dependencies
 - **Run:** Start backend (`uvicorn main:app --reload`) and frontend (`npm run dev`)
 - **Test:** Sign up, create thread, upload documents, start chatting
+- **Observe:** Open your [LangSmith](https://smith.langchain.com) project to inspect every LLM call, token usage, tool invocation, and subagent trace in real time
 
 👉 **[Read SETUP.md for detailed instructions](./SETUP.md)**
 
