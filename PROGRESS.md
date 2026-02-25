@@ -811,6 +811,67 @@ Replaced the generic `books` table / "Agentic RAG" branding with a production in
 
 ---
 
+## Feature: 1-Click Setup Script
+
+### Planning Phase
+**Status**: 📋 Planned
+**Plan File**: none yet
+
+A `setup.sh` script at the repo root that takes a cloning user from zero to fully running app + tests with minimal manual steps.
+
+### Design (agreed in session 2026-02-25)
+
+**Pre-flight gate** — script opens by listing all prerequisites and pre-flight steps, noting which are optional, then waits for the user to confirm completion before proceeding:
+
+*Prerequisites (listed by script, user must have these installed):*
+- Python 3.10+ (required)
+- uv (required)
+- Node.js 18+ (required)
+- Supabase CLI (required) — platform-specific install instructions in SETUP.md
+- Git (required)
+- LangSmith account (optional)
+- Cohere API key (optional)
+- Tavily API key (optional)
+
+*Pre-flight manual steps (listed by script, user completes in browser/terminal):*
+1. Create Supabase account + project at https://supabase.com
+2. Fill in `backend/.env` — `SUPABASE_PROJECT_REF`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `OPENAI_API_KEY`, `SQL_QUERY_ROLE_PASSWORD`, optional keys
+3. Fill in `frontend/.env` — `SUPABASE_PROJECT_REF`, `VITE_SUPABASE_ANON_KEY` (and optionally `VITE_BACKEND_API_URL`)
+4. Run `supabase login` (opens browser for OAuth)
+
+User types "done" → script proceeds.
+
+**Automated steps (no user interaction):*
+1. `cd backend && uv sync` — install Python deps (includes pytest)
+2. `cd frontend && npm install` — install JS deps
+3. `cd frontend && npx playwright install` — download Chromium browser binaries for E2E tests
+4. Pre-download Docling models — one-time ~500MB download from HuggingFace (Python one-liner already documented in SETUP.md §2)
+5. Read `SUPABASE_PROJECT_REF` from `backend/.env`, run `supabase link --project-ref <ref>`
+6. Patch `supabase/migrations/013_sql_tool.sql` — replace `***` with `SQL_QUERY_ROLE_PASSWORD` from `backend/.env`
+7. `supabase db push` — apply all 16 migrations
+8. Restore `***` placeholder in `013_sql_tool.sql`
+9. (Evals step TBD — RAGAS evaluation pipeline is being built in a separate worktree; add `ragas` dep install here once merged)
+
+**Post-script manual steps (script prints these as final instructions):*
+1. Create test user in Supabase dashboard: Authentication → Users → Add user
+2. Update `TEST_EMAIL` and `TEST_PASSWORD` in **both** `backend/.env` and `frontend/.env`
+
+After completing post-script steps, user can run:
+- App: `cd backend && uv run uvicorn main:app --reload --port 8000` + `cd frontend && npm run dev`
+- Backend tests: `bash backend/tests/run_tests.sh`
+- Frontend E2E tests: `bash frontend/tests/run_tests.sh`
+
+### Key implementation notes
+- Read env vars from `backend/.env` using shell (e.g. `grep`/`sed` or a small Python snippet) — do not assume any env vars are pre-exported
+- `SUPABASE_URL` is derived from `SUPABASE_PROJECT_REF` in `config.py` — do not require it in `.env`
+- `VITE_SUPABASE_URL` is derived from `SUPABASE_PROJECT_REF` in `vite.config.ts` — do not require it in `frontend/.env`
+- Script must handle Windows (Git Bash / MINGW64) as primary platform; use `#!/usr/bin/env bash`
+- The Docling model pre-download command is already documented in `SETUP.md §2` — reuse it exactly
+- `013_sql_tool.sql` patch must be restored even if `supabase db push` fails (use trap for cleanup)
+- Supabase CLI on Windows lives at `$APPDATA/npm/supabase.exe` — script should detect this path
+
+---
+
 ## Feature: RAGAS Evaluation Pipeline
 
 ### Planning Phase
