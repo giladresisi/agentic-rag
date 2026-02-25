@@ -148,10 +148,6 @@ BEGIN
 END;
 $$;
 
--- Transfer ownership to sql_query_role so SECURITY DEFINER runs with minimal privileges
--- (sql_query_role has SELECT on production_incidents only — no other table access)
-ALTER FUNCTION execute_incidents_query(TEXT) OWNER TO sql_query_role;
-
 -- Grant execute to authenticated and service_role only — no anonymous access to incident data
 GRANT EXECUTE ON FUNCTION execute_incidents_query TO authenticated;
 GRANT EXECUTE ON FUNCTION execute_incidents_query TO service_role;

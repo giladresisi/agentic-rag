@@ -962,7 +962,7 @@ Local reranking improves faithfulness and context_precision meaningfully. answer
 
 ## Feature: RAGAS ToolCallAccuracy Evaluation
 
-**Status**: Implemented — pending migration apply + live SQL validation
+**Status**: Complete
 **Completed**: 2026-02-25
 **Plan File**: `.agents/plans/ragas-tool-call-accuracy.md`
 
@@ -973,14 +973,7 @@ Local reranking improves faithfulness and context_precision meaningfully. answer
 - `backend/eval/tool_selection_pipeline.py` — `run_tool_selection_pipeline()` (single-turn) + `run_multiturn_pipeline()` (real retrieve→analyze sequence)
 - `backend/eval/evaluate_tool_selection.py` — 3-pass orchestrator: `tool_routing_accuracy`, `sequence_accuracy`, `AgentGoalAccuracy` (gpt-4o-mini); `--dry-run` / `--single-only` CLI flags
 - `backend/eval/tests/test_tool_selection.py` — 11 unit tests, all mocked; full suite 23/23 passing
-
-### Next step for next agent
-Apply migration in Supabase SQL editor (`supabase/migrations/016_production_incidents.sql`), then run:
-```bash
-cd backend && uv run python tests/auto/test_sql_service.py
-cd backend && uv run python eval/evaluate_tool_selection.py --dry-run --single-only
-```
-All code changes are uncommitted — review with `git diff` before committing.
+- `backend/tests/run_tests.sh` — `--include-evals` flag added; runs `eval/tests/` alongside `tests/auto/` when set; warns if `EVAL_DOCS_INGESTED` not set in `.env`
 
 ### Reports Generated
 
@@ -1010,8 +1003,3 @@ All code changes are uncommitted — review with `git diff` before committing.
 - Python 3.12 (required - 3.14 has pydantic compilation issues)
 - Node.js with npm
 - Supabase project in supported region (pgvector enabled)
-
-**Next Steps:**
-1. Begin Module 3: Record Manager
-2. Optional: Address pre-existing test failures (auth/chat suites)
-3. Optional: Complete manual testing checklist from Module 2

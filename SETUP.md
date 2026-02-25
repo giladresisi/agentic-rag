@@ -803,12 +803,23 @@ bash frontend/tests/run_tests.sh --grep "LangSmith"   # with filter
 bash backend/tests/run_tests.sh
 bash backend/tests/run_tests.sh -k test_auth -v       # with filter
 
+# Backend tests + eval integration tests
+# Set EVAL_DOCS_INGESTED=true in backend/.env to enable evals integration tests
+bash backend/tests/run_tests.sh --include-evals
+bash backend/tests/run_tests.sh --include-evals -v    # with filter
+
 # Backend single file (direct)
 cd backend && uv run pytest tests/auto/test_provider_service.py
 
 # Backend manual tests (require uvicorn running at localhost:8000)
 cd backend && uv run python tests/manual/test_stream.py
 ```
+
+**Running eval integration tests (`--include-evals`):** The eval integration tests clean and re-ingest the postmortem docs for the `TEST_EMAIL` user, then verify retrieval works end-to-end. Before running them:
+1. Set `EVAL_DOCS_INGESTED=true` in `backend/.env` (default is `false`)
+2. Ensure `TEST_EMAIL` and `TEST_PASSWORD` are set in `backend/.env`
+
+Without `EVAL_DOCS_INGESTED=true` the eval tests are automatically skipped — `--include-evals` will still complete successfully, just with those tests marked as skipped.
 
 ### Evaluation
 
