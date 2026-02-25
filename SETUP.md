@@ -122,7 +122,7 @@ Optional services can be left blank - the application will gracefully degrade fu
 2. During project creation you'll choose a database password — save it somewhere safe. You won't need it for this project, but you cannot recover it later.
 3. Wait for the project to finish provisioning (2-3 minutes)
 4. Copy your project credentials from the dashboard:
-   - **Project URL**: Settings → General → Project ID. Replace the `xxxxxxxxxxxxx` placeholder in `SUPABASE_URL` with your Project ID — the full value should look like `https://<project-id>.supabase.co`
+   - **Project Ref**: Settings → General → Project ID (the short alphanumeric ID, e.g. `abcdefghijklmnop`)
    - **Anon & Service Role keys**: Settings → API → **API Keys** section → **"Legacy anon, service_role API keys"** tab
 
 #### Fill in Environment Variables
@@ -130,12 +130,12 @@ Optional services can be left blank - the application will gracefully degrade fu
 Now that you have your Supabase credentials, fill them into **both** `.env` files:
 
 **`backend/.env`** — add:
-- `SUPABASE_URL` — `https://<your-project-id>.supabase.co`
+- `SUPABASE_PROJECT_REF` — the Project ID from Settings → General (e.g. `abcdefghijklmnop`). `SUPABASE_URL` is derived from this automatically — no need to set it separately.
 - `SUPABASE_ANON_KEY` — from the "Legacy anon, service_role API keys" tab
 - `SUPABASE_SERVICE_ROLE_KEY` — from the "Legacy anon, service_role API keys" tab
 
 **`frontend/.env`** — add:
-- `VITE_SUPABASE_URL` (same value as `SUPABASE_URL` above)
+- `VITE_SUPABASE_URL` — `https://<your-project-ref>.supabase.co` (the setup script will derive this automatically; set it manually for now)
 - `VITE_SUPABASE_ANON_KEY` (same value as `SUPABASE_ANON_KEY` above)
 
 #### Prepare SQL Tool Migration
@@ -189,12 +189,14 @@ supabase --version
 # Log in to your Supabase account (opens a browser window to complete auth)
 supabase login
 
-# Link to your project (project ref is Settings → General → Project ID)
+# Link to your project — uses SUPABASE_PROJECT_REF from backend/.env
 supabase link --project-ref your-project-ref
 
 # Push all migrations
 supabase db push
 ```
+
+> **Note:** The `supabase link` step uses the same Project Ref as `SUPABASE_PROJECT_REF` in `backend/.env`. The setup script (coming soon) will run this automatically.
 
 **Option B - Manual SQL Execution:**
 
@@ -245,12 +247,13 @@ Enabling RLS on this table would add no security value and is not required.
 
 #### Create Test User
 
-Create a test user to verify authentication:
+> **Required for automated tests.** Without this, all backend and frontend E2E test suites will fail.
+
 1. Go to Authentication → Users
 2. Click "Add user" → "Create new user"
-3. Enter email and password
+3. Enter an email and password
 4. Click "Create user"
-5. Save these credentials in both `backend/.env` and `frontend/.env`, replacing the placeholders in `TEST_EMAIL` and `TEST_PASSWORD`
+5. Update `TEST_EMAIL` and `TEST_PASSWORD` in **both** `backend/.env` and `frontend/.env` with these credentials
 
 ### 4. Frontend Setup
 
@@ -259,7 +262,10 @@ Create a test user to verify authentication:
 ```bash
 cd frontend
 npm install
+npx playwright install
 ```
+
+The `npx playwright install` step downloads the browser binaries (Chromium) required by the frontend E2E test suite. It is separate from `npm install` and must be run once per machine.
 
 #### Configure Environment Variables
 

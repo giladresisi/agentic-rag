@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
 from pathlib import Path
@@ -10,9 +11,19 @@ class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
 
     # Supabase
-    SUPABASE_URL: str
+    SUPABASE_PROJECT_REF: str | None = None
+    SUPABASE_URL: str | None = None  # Derived from SUPABASE_PROJECT_REF if not set explicitly
     SUPABASE_ANON_KEY: str
     SUPABASE_SERVICE_ROLE_KEY: str
+
+    @model_validator(mode='after')
+    def derive_supabase_url(self) -> 'Settings':
+        if not self.SUPABASE_URL:
+            if self.SUPABASE_PROJECT_REF:
+                self.SUPABASE_URL = f"https://{self.SUPABASE_PROJECT_REF}.supabase.co"
+            else:
+                raise ValueError("Either SUPABASE_URL or SUPABASE_PROJECT_REF must be set")
+        return self
 
     # OpenAI (default provider)
     OPENAI_API_KEY: str
