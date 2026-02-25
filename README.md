@@ -2,7 +2,7 @@
 
 ![Static Badge](https://img.shields.io/badge/automated%20tests-135-blue)
 
-A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities — with **out-of-the-box LLM observability** via [LangSmith](https://smith.langchain.com): every LLM call, tool invocation, and subagent trace is automatically captured and inspectable.
+A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities — with out-of-the-box **LLM observability** via [LangSmith](https://smith.langchain.com) and **evaluation** via [RAGAS](https://docs.ragas.io/).
 
 See it in action:
 
@@ -56,6 +56,7 @@ For structured data sources (codebases, API documentation with organized folders
 - **Advanced RAG pipeline** - Intelligent chunking, embeddings, pgvector storage, metadata filtering, hybrid search, reranking
 - **Agentic capabilities** - LLM tool selection (text-to-SQL, web search, retrieval), subagent delegation for complex analysis
 - **Built-in observability** - Every LLM call, tool invocation, and subagent trace automatically captured in [LangSmith](https://smith.langchain.com) with zero extra instrumentation
+- **RAG evaluation** - Reproducible quality benchmarking via [RAGAS](https://docs.ragas.io): scores retrieval and answer quality across faithfulness, relevancy, precision, and recall; results pushed to LangSmith as named experiments
 
 ---
 
@@ -69,6 +70,7 @@ For structured data sources (codebases, API documentation with organized folders
 | Document Processing | Docling |
 | AI Models | OpenAI, OpenRouter, LM Studio (local) |
 | Observability | LangSmith |
+| Evaluation | RAGAS |
 
 ---
 
