@@ -49,6 +49,12 @@ async def collect_single_turn_results(user_id: str) -> list[dict]:
             print(f"    [ERROR] {exc}")
             actual_name, multi_turn = None, None
         correct = int(actual_name == sample.expected_tool)
+
+        # Extract the actual query arg for deterministic keyword relevance check
+        actual_query = ""
+        if multi_turn and multi_turn.user_input[1].tool_calls:
+            actual_query = multi_turn.user_input[1].tool_calls[0].args.get("query", "")
+
         results.append({
             "question": sample.question,
             "expected_tool": sample.expected_tool,
@@ -57,6 +63,8 @@ async def collect_single_turn_results(user_id: str) -> list[dict]:
             "tool_routing_accuracy": correct,
             "_multi_turn": multi_turn,
             "_reference_goal": sample.reference_goal,
+            "_actual_query": actual_query,
+            "_required_arg_keywords": sample.required_arg_keywords,
         })
     return results
 
@@ -85,6 +93,33 @@ async def collect_multiturn_results(user_id: str) -> list[dict]:
             "_reference_goal": sample.reference_goal,
         })
     return results
+
+
+def score_arg_keyword_relevance(single_results: list[dict]) -> list[dict]:
+    """Deterministic check: does the LLM's query arg contain at least one required keyword?
+
+    Applied only to single-turn results (which carry _actual_query and _required_arg_keywords).
+    Multi-turn results are not passed here and do not get this score.
+
+    Catches the most common arg quality failures:
+    - Empty query arg (LLM called the right tool but passed no meaningful query)
+    - Completely off-topic query (right tool, wrong domain — e.g. querying "London weather"
+      when asked about INC-2024-003)
+
+    This is a necessary complement to AgentGoalAccuracy: the LLM judge can miss obvious
+    failures when broad reference_goals give it too much latitude. Keywords are
+    domain-specific and cannot be satisfied by accident.
+    """
+    for r in single_results:
+        actual_query = r.pop("_actual_query", "")
+        keywords = r.pop("_required_arg_keywords", [])
+        if not keywords:
+            r["arg_keyword_relevance"] = None
+            continue
+        query_lower = actual_query.lower()
+        match = any(kw.lower() in query_lower for kw in keywords)
+        r["arg_keyword_relevance"] = 1.0 if match else 0.0
+    return single_results
 
 
 async def score_arg_quality(all_results: list[dict]) -> list[dict]:
@@ -136,6 +171,25 @@ def print_summary(single_results: list[dict], multi_results: list[dict], all_res
                 correct = sum(r["tool_routing_accuracy"] for r in cat_results)
                 print(f"  {cat:<8} : {cat_score:.3f}   ({correct}/{len(cat_results)})")
 
+    # Arg keyword relevance (deterministic, single-turn only)
+    kw_results = [r for r in single_results if r.get("arg_keyword_relevance") is not None]
+    if kw_results:
+        kw_overall = sum(r["arg_keyword_relevance"] for r in kw_results) / len(kw_results)
+        print(f"\nArg keyword relevance / deterministic ({len(kw_results)} single-turn samples):")
+        print(f"  overall  : {kw_overall:.3f}")
+        for cat in ["retrieve", "sql", "web"]:
+            cat_kw = [r for r in kw_results if r["category"] == cat]
+            if cat_kw:
+                cat_score = sum(r["arg_keyword_relevance"] for r in cat_kw) / len(cat_kw)
+                correct = int(sum(r["arg_keyword_relevance"] for r in cat_kw))
+                print(f"  {cat:<8} : {cat_score:.3f}   ({correct}/{len(cat_kw)})")
+        failing = [r for r in kw_results if r["arg_keyword_relevance"] == 0.0]
+        if failing:
+            print(f"  failing samples:")
+            for r in failing:
+                print(f"    - [{r['category']}] {r['question'][:55]}...")
+                print(f"      actual query arg: {r.get('actual_tool', '?')} -> (see LangSmith for full args)")
+
     # Multi-turn sequence accuracy
     if multi_results:
         multi_overall = sum(r["sequence_accuracy"] for r in multi_results) / len(multi_results)
@@ -143,10 +197,10 @@ def print_summary(single_results: list[dict], multi_results: list[dict], all_res
         print(f"\nMulti-turn sequence accuracy ({len(multi_results)} samples):")
         print(f"  retrieve -> analyze : {multi_overall:.3f}   ({correct_multi}/{len(multi_results)})")
 
-    # Arg quality from AgentGoalAccuracy
+    # Arg quality from AgentGoalAccuracy (LLM judge, all 15 samples)
     if all_results and "arg_quality" in all_results[0]:
         arg_overall = sum(r["arg_quality"] for r in all_results) / len(all_results)
-        print(f"\nArg quality / AgentGoalAccuracy ({len(all_results)} samples):")
+        print(f"\nArg quality / AgentGoalAccuracy LLM judge ({len(all_results)} samples):")
         print(f"  overall  : {arg_overall:.3f}")
 
     print("=" * 64)
@@ -175,6 +229,7 @@ def push_to_langsmith(single_results: list[dict], multi_results: list[dict], exp
             outputs={
                 "actual_tool": r["actual_tool"],
                 "tool_routing_accuracy": r["tool_routing_accuracy"],
+                "arg_keyword_relevance": r.get("arg_keyword_relevance"),
                 "arg_quality": r.get("arg_quality"),
             },
             dataset_id=dataset.id,
@@ -209,6 +264,10 @@ async def main() -> None:
     if not args.single_only:
         multi_results = await collect_multiturn_results(user_id)
 
+    # Pass 3a: deterministic keyword check (single-turn only, no API calls)
+    single_results = score_arg_keyword_relevance(single_results)
+
+    # Pass 3b: LLM-judge arg quality (all 15 samples via AgentGoalAccuracy)
     all_results = await score_arg_quality(single_results + multi_results)
 
     print_summary(single_results, multi_results, all_results)

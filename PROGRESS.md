@@ -992,6 +992,69 @@ Local reranking improves faithfulness and context_precision meaningfully. answer
 
 ---
 
+## Eval Coverage Gap: Production Chat Endpoint Quality
+
+**Status**: ✅ Planned
+**Identified**: 2026-02-25
+**Plan File**: `.agents/plans/chat-quality-evaluation.md`
+
+### Background
+
+Two eval scripts exist. Neither fully covers the agentic LLM flow end-to-end:
+
+**`eval/evaluate.py`** — tests a *simplified* RAG pipeline (`eval/pipeline.py`): retrieval → single structured LLM completion. This does **not** exercise `chat_service.py` at all. No tool calling, no routing, no multi-turn. The RAGAS metrics it produces (faithfulness, answer_relevancy, context_precision, context_recall) measure retrieval quality and a simplified response only.
+
+**`eval/evaluate_tool_selection.py`** — tests tool routing and arg quality using the real `chat_service.py` with all 4 tools. Covers: tool name selection (12 single-turn), multi-turn sequence (3 samples: retrieve→analyze), deterministic keyword arg check, and AgentGoalAccuracy LLM judge. Does **not** test the final synthesized response that the user actually sees.
+
+### Gap
+
+The production chat endpoint (`chat_service.py` → `/api/chat/message`) is never qualitatively evaluated. The agentic loop is:
+
+1. LLM selects a tool and generates args ← covered by `evaluate_tool_selection.py`
+2. Tool executes (retrieval/SQL/web/subagent) ← mechanics covered by auto tests
+3. LLM synthesizes a final response from tool results ← **not quality-scored anywhere**
+
+The RAGAS metrics for step 3 (faithfulness, answer_relevancy) only apply to the simplified eval pipeline, not to the actual response the user sees after tool results are injected.
+
+Additionally, retrieval arg quality is only checked by keyword matching and an LLM judge on intent — the tool is never actually executed and the result quality never scored. This matters most for `retrieve_documents` where a subtly bad query arg (e.g. too generic, missing incident ID) will retrieve irrelevant chunks without failing the keyword check.
+
+### What needs to be built
+
+A third eval script: **`eval/evaluate_chat_quality.py`** that:
+
+1. Uses the same golden dataset questions as `evaluate.py` (or a subset)
+2. Sends each question through the **actual chat endpoint** (`POST /api/chat/message` SSE stream, or calls `chat_service.stream_response()` directly as a Python import — preferred to avoid needing a running server)
+3. Captures: tool calls made, tool args, tool results injected, and final streamed response text
+4. Scores with RAGAS:
+   - `faithfulness` — does the response stay grounded in tool results?
+   - `answer_relevancy` — is the response on-topic?
+   - `context_precision` / `context_recall` — are the retrieved chunks relevant? (same as `evaluate.py` but using the args the LLM actually chose, not the raw question as query)
+5. Optionally: re-uses `evaluate_tool_selection.py`'s keyword check on the args captured from this run (so routing accuracy + arg quality + response quality all come from the same LLM call)
+
+### Key design constraints for the next agent
+
+- Call `chat_service.stream_response()` directly as a Python import (same pattern as `eval/pipeline.py` calls `RetrievalService`). Avoids needing a running HTTP server.
+- The stream yields `(delta, sources, metadata)` tuples — accumulate deltas to get final response text; pull `sources` for context list.
+- Use the real test user's UUID (`get_eval_user_id()` from `eval/eval_utils.py`) so RLS filtering matches ingested postmortem docs.
+- Tool call args and tool results are available inside `chat_service.py`'s dispatch loop — the script will need to intercept or restructure to capture them for RAGAS scoring.
+- `pyarrow.dataset` mock required (same pattern as other eval files).
+- Needs `EVAL_DOCS_INGESTED=true` in `backend/.env` and postmortems ingested — same prerequisite as `evaluate.py`.
+- Golden dataset: 15 samples in `eval/dataset.py` — all are retrieval questions (relevant tool: `retrieve_documents`). For SQL/web questions, a separate question set would be needed (or reuse a subset of `tool_selection_dataset.py`).
+
+### Current automated coverage (for context)
+
+| Flow step | Automated coverage | Script/test |
+|---|---|---|
+| Tool routing (which tool) | ✅ mocked unit + ✅ eval script (manual) | `test_tool_selection.py`, `evaluate_tool_selection.py` |
+| Arg quality (are args good) | ✅ keyword logic unit + ✅ eval script (manual) | `test_tool_selection.py` T20–T22, `evaluate_tool_selection.py` |
+| Multi-turn sequence | ✅ mocked unit + ✅ eval script (manual) | `test_tool_selection.py` T12–T15, `evaluate_tool_selection.py` |
+| Tool execution mechanics | ✅ live auto tests | `test_hybrid_search.py`, `test_sql_service.py`, etc. |
+| Retrieval result quality | ❌ not scored for actual LLM-chosen args | — |
+| Final response quality | ✅ simplified pipeline only | `evaluate.py` (manual) |
+| Final response quality (real chat) | ❌ **gap** | — |
+
+---
+
 # System Status
 
 **Servers:**
