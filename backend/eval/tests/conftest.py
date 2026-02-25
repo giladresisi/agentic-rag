@@ -123,14 +123,17 @@ async def _ingest_postmortem_docs(user_id: str) -> None:
         )
 
         # Verify ingestion succeeded
-        check = (
-            supabase.table("documents")
-            .select("status, error_message, chunk_count")
-            .eq("id", document_id)
-            .single()
-            .execute()
-        )
-        status_row = check.data
+        try:
+            check = (
+                supabase.table("documents")
+                .select("status, error_message, chunk_count")
+                .eq("id", document_id)
+                .single()
+                .execute()
+            )
+            status_row = check.data
+        except Exception as e:
+            raise AssertionError(f"Could not fetch document status for {md_file}: {e}")
         assert status_row["status"] == "completed", (
             f"Ingestion failed for {md_file}: {status_row.get('error_message')}"
         )

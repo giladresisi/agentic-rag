@@ -99,11 +99,19 @@ GRANT SELECT ON production_incidents TO sql_query_role;
 REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON production_incidents FROM sql_query_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM sql_query_role;
 
--- Part 5: RPC function for safe SQL execution on production_incidents table
+-- Part 5: Enable RLS on production_incidents (project policy: all tables need RLS)
+ALTER TABLE production_incidents ENABLE ROW LEVEL SECURITY;
+
+-- Allow authenticated users to read all incidents (shared reference data, no per-user filtering)
+CREATE POLICY "authenticated_read_incidents" ON production_incidents
+    FOR SELECT TO authenticated USING (true);
+
+-- Part 6: RPC function for safe SQL execution on production_incidents table
 CREATE OR REPLACE FUNCTION execute_incidents_query(query_text TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public  -- Required for SECURITY DEFINER: prevents schema injection attacks
 AS $$
 DECLARE
     result JSONB;
@@ -111,6 +119,11 @@ DECLARE
 BEGIN
     -- Normalize for validation
     normalized := UPPER(TRIM(query_text));
+
+    -- Block semicolons — prevents statement chaining before any other check
+    IF POSITION(';' IN query_text) > 0 THEN
+        RAISE EXCEPTION 'Semicolons are not allowed in queries';
+    END IF;
 
     -- Validate: must be SELECT only
     IF NOT normalized LIKE 'SELECT%' THEN
@@ -122,8 +135,8 @@ BEGIN
         RAISE EXCEPTION 'Only queries on the production_incidents table are allowed';
     END IF;
 
-    -- Block dangerous operations
-    IF normalized ~ '\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE)\b' THEN
+    -- Block dangerous operations (expanded: includes COPY, CALL, DO, SET, EXECUTE)
+    IF normalized ~ '\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|COPY|CALL|DO|SET|EXECUTE)\b' THEN
         RAISE EXCEPTION 'Query contains forbidden operations';
     END IF;
 
@@ -135,9 +148,12 @@ BEGIN
 END;
 $$;
 
--- Grant execute to authenticated, anon, and service_role
+-- Transfer ownership to sql_query_role so SECURITY DEFINER runs with minimal privileges
+-- (sql_query_role has SELECT on production_incidents only — no other table access)
+ALTER FUNCTION execute_incidents_query(TEXT) OWNER TO sql_query_role;
+
+-- Grant execute to authenticated and service_role only — no anonymous access to incident data
 GRANT EXECUTE ON FUNCTION execute_incidents_query TO authenticated;
-GRANT EXECUTE ON FUNCTION execute_incidents_query TO anon;
 GRANT EXECUTE ON FUNCTION execute_incidents_query TO service_role;
 
 -- Add comments

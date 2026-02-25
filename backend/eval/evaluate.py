@@ -56,7 +56,10 @@ async def collect_pipeline_results(user_id: str) -> list[dict]:
     results = []
     for i, sample in enumerate(GOLDEN_DATASET):
         print(f"  [{i+1:02d}/{len(GOLDEN_DATASET)}] {sample.question[:55]}...")
-        result = await run_rag_pipeline(sample.question, user_id=user_id)
+        try:
+            result = await run_rag_pipeline(sample.question, user_id=user_id)
+        except Exception as exc:
+            result = {"question": sample.question, "answer": f"[PIPELINE ERROR: {exc}]", "contexts": []}
         results.append(result)
     return results
 

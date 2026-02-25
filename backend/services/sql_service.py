@@ -78,11 +78,21 @@ class SQLService:
         if table_name != "PRODUCTION_INCIDENTS":
             return False, f"Only the 'production_incidents' table is allowed, got: {table_name.lower()}"
 
-        # Check for JOIN on other tables
+        # Check for JOIN on other tables (explicit JOIN syntax)
         join_matches = re.findall(r'\bJOIN\s+(\w+)', normalized)
         for table in join_matches:
             if table != "PRODUCTION_INCIDENTS":
                 return False, f"JOIN with table '{table.lower()}' is not allowed"
+
+        # Block implicit comma-joins (e.g. FROM production_incidents, pg_shadow)
+        # Extract everything between FROM and the first SQL clause keyword, then look for commas
+        from_clause = re.search(
+            r'\bFROM\b(.*?)(?:\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|\bHAVING\b|\bJOIN\b|\Z)',
+            normalized,
+            re.DOTALL,
+        )
+        if from_clause and ',' in from_clause.group(1):
+            return False, "Multiple tables in FROM clause are not allowed"
 
         # Enforce max 100 rows
         limit_match = re.search(r'\bLIMIT\s+(\d+)', normalized)

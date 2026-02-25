@@ -41,9 +41,13 @@ async def collect_single_turn_results(user_id: str) -> list[dict]:
     results = []
     for i, sample in enumerate(TOOL_SELECTION_DATASET):
         print(f"  [{i+1:02d}/{len(TOOL_SELECTION_DATASET)}] {sample.question[:60]}...")
-        actual_name, multi_turn = await run_tool_selection_pipeline(
-            sample.question, user_id
-        )
+        try:
+            actual_name, multi_turn = await run_tool_selection_pipeline(
+                sample.question, user_id
+            )
+        except Exception as exc:
+            print(f"    [ERROR] {exc}")
+            actual_name, multi_turn = None, None
         correct = int(actual_name == sample.expected_tool)
         results.append({
             "question": sample.question,
@@ -63,9 +67,13 @@ async def collect_multiturn_results(user_id: str) -> list[dict]:
     results = []
     for i, sample in enumerate(MULTI_TURN_DATASET):
         print(f"  [{i+1:02d}/{len(MULTI_TURN_DATASET)}] {sample.question[:60]}...")
-        actual_seq, multi_turn = await run_multiturn_pipeline(
-            sample.question, user_id
-        )
+        try:
+            actual_seq, multi_turn = await run_multiturn_pipeline(
+                sample.question, user_id
+            )
+        except Exception as exc:
+            print(f"    [ERROR] {exc}")
+            actual_seq, multi_turn = [], None
         correct = int(actual_seq == sample.expected_sequence)
         results.append({
             "question": sample.question,
@@ -94,11 +102,18 @@ async def score_arg_quality(all_results: list[dict]) -> list[dict]:
         multi_turn = r.pop("_multi_turn")
         reference_goal = r.pop("_reference_goal")
         print(f"  [{i+1:02d}/{len(all_results)}] {r['question'][:50]}...")
-        result = await metric.ascore(
-            user_input=multi_turn.user_input,
-            reference=reference_goal,
-        )
-        r["arg_quality"] = float(result.value)
+        if multi_turn is None:
+            r["arg_quality"] = 0.0
+            continue
+        try:
+            result = await metric.ascore(
+                user_input=multi_turn.user_input,
+                reference=reference_goal,
+            )
+            r["arg_quality"] = float(result.value)
+        except Exception as exc:
+            print(f"    [ERROR scoring arg_quality] {exc}")
+            r["arg_quality"] = 0.0
     return all_results
 
 
