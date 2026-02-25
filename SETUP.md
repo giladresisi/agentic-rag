@@ -232,6 +232,17 @@ The role and password already exist in your database — this change only affect
 2. Verify the `documents` bucket exists (created by migrations)
 3. Check that RLS policies are enabled for the bucket
 
+#### Expected Security Advisory: RLS Disabled on `production_incidents`
+
+After running migrations, Supabase will flag a **"RLS Disabled in Public"** advisory for the `production_incidents` table (added by `016_production_incidents.sql`). This is expected and safe to ignore.
+
+This table holds static demo/seed data (15 incident records) that is intentionally readable by all users. It is never written to by the application, and access is controlled at two layers:
+
+- `sql_query_role` is the only role granted `SELECT` — `anon` and `authenticated` have no direct table access
+- All queries go through the `execute_incidents_query` RPC (SECURITY DEFINER), which enforces SELECT-only, `production_incidents`-only access and blocks DDL/DML
+
+Enabling RLS on this table would add no security value and is not required.
+
 #### Create Test User
 
 Create a test user to verify authentication:
