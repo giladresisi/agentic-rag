@@ -236,6 +236,13 @@ Current fixed-size chunking (1000 chars with 200 char overlap) is simple but ign
 
 These methods improve retrieval relevance by ensuring chunks represent coherent, self-contained units of meaning.
 
+### 4. Fully Containerized Setup
+
+The current setup requires manual environment configuration across multiple services. A fully containerized approach would include:
+- **Local Docker Compose stack**: Bundle backend, frontend, and a local Supabase instance (Postgres + pgvector + Storage + Auth) into a single `docker compose up` with no external accounts required
+- **CI testing environment**: GitHub Actions workflow running the full backend and E2E test suites against the containerized stack — requires test doubles or stubs for external APIs (OpenAI, LangSmith, Tavily, Cohere) and a structured logging policy (structured JSON logs, no stdout noise) so CI can parse and assert on output
+- **Automated 1-click setup**: Extend `setup.sh` to detect a Docker environment, skip manual Supabase steps, and wire credentials automatically — reducing new-user setup from ~15 manual steps to a single command
+
 </details>
 
 <details>
