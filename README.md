@@ -74,17 +74,21 @@ For structured data sources (codebases, API documentation with organized folders
 
 ## Getting Started
 
-**Complete setup instructions are in [SETUP.md](./SETUP.md)** - including prerequisites, installation, configuration, deployment, and troubleshooting.
+**Prerequisites:** Python 3.10+, [uv](https://docs.astral.sh/uv/), Node.js 18+, Supabase account, OpenAI API key. Optional: LangSmith (observability), Cohere (reranking), Tavily (web search), OpenRouter/LM Studio.
 
-**Quick overview:**
-- **Prerequisites:** Python 3.10+, Node.js 18+, Supabase account, OpenAI API key
-- **Optional:** LangSmith (observability), Cohere (reranking), Tavily (web search), OpenRouter/LM Studio (alternative LLM providers)
-- **Setup:** Run database migrations, configure `.env` files, install dependencies
-- **Run:** Start backend (`uvicorn main:app --reload`) and frontend (`npm run dev`)
-- **Test:** Sign up, create thread, upload documents, start chatting
-- **Observe:** Open your [LangSmith](https://smith.langchain.com) project to inspect every LLM call, token usage, tool invocation, and subagent trace in real time
+### Option 1: 1-Click Setup (Recommended)
 
-👉 **[Read SETUP.md for detailed instructions](./SETUP.md)**
+After cloning, fill in `backend/.env` and `frontend/.env` (copy from the `.env.example` files), then run:
+
+```bash
+bash setup.sh
+```
+
+The script installs all dependencies, pre-downloads Docling parsing models, links your Supabase project, and applies all database migrations — following a guided checklist. The whole process takes ~5 minutes plus model download time on first run.
+
+### Option 2: Manual Setup
+
+Follow **[SETUP.md](./SETUP.md)** step by step for full control, detailed explanations, and troubleshooting guidance.
 
 ---
 

@@ -2,6 +2,20 @@
 
 This guide walks you through setting up and running the complete IR-Copilot application.
 
+## Quick Setup (Recommended)
+
+Run the 1-click setup script from the project root after filling in your `.env` files:
+
+```bash
+bash setup.sh
+```
+
+The script handles: Python and Node.js dependency installation, Playwright browser binaries, Docling model pre-download, Supabase project linking, and all database migrations. It opens with a pre-flight checklist and walks you through any manual steps needed up front.
+
+**Follow the sections below** if you prefer manual control, need to understand each step, or are troubleshooting.
+
+---
+
 ## Prerequisites
 
 Before starting, ensure you have:
