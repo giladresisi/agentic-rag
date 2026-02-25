@@ -178,9 +178,13 @@ Isolated context, document analysis delegation
 </details>
 
 <details>
-<summary><strong>⚙️ GitHub Workflows</strong></summary>
+<summary><strong>⚙️ Dev Skills &amp; Workflows</strong></summary>
 
 <br>
+
+This project was developed mostly using the skills in the [al-dev-env](https://github.com/giladresisi/ai-dev-env) Claude Code plugin.
+
+---
 
 Automated code review and fix workflows for AI-assisted development (located in [`.github/workflows/`](./.github/workflows/)):
 
