@@ -51,7 +51,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Agentic RAG API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(title="IR Copilot API", version="1.0.0", lifespan=lifespan)
 
 # CORS middleware
 origins = settings.CORS_ORIGINS.split(",")
@@ -74,7 +74,7 @@ app.include_router(ingestion.router, prefix="/ingestion", tags=["ingestion"])
 @app.get("/")
 def read_root():
     return {
-        "message": "Agentic RAG API",
+        "message": "IR Copilot API",
         "version": "1.0.0",
         "docs": "/docs"
     }
