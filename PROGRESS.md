@@ -1061,56 +1061,78 @@ Note: `AgentGoalAccuracy` (0.133) suffered `max_tokens` truncation errors during
 
 ### Background
 
-Two eval scripts exist. Neither fully covers the agentic LLM flow end-to-end:
+This section was initially written as a planning document. Here is the retrospective of what was discovered and what was actually built.
 
-**`eval/evaluate.py`** — tests a *simplified* RAG pipeline (`eval/pipeline.py`): retrieval → single structured LLM completion. This does **not** exercise `chat_service.py` at all. No tool calling, no routing, no multi-turn. The RAGAS metrics it produces (faithfulness, answer_relevancy, context_precision, context_recall) measure retrieval quality and a simplified response only.
+**The coverage gap** was identified by the user on 2026-02-25: the production chat endpoint had never been qualitatively evaluated. Two eval scripts existed but neither covered the full agentic loop:
 
-**`eval/evaluate_tool_selection.py`** — tests tool routing and arg quality using the real `chat_service.py` with all 4 tools. Covers: tool name selection (12 single-turn), multi-turn sequence (3 samples: retrieve→analyze), deterministic keyword arg check, and AgentGoalAccuracy LLM judge. Does **not** test the final synthesized response that the user actually sees.
+- `eval/evaluate.py` — simplified RAG pipeline (retrieval → single LLM completion). No tool calling, no routing. Good for measuring retrieval quality in isolation.
+- `eval/evaluate_tool_selection.py` — tool routing and arg quality using the real `chat_service.py`. Covers which tool is selected and whether args are reasonable, but never executes the tool and never scores the final synthesized response.
 
-### Gap
+The missing piece: after the LLM selects a tool, executes it, and synthesizes a response from the results — that final response was never scored.
 
-The production chat endpoint (`chat_service.py` → `/api/chat/message`) is never qualitatively evaluated. The agentic loop is:
+**What was built** — `eval/evaluate_chat_quality.py`:
+- Calls `chat_service.stream_response()` directly as a Python import (no HTTP server needed), exercising the full agentic loop
+- Captures tool calls, retrieved contexts, and final streamed response text
+- Scores with all four RAGAS metrics + deterministic `arg_keyword_relevance` keyword check
+- Pushes per-sample results to LangSmith dataset `ir-copilot-chat-quality`
+- Shares the same 15-question golden dataset as `evaluate.py`
 
-1. LLM selects a tool and generates args ← covered by `evaluate_tool_selection.py`
-2. Tool executes (retrieval/SQL/web/subagent) ← mechanics covered by auto tests
-3. LLM synthesizes a final response from tool results ← **not quality-scored anywhere**
+**User's key contributions to the eval improvement story:**
 
-The RAGAS metrics for step 3 (faithfulness, answer_relevancy) only apply to the simplified eval pipeline, not to the actual response the user sees after tool results are injected.
+The first runs of `evaluate_chat_quality.py` produced near-zero scores across the board. The user investigated and diagnosed two root causes that agents had missed:
 
-Additionally, retrieval arg quality is only checked by keyword matching and an LLM judge on intent — the tool is never actually executed and the result quality never scored. This matters most for `retrieve_documents` where a subtly bad query arg (e.g. too generic, missing incident ID) will retrieve irrelevant chunks without failing the keyword check.
+1. **Missing postmortem uploads** — all RAGAS scores (faithfulness, precision, recall) were zero because the postmortem documents had not been re-uploaded to the deployment after the `production_incidents → deployments` table rename. The eval was running against an empty document store. The user identified this directly, re-uploaded the 6 postmortem files, and scores became non-zero immediately.
 
-### What needs to be built
+2. **System prompt routing ambiguity** — after uploads, `arg_keyword_relevance` was still 0/15: the LLM was routing every retrieval question to `query_deployments_database` instead of `retrieve_documents`. The system prompt said "incidents, severity, services, resolution times → query_incidents_database" — which matched the language of most golden questions. The user identified this routing conflict, drove the rename of `production_incidents` to `deployments` and the rewrite of the system prompt to make the domain boundary unambiguous. This brought `arg_keyword_relevance` from 0/15 to 10/15 (run 2) and then 15/15 (run 3).
 
-A third eval script: **`eval/evaluate_chat_quality.py`** that:
+3. **RAGAS `strictness` bug** — `answer_relevancy`, `context_precision`, and `context_recall` were all 0.000 across all runs due to RAGAS requesting `n=3` completions but modern OpenAI APIs returning only `n=1`. The user flagged this as a scoring infrastructure issue rather than a genuine quality problem. Setting `answer_relevancy.strictness = 1` fixed all three metrics in run 3.
 
-1. Uses the same golden dataset questions as `evaluate.py` (or a subset)
-2. Sends each question through the **actual chat endpoint** (`POST /api/chat/message` SSE stream, or calls `chat_service.stream_response()` directly as a Python import — preferred to avoid needing a running server)
-3. Captures: tool calls made, tool args, tool results injected, and final streamed response text
-4. Scores with RAGAS:
-   - `faithfulness` — does the response stay grounded in tool results?
-   - `answer_relevancy` — is the response on-topic?
-   - `context_precision` / `context_recall` — are the retrieved chunks relevant? (same as `evaluate.py` but using the args the LLM actually chose, not the raw question as query)
-5. Optionally: re-uses `evaluate_tool_selection.py`'s keyword check on the args captured from this run (so routing accuracy + arg quality + response quality all come from the same LLM call)
-
-### Key design constraints for the next agent
-
-- Call `chat_service.stream_response()` directly as a Python import (same pattern as `eval/pipeline.py` calls `RetrievalService`). Avoids needing a running HTTP server.
-- The stream yields `(delta, sources, metadata)` tuples — accumulate deltas to get final response text; pull `sources` for context list.
-- Use the real test user's UUID (`get_eval_user_id()` from `eval/eval_utils.py`) so RLS filtering matches ingested postmortem docs.
-- Tool call args and tool results are available inside `chat_service.py`'s dispatch loop — the script will need to intercept or restructure to capture them for RAGAS scoring.
-- `pyarrow.dataset` mock required (same pattern as other eval files).
-- Needs `EVAL_DOCS_INGESTED=true` in `backend/.env` and postmortems ingested — same prerequisite as `evaluate.py`.
-- Golden dataset: 15 samples in `eval/dataset.py` — all are retrieval questions (relevant tool: `retrieve_documents`). For SQL/web questions, a separate question set would be needed (or reuse a subset of `tool_selection_dataset.py`).
+Without the user's investigation, all three issues would have remained invisible — agents would have iterated on prompt tuning against a silent empty document store and broken scoring infrastructure.
 
 ### Current automated coverage
 
-| Flow step | Automated coverage | Script/test |
-|---|---|---|
+| Flow step | Coverage | Script/test |
+|-----------|----------|-------------|
 | Tool routing (which tool) | ✅ mocked unit + ✅ eval script | `test_tool_selection.py`, `evaluate_tool_selection.py` |
-| Arg quality (are args good) | ✅ keyword logic unit + ✅ eval script | `test_tool_selection.py` T20–T22, `evaluate_tool_selection.py` |
+| Arg quality (keyword check) | ✅ keyword logic unit + ✅ eval script | `test_tool_selection.py` T20–T22, `evaluate_tool_selection.py` |
 | Multi-turn sequence | ✅ mocked unit + ✅ eval script | `test_tool_selection.py` T12–T15, `evaluate_tool_selection.py` |
 | Tool execution mechanics | ✅ live auto tests | `test_hybrid_search.py`, `test_sql_service.py`, etc. |
-| Final response quality (real chat) | ✅ eval script exists, scores low | `evaluate_chat_quality.py` |
+| Final response quality (real chat) | ✅ scored, faithfulness 0.882 / relevancy 0.963 | `evaluate_chat_quality.py` |
+| Retrieval ranking quality | ⚠️ scored, precision 0.300 / recall 0.122 | all three eval scripts |
+| Multi-turn retrieve→analyze | ⚠️ 2/3 sequences correct | `evaluate_tool_selection.py` |
+
+### Remaining gaps and next steps for the next agent
+
+**1. Low `context_precision` and `context_recall` (0.1–0.35 across all three eval scripts)**
+
+This is the most impactful remaining quality gap. The LLM retrieves chunks that are grounded in the right documents but the ranking is not precise enough: lower-relevance chunks score above the one that directly answers the question, or the right chunk is not retrieved at all.
+
+What to investigate:
+- Run `evaluate.py` with `--verbose` or add per-sample logging to see which questions have the lowest precision/recall. Cross-check the retrieved chunk text against the ground truth to understand whether the problem is ranking (right chunks retrieved but ranked low) or coverage (right chunk not retrieved at all).
+- The golden dataset has 15 questions drawn from 6 short documents — every answer is grounded in one specific paragraph. If the retrieval pipeline returns 5 chunks and the answer chunk is rank 4 or 5, precision will be low.
+- Candidates for improvement:
+  - **Better query construction**: `evaluate.py` uses the raw question as the retrieval query; `evaluate_chat_quality.py` uses whatever arg the LLM chose. Compare the two sets of args in LangSmith — if chat quality precision (0.300) is lower than RAG pipeline precision (0.347), the LLM is choosing suboptimal args.
+  - **Reranker tuning**: `RERANKING_PROVIDER=local` is set; the cross-encoder should improve rank ordering. Verify it is actually being called during eval (add a log or check LangSmith traces).
+  - **Chunk size / overlap**: Current chunking is fixed-size (1000 chars, 200 overlap). The postmortem documents have clearly defined sections (Summary, Timeline, Root Cause, Remediation). Section-aware chunking would likely improve precision significantly since each chunk would correspond to a coherent unit.
+  - **Top-k**: The pipeline returns 5 chunks. If the relevant chunk is always retrieved but ranked 4–5, reducing top-k or tightening the similarity threshold would raise precision at the cost of recall.
+
+**2. Multi-turn sequence accuracy 0.667 (2/3)**
+
+One of the three `retrieve_documents → analyze_document_with_subagent` sequences failed. The dataset has 3 multi-turn samples (see `eval/tool_selection_dataset.py`, `MULTI_TURN_DATASET`). The failing sample needs to be identified from LangSmith traces and the actual tool sequence it produced inspected.
+
+What to investigate:
+- Look at the LangSmith `ir-copilot-tool-selection` dataset run from 2026-02-26. Find the multi-turn sample where `actual_sequence != expected_sequence`. Check what sequence the model actually produced.
+- Common failure modes: (a) model goes straight to `analyze_document_with_subagent` without first calling `retrieve_documents` to get the filename; (b) model calls `retrieve_documents` correctly but never follows up with `analyze_document_with_subagent`; (c) model picks the wrong document filename.
+- If the failure is a system prompt issue, add a more explicit example of the retrieve→analyze pattern to the `PATTERN B` block in `chat_service.py` and `tool_selection_pipeline.py`.
+
+**3. `AgentGoalAccuracy` results unreliable (0.133, truncated)**
+
+The RAGAS `AgentGoalAccuracy` metric generates a long JSON prompt that exceeds `gpt-4o-mini`'s output token limit, causing truncated responses and `InstructorRetryException` after 3 attempts, defaulting to 0.0. The 0.133 score is an artifact of truncation, not actual arg quality.
+
+What to investigate / fix options:
+- Switch to `gpt-4o` instead of `gpt-4o-mini` for the LLM judge in `evaluate_tool_selection.py:score_arg_quality()` — higher token limit may avoid truncation. Edit `AgentGoalAccuracyWithReference(llm=llm_factory("gpt-4o", ...))`.
+- Add `max_tokens` to the `AgentGoalAccuracyWithReference` instantiation to raise the output budget explicitly if the API supports it.
+- If neither works, replace `AgentGoalAccuracy` with a simpler custom LLM judge that asks a direct yes/no question about whether the tool call's query arg matches the reference goal — avoids the long JSON schema entirely.
 
 ---
 
