@@ -153,39 +153,6 @@ The LLM intelligently routes your question to the right tool(s) and can combine 
 </details>
 
 <details>
-<summary><strong>🔧 The 8 Modules</strong></summary>
-
-<br>
-
-This application implements all 8 modules from the RAG architecture pattern:
-
-### 1. App Shell
-Auth, chat UI, managed RAG with OpenAI Responses API
-
-### 2. BYO Retrieval + Memory
-Ingestion, pgvector, switch to generic completions API
-
-### 3. Record Manager
-Content hashing, deduplication
-
-### 4. Metadata Extraction
-LLM-extracted metadata, filtered retrieval
-
-### 5. Multi-Format Support
-PDF, DOCX, HTML, Markdown via Docling
-
-### 6. Hybrid Search & Reranking
-Keyword + vector search, RRF, reranking
-
-### 7. Additional Tools
-Text-to-SQL, web search fallback
-
-### 8. Subagents
-Isolated context, document analysis delegation
-
-</details>
-
-<details>
 <summary><strong>⚙️ Dev Skills &amp; Workflows</strong></summary>
 
 <br>
@@ -299,8 +266,17 @@ While all 8 modules have been implemented and core functionality is working, sev
 
 - AI-driven dev works great with clear and meaningful context and requirements, without them it goes astray and doesn't fully cover what you wanted
 - The setup for AI-driven dev must always be improved, I've built and improved my [ai-dev-env](https://github.com/giladresisi/ai-dev-env) plugin while building this project
-- Take the time when validating AI-driven dev, it's up to you to check if the AI fully covered all relevant scenarios and to help to complete the coverage if it didn't
+- Take the time when validating AI-driven dev, it's up to you to check if the AI fully covered all relevant scenarios and to help it complete the coverage if it didn't
 - Split the work you give AI to features / phases / fixes so it has a better chance of completing them well and you have stable versions to deploy & revert to
+
+</details>
+
+<details>
+<summary><strong>🌟 Inspiration</strong></summary>
+
+<br>
+
+This project was inspired by the **[Claude Code RAG Masterclass](https://www.youtube.com/watch?v=xgPWCuqLoek)**. The original masterclass covered 8 modules of a RAG architecture, as detailed in [PRD.md](./PRD.md). On top of that foundation, many extras were added that weren't part of the original course — including RAG evaluation (RAGAS), a 1-click setup script, Cloud Run deployment, automated frontend (Playwright) and backend (pytest) tests, AI-assisted code review workflows, and observability via LangSmith.
 
 </details>
 
@@ -308,8 +284,8 @@ While all 8 modules have been implemented and core functionality is working, sev
 
 ## About This Project
 
-This is a complete implementation of the **[Claude Code RAG Masterclass](https://www.youtube.com/watch?v=xgPWCuqLoek)** built through collaboration with Claude Code. The repository demonstrates the full capabilities of building complex AI applications with AI coding tools.
-This is a POC-level implementation demonstrating the full RAG architecture. Use it as a learning resource and reference implementation, but apply production-grade engineering practices before deploying to real users, see 'Known Limitations' above for more info.
+This is a POC-level implementation demonstrating the full agentic RAG architecture, built through collaboration with Claude Code. The repository demonstrates the full capabilities of building complex AI applications with AI coding tools.
+Use it as a learning resource and reference implementation, but apply production-grade engineering practices before deploying to real users, see 'Known Limitations' above for more info.
 
 ---
 
