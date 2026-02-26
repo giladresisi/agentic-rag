@@ -109,7 +109,7 @@ tool selection when reference args are empty, making it unsuitable for free-text
 | Tool | # Single-turn | # Multi-turn |
 |------|--------------|-------------|
 | retrieve_documents | 4 | — |
-| query_incidents_database | 4 | — |
+| query_deployments_database | 4 | — |
 | search_web | 4 | — |
 | retrieve_documents → analyze_document_with_subagent | — | 3 |
 

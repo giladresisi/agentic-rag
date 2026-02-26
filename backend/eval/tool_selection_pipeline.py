@@ -69,7 +69,7 @@ def _parse_ragas_tool_calls(buffer: list[dict]) -> list[ToolCall]:
 TOOL_SELECTION_SYSTEM_PROMPT = """You are a helpful assistant with access to multiple tools:
 
 1. retrieve_documents: Search uploaded document content (semantic search, returns 5 relevant chunks)
-2. query_incidents_database: Query a production incidents database with natural language (structured data queries)
+2. query_deployments_database: Query a deployment and change management database with natural language (structured data queries)
 3. search_web: Search web for current information (use for recent events, news)
 4. analyze_document_with_subagent: Delegate complex full-document analysis to specialized sub-agent
 
@@ -143,7 +143,7 @@ PATTERN B - Retrieval + Subagents (for comprehensive analysis):
   NEVER guess document names - always use names from Step 1!
 
 **Other Tools:**
-- Questions about incidents, severity, services, resolution times -> query_incidents_database (can query multiple times)
+- Deployment and change history: who deployed what, when, to which service, success/failure status, rollback counts, deployment frequency -> query_deployments_database
 - Current events/recent info -> search_web (use after checking documents)
 - Incomplete information? Make additional tool calls with refined queries
 

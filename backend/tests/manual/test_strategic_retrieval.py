@@ -155,7 +155,7 @@ def run_strategic_retrieval(token, thread_id):
     print("[OK] Test 2 completed")
     print("="*80)
 
-    # Test Query 3: Should trigger query_incidents_database
+    # Test Query 3: Should trigger query_deployments_database
     print("\n" + "="*80)
     print("TEST 3: Incidents database query")
     print("="*80)

@@ -51,14 +51,14 @@ class ChatService:
     TEXT_TO_SQL_TOOL = {
         "type": "function",
         "function": {
-            "name": "query_incidents_database",
-            "description": "Query a database of production incidents using natural language. Use for questions about incidents, severity, affected services, root causes, detection times, resolution times. Examples: 'P1 incidents in 2024', 'Incidents affecting auth service', 'Average resolution time by severity'",
+            "name": "query_deployments_database",
+            "description": "Query a deployment and change management database using natural language. Use for structured questions about deployment history: which versions were deployed, when, by whom, to which service, success/failure status, rollback frequency, deployment counts and averages. Do NOT use for incident root causes, detection gaps, or postmortem analysis — use retrieve_documents for narrative content from uploaded documents.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Natural language query about production incidents"
+                        "description": "Natural language query about deployments or change history"
                     }
                 },
                 "required": ["query"]
@@ -200,7 +200,7 @@ class ChatService:
                 "content": """You are a helpful assistant with access to multiple tools:
 
 1. retrieve_documents: Search uploaded document content (semantic search, returns 5 relevant chunks)
-2. query_incidents_database: Query a production incidents database with natural language (structured data queries)
+2. query_deployments_database: Query a deployment and change management database with natural language (structured data queries)
 3. search_web: Search web for current information (use for recent events, news)
 4. analyze_document_with_subagent: Delegate complex full-document analysis to specialized sub-agent
 
@@ -274,7 +274,8 @@ PATTERN B - Retrieval + Subagents (for comprehensive analysis):
   NEVER guess document names - always use names from Step 1!
 
 **Other Tools:**
-- Questions about incidents, severity, services, resolution times → query_incidents_database (can query multiple times)
+- Deployment and change history: who deployed what version, when, to which service, deployment outcomes (success/failure/rollback), counts and averages → query_deployments_database
+- NOTE: query_deployments_database contains ONLY deployment metadata. For WHY an incident happened, root causes, detection gaps, or remediation steps → use retrieve_documents (postmortem content lives in uploaded documents, not the database)
 - Current events/recent info → search_web (use after checking documents)
 - Incomplete information? Make additional tool calls with refined queries
 
@@ -439,7 +440,7 @@ QUALITY STANDARDS:
                             "content": context_text
                         })
 
-                    elif tool_name == "query_incidents_database":
+                    elif tool_name == "query_deployments_database":
                         query = args.get("query", "")
                         sql_response = await sql_service.natural_language_to_sql(query)
 
@@ -448,7 +449,7 @@ QUALITY STANDARDS:
 
                             # Track tool call for summary
                             tool_call_info = {
-                                "tool": "query_incidents_database",
+                                "tool": "query_deployments_database",
                                 "inputs": {"natural_language_query": query},
                                 "outputs": {
                                     "error": sql_response.error,
@@ -461,7 +462,7 @@ QUALITY STANDARDS:
                             # Trace failed SQL query
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
-                                tool_name="query_incidents_database",
+                                tool_name="query_deployments_database",
                                 inputs=tool_call_info["inputs"],
                                 outputs=tool_call_info["outputs"],
                                 metadata={"status": "failed"}
@@ -472,7 +473,7 @@ QUALITY STANDARDS:
 
                             # Track tool call for summary
                             tool_call_info = {
-                                "tool": "query_incidents_database",
+                                "tool": "query_deployments_database",
                                 "inputs": {"natural_language_query": query},
                                 "outputs": {
                                     "sql_query": sql_response.query,
@@ -486,12 +487,12 @@ QUALITY STANDARDS:
                             # Trace successful SQL query
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
-                                tool_name="query_incidents_database",
+                                tool_name="query_deployments_database",
                                 inputs=tool_call_info["inputs"],
                                 outputs=tool_call_info["outputs"],
                                 metadata={
                                     "status": "success",
-                                    "table": "production_incidents"
+                                    "table": "deployments"
                                 }
                             )
 
@@ -502,7 +503,7 @@ QUALITY STANDARDS:
                                 "id": tool_call["id"],
                                 "type": "function",
                                 "function": {
-                                    "name": "query_incidents_database",
+                                    "name": "query_deployments_database",
                                     "arguments": tool_call["function"]["arguments"]
                                 }
                             }]

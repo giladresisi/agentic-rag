@@ -10,9 +10,9 @@ load_dotenv()
 
 
 async def test_count_query():
-    """Test: count query returns rows from production_incidents (6 seed rows)."""
+    """Test: count query returns rows from deployments table (15 seed rows)."""
     print("\n--- Test: Count Query ---")
-    response = await sql_service.natural_language_to_sql("How many incidents are in the database?")
+    response = await sql_service.natural_language_to_sql("How many deployments are in the database?")
 
     if response.error:
         print(f"[FAIL] Count query returned error: {response.error}")
@@ -43,64 +43,64 @@ async def test_count_query():
 
 
 async def test_service_filter():
-    """Test: filtering by affected_service returns expected incidents."""
+    """Test: filtering by service returns expected deployments."""
     print("\n--- Test: Service Filter (auth service) ---")
-    response = await sql_service.natural_language_to_sql("Incidents affecting the auth service")
+    response = await sql_service.natural_language_to_sql("Deployments to the auth-service")
 
     if response.error:
         print(f"[FAIL] Service filter returned error: {response.error}")
         return False
 
     if response.row_count == 0:
-        print(f"[FAIL] No results for auth service incidents")
+        print(f"[FAIL] No results for auth-service deployments")
         print(f"  SQL: {response.query}")
         return False
 
-    services = [r.get("affected_service", "") for r in response.results]
+    services = [r.get("service", "") for r in response.results]
     has_auth = any("auth" in s.lower() for s in services)
 
     if has_auth:
-        print(f"[PASS] Found auth service incident(s): {[r.get('incident_id') for r in response.results]}")
+        print(f"[PASS] Found auth-service deployment(s): {[r.get('deploy_id') for r in response.results]}")
         print(f"  SQL: {response.query}")
         return True
 
-    # Check incident_ids as fallback
-    ids = [r.get("incident_id", "") for r in response.results]
-    if any("INC-2024-003" in i for i in ids):
-        print(f"[PASS] Found INC-2024-003 (auth outage): {ids}")
+    # Check deploy_ids as fallback
+    ids = [r.get("deploy_id", "") for r in response.results]
+    if any("DEP-2024-002" in i for i in ids):
+        print(f"[PASS] Found DEP-2024-002 (auth-service deployment): {ids}")
         print(f"  SQL: {response.query}")
         return True
 
-    print(f"[FAIL] Expected auth service incident, got services: {services}")
+    print(f"[FAIL] Expected auth-service deployment, got services: {services}")
     print(f"  SQL: {response.query}")
     return False
 
 
-async def test_severity_filter():
-    """Test: filtering by severity returns relevant incidents."""
-    print("\n--- Test: Severity Filter (P1) ---")
-    response = await sql_service.natural_language_to_sql("P1 severity incidents")
+async def test_status_filter():
+    """Test: filtering by status returns failed or rolled-back deployments."""
+    print("\n--- Test: Status Filter (failed/rolled_back) ---")
+    response = await sql_service.natural_language_to_sql("Failed or rolled-back deployments")
 
     if response.error:
-        print(f"[FAIL] Severity filter returned error: {response.error}")
+        print(f"[FAIL] Status filter returned error: {response.error}")
         return False
 
     if response.row_count == 0:
-        print(f"[FAIL] No P1 incidents found")
+        print(f"[FAIL] No failed or rolled-back deployments found")
         print(f"  SQL: {response.query}")
         return False
 
-    severities = [r.get("severity", "").upper() for r in response.results]
-    has_p1 = any("P1" in s for s in severities)
+    statuses = [r.get("status", "").lower() for r in response.results]
+    has_failed_or_rolled_back = any(s in ("failed", "rolled_back") for s in statuses)
 
-    if has_p1:
-        print(f"[PASS] Found {response.row_count} P1 incident(s)")
+    if has_failed_or_rolled_back:
+        print(f"[PASS] Found {response.row_count} failed/rolled-back deployment(s)")
         for r in response.results[:5]:
-            print(f"  - {r.get('incident_id', '?')} ({r.get('severity', '?')}) {r.get('title', '?')}")
+            print(f"  - {r.get('deploy_id', '?')} ({r.get('status', '?')}) {r.get('service', '?')}")
         print(f"  SQL: {response.query}")
         return True
 
-    print(f"[FAIL] No results with P1 severity. Severities found: {severities}")
+    print(f"[FAIL] No results with failed/rolled_back status. Statuses found: {statuses}")
     print(f"  SQL: {response.query}")
     return False
 
@@ -108,7 +108,7 @@ async def test_severity_filter():
 async def test_sql_injection():
     """Test: SQL injection attempt is rejected or handled safely."""
     print("\n--- Test: SQL Injection Prevention ---")
-    response = await sql_service.natural_language_to_sql("'; DROP TABLE production_incidents; --")
+    response = await sql_service.natural_language_to_sql("'; DROP TABLE deployments; --")
 
     # The service should either:
     # 1. Return an error (validation caught it)
@@ -142,7 +142,7 @@ async def test_table_access_control():
 
     if response.error:
         error_lower = response.error.lower()
-        if "production_incidents" in error_lower or "not allowed" in error_lower or "permission" in error_lower or "forbidden" in error_lower or "validation" in error_lower:
+        if "deployments" in error_lower or "not allowed" in error_lower or "permission" in error_lower or "forbidden" in error_lower or "validation" in error_lower:
             print(f"[PASS] Table access denied: {response.error}")
             print(f"  SQL: {response.query}")
             return True
@@ -152,7 +152,7 @@ async def test_table_access_control():
 
     query_upper = response.query.upper()
     if "DOCUMENTS" not in query_upper:
-        print(f"[PASS] LLM redirected to production_incidents table instead of documents")
+        print(f"[PASS] LLM redirected to deployments table instead of documents")
         print(f"  SQL: {response.query}")
         return True
 
@@ -166,7 +166,7 @@ async def test_write_prevention():
     """Test: INSERT/UPDATE/DELETE queries are blocked."""
     print("\n--- Test: Write Prevention ---")
     response = await sql_service.natural_language_to_sql(
-        "Insert a new incident called 'Test' into the production_incidents table"
+        "Insert a new deployment record into the deployments table"
     )
 
     if response.error:
@@ -200,7 +200,7 @@ async def main():
     tests = [
         ("Count Query", test_count_query),
         ("Service Filter", test_service_filter),
-        ("Severity Filter", test_severity_filter),
+        ("Status Filter", test_status_filter),
         ("SQL Injection", test_sql_injection),
         ("Table Access Control", test_table_access_control),
         ("Write Prevention", test_write_prevention),

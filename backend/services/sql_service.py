@@ -12,19 +12,22 @@ class SQLQuery(BaseModel):
 
 
 # Schema context provided to the LLM for SQL generation
-INCIDENTS_SCHEMA = """production_incidents table columns:
+DEPLOYMENTS_SCHEMA = """deployments table columns:
 - id (INTEGER PRIMARY KEY)
-- incident_id (TEXT) -- e.g. 'INC-2024-003'
-- title (TEXT)
-- severity (TEXT) -- 'P1', 'P2', 'P3', or 'P4'
-- service_affected (TEXT)
-- status (TEXT) -- 'resolved', 'open', or 'monitoring'
-- started_at (TIMESTAMPTZ) -- when the incident started
-- resolved_at (TIMESTAMPTZ) -- when resolved, NULL if still active
-- duration_minutes (INTEGER) -- total duration in minutes, NULL if still active
-- root_cause_category (TEXT) -- 'database', 'deployment', 'network', 'third-party', or 'configuration'
-- description (TEXT)
-- postmortem_written (BOOLEAN)"""
+- deploy_id (TEXT) -- e.g. 'DEP-2024-001'
+- service (TEXT) -- 'auth-service', 'payment-api', 'data-pipeline', 'api-gateway', 'notification-service'
+- version (TEXT) -- e.g. 'v2.13.1'
+- environment (TEXT) -- 'production', 'staging', 'canary'
+- deployed_by (TEXT) -- engineer who triggered the deployment
+- team (TEXT) -- 'platform', 'backend', 'data'
+- deploy_type (TEXT) -- 'feature', 'hotfix', 'rollback', 'config', 'migration'
+- status (TEXT) -- 'success', 'failed', 'rolled_back'
+- started_at (TIMESTAMPTZ) -- when deployment started
+- completed_at (TIMESTAMPTZ) -- when completed, NULL if still running
+- duration_seconds (INTEGER) -- total duration in seconds
+- triggered_incident (BOOLEAN) -- TRUE if this deployment caused a production incident
+- rollback_of (TEXT) -- deploy_id being reversed if this is a rollback, else NULL
+- notes (TEXT) -- optional deployment notes"""
 
 
 class SQLService:
@@ -34,9 +37,9 @@ class SQLService:
     def _get_sql_query_client():
         """Get Supabase admin client for executing validated SQL queries.
 
-        The production_incidents table is eval reference data. Safety is enforced by:
+        The deployments table is eval reference data. Safety is enforced by:
         1. Application-level validation (_validate_query)
-        2. Database-level RPC function (execute_incidents_query) restricts to production_incidents table
+        2. Database-level RPC function (execute_deployments_query) restricts to deployments table
         """
         from services.supabase_service import get_supabase_admin
         return get_supabase_admin()
@@ -45,7 +48,7 @@ class SQLService:
     def _validate_query(sql: str) -> tuple[bool, str]:
         """Validate SQL query for safety.
 
-        Only allows SELECT queries on the production_incidents table with max 100 rows.
+        Only allows SELECT queries on the deployments table with max 100 rows.
 
         Args:
             sql: The SQL query to validate
@@ -75,18 +78,18 @@ class SQLService:
         # Handle both unquoted and quoted identifiers
         from_match = re.search(r'\bFROM\s+"?(\w+)"?', normalized)
         if not from_match:
-            return False, "Query must contain a FROM clause referencing production_incidents"
+            return False, "Query must contain a FROM clause referencing deployments"
         table_name = from_match.group(1)
-        if table_name != "PRODUCTION_INCIDENTS":
-            return False, f"Only the 'production_incidents' table is allowed, got: {table_name.lower()}"
+        if table_name != "DEPLOYMENTS":
+            return False, f"Only the 'deployments' table is allowed, got: {table_name.lower()}"
 
         # Check for JOIN on other tables (explicit JOIN syntax)
         join_matches = re.findall(r'\bJOIN\s+(\w+)', normalized)
         for table in join_matches:
-            if table != "PRODUCTION_INCIDENTS":
+            if table != "DEPLOYMENTS":
                 return False, f"JOIN with table '{table.lower()}' is not allowed"
 
-        # Block implicit comma-joins (e.g. FROM production_incidents, pg_shadow)
+        # Block implicit comma-joins (e.g. FROM deployments, pg_shadow)
         # Extract everything between FROM and the first SQL clause keyword, then look for commas
         from_clause = re.search(
             r'\bFROM\b(.*?)(?:\bWHERE\b|\bGROUP\s+BY\b|\bORDER\s+BY\b|\bLIMIT\b|\bHAVING\b|\bJOIN\b|\Z)',
@@ -119,7 +122,7 @@ class SQLService:
         """Convert a natural language query to SQL and execute it.
 
         Args:
-            query: Natural language question about the production_incidents table
+            query: Natural language question about the deployments table
 
         Returns:
             SQLQueryResponse with query results or error
@@ -142,10 +145,10 @@ class SQLService:
                     "content": (
                         "You are a SQL query generator. Given a natural language question, "
                         "generate a valid PostgreSQL SELECT query for the following schema:\n\n"
-                        f"{INCIDENTS_SCHEMA}\n\n"
+                        f"{DEPLOYMENTS_SCHEMA}\n\n"
                         "Rules:\n"
                         "- ONLY generate SELECT queries\n"
-                        "- ONLY query the 'production_incidents' table\n"
+                        "- ONLY query the 'deployments' table\n"
                         "- Always include a LIMIT clause (max 100)\n"
                         "- Use proper PostgreSQL syntax\n"
                         "- For text searches, use ILIKE for case-insensitive matching"
@@ -186,7 +189,7 @@ class SQLService:
             # Step 3: Execute via Supabase RPC function (defense-in-depth)
             client = SQLService._get_sql_query_client()
             response = client.rpc(
-                'execute_incidents_query',
+                'execute_deployments_query',
                 {'query_text': generated_sql}
             ).execute()
 

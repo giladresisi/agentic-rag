@@ -98,14 +98,14 @@ async def collect_stream_response(conversation_history, model="gpt-4o-mini"):
     return full_response, sources
 
 
-async def test_incidents_query():
-    """Test 1: Incidents query - verify SQL tool is used for incident questions."""
+async def test_deployments_query():
+    """Test 1: Deployments query - verify SQL tool is used for deployment questions."""
     print("\n" + "-" * 50)
-    print("Test 1: Incidents Query (SQL Tool)")
+    print("Test 1: Deployments Query (SQL Tool)")
     print("-" * 50)
 
     conversation_history = [
-        {"role": "user", "content": "What P1 incidents are in the database?"}
+        {"role": "user", "content": "How many deployments have been made to the auth-service?"}
     ]
 
     try:
@@ -114,14 +114,13 @@ async def test_incidents_query():
         print(f"Response preview: {full_response[:200]}...")
 
         response_lower = full_response.lower()
-        has_p1 = "p1" in response_lower
-        has_inc = "inc-" in response_lower or "incident" in response_lower
-        has_incident_content = has_p1 or has_inc
+        has_deploy = "deploy" in response_lower or "dep-" in response_lower or "auth-service" in response_lower
+        has_deployment_content = has_deploy
 
-        if has_incident_content:
-            print(f"{PASS} Response contains incident-related content (P1/INC-)")
+        if has_deployment_content:
+            print(f"{PASS} Response contains deployment-related content")
         else:
-            print(f"{WARN} Response may not contain expected incident content")
+            print(f"{WARN} Response may not contain expected deployment content")
             print(f"Full response: {full_response}")
 
         if sources is None:
@@ -129,10 +128,10 @@ async def test_incidents_query():
         else:
             print(f"{WARN} Got document sources - retrieval tool may have been used instead of SQL")
 
-        return has_incident_content
+        return has_deployment_content
 
     except Exception as e:
-        print(f"{FAIL} Incidents query failed: {e}")
+        print(f"{FAIL} Deployments query failed: {e}")
         return False
 
 
@@ -271,10 +270,10 @@ async def test_multi_tool_sequence():
     except Exception as e:
         print(f"  {FAIL} Turn 1 failed: {e}")
 
-    # Turn 2: Ask about incidents (SQL tool) - fresh conversation
-    print("\n  Turn 2: Incidents question...")
+    # Turn 2: Ask about deployments (SQL tool) - fresh conversation
+    print("\n  Turn 2: Deployments question...")
     conversation_history = [
-        {"role": "user", "content": "List all P2 incidents in the database."}
+        {"role": "user", "content": "Which deployments triggered a production incident?"}
     ]
 
     try:
@@ -282,13 +281,13 @@ async def test_multi_tool_sequence():
         print(f"  Response: {response2[:150]}...")
 
         response2_lower = response2.lower()
-        has_incidents = any(w in response2_lower for w in ["p2", "incident", "inc-", "severity"])
+        has_deployments = any(w in response2_lower for w in ["deploy", "dep-", "triggered", "incident"])
 
-        if has_incidents:
-            print(f"  {PASS} Turn 2: SQL tool returned incident-related content")
+        if has_deployments:
+            print(f"  {PASS} Turn 2: SQL tool returned deployment-related content")
             results["incidents"] = True
         else:
-            print(f"  {WARN} Turn 2: Response may not contain incident content")
+            print(f"  {WARN} Turn 2: Response may not contain deployment content")
 
     except Exception as e:
         print(f"  {FAIL} Turn 2 failed: {e}")
@@ -359,7 +358,7 @@ async def main():
 
     results = {}
 
-    results["incidents_query"] = await test_incidents_query()
+    results["deployments_query"] = await test_deployments_query()
     results["document_retrieval"] = await test_document_retrieval()
     results["web_search"] = await test_web_search()
     results["multi_tool_sequence"] = await test_multi_tool_sequence()

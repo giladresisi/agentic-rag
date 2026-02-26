@@ -42,7 +42,7 @@ def main():
     # Send complex query that should trigger multiple tool calls
     print("="*70)
     print("QUERY: Multi-part incidents database question")
-    print("(Should trigger multiple query_incidents_database calls)")
+    print("(Should trigger multiple query_deployments_database calls)")
     print("="*70)
 
     query = """I have two separate questions about production incidents:

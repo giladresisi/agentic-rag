@@ -68,7 +68,7 @@ async def fake_stream(*chunks):
 
 def test_single_turn_dataset_has_12_entries():
     assert len(TOOL_SELECTION_DATASET) == 12
-    valid_tools = {"retrieve_documents", "query_incidents_database", "search_web"}
+    valid_tools = {"retrieve_documents", "query_deployments_database", "search_web"}
     valid_cats = {"retrieve", "sql", "web"}
     for s in TOOL_SELECTION_DATASET:
         assert isinstance(s, ToolSelectionSample)

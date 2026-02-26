@@ -59,7 +59,7 @@ def main():
     # Test 1: Multi-part query that should trigger strategic retrieval
     print("="*80)
     print("TEST: Multi-part incidents database query")
-    print("Expected: Multiple query_incidents_database tool calls")
+    print("Expected: Multiple query_deployments_database tool calls")
     print("="*80)
 
     query = """I have two separate questions about the production incidents database:
@@ -117,7 +117,7 @@ Please answer both questions thoroughly using the incidents database."""
     print("     - tool_calls: Array with details of each call")
     print("     - tool_calls_count: Total number of tool calls")
     print("  2. Child traces for each tool execution:")
-    print("     - query_incidents_database calls")
+    print("     - query_deployments_database calls")
     print("     - Inputs (natural_language_query)")
     print("     - Outputs (sql_query, row_count, sample_results)")
     print("\nThe strategic system prompt should encourage:")
