@@ -12,5 +12,10 @@
       "Bash(uv run:*)",
       "Bash(git tag:*)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "cloud-run",
+    "vercel"
+  ],
+  "enableAllProjectMcpServers": true
 }

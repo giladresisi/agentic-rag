@@ -6,7 +6,7 @@ A complete agentic RAG system with multi-tenant chat interface, document ingesti
 
 See it in action:
 
-[![IR-Copilot App](./video-thumbnail.png)](https://youtu.be/iybjMFp-JdQ?si=BjiJO3fdn7ontHe7)
+![IR-Copilot App](./gif.gif)
 
 ---
 
@@ -210,6 +210,10 @@ The current setup requires manual environment configuration across multiple serv
 - **CI testing environment**: GitHub Actions workflow running the full backend and E2E test suites against the containerized stack — requires test doubles or stubs for external APIs (OpenAI, LangSmith, Tavily, Cohere) and a structured logging policy (structured JSON logs, no stdout noise) so CI can parse and assert on output
 - **Automated 1-click setup**: Extend `setup.sh` to detect a Docker environment, skip manual Supabase steps, and wire credentials automatically — reducing new-user setup from ~15 manual steps to a single command
 
+### 5. Hallucination Resistance Scoring
+
+The current RAGAS golden dataset only covers in-distribution questions. Adding out-of-distribution queries (with ground truth "This information is not available") would give RAGAS a quantified hallucination resistance score alongside the existing retrieval quality metrics.
+
 </details>
 
 <details>
@@ -279,6 +283,21 @@ While all 8 modules have been implemented and core functionality is working, sev
 This project was inspired by the **[Claude Code RAG Masterclass](https://www.youtube.com/watch?v=xgPWCuqLoek)**. The original masterclass covered 8 modules of a RAG architecture, as detailed in [PRD.md](./PRD.md). On top of that foundation, many extras were added that weren't part of the original course — including RAG evaluation (RAGAS), a 1-click setup script, Cloud Run deployment, automated frontend (Playwright) and backend (pytest) tests, AI-assisted code review workflows, and observability via LangSmith.
 
 </details>
+
+---
+
+## Evaluation
+
+The project ships with three [RAGAS](https://docs.ragas.io) eval pipelines covering the full quality stack — from simplified retrieval through tool routing to end-to-end chat quality — with results pushed to LangSmith.
+
+Run all three pipelines with one command:
+
+```bash
+cd backend && bash eval/run_evals.sh          # push to LangSmith
+cd backend && bash eval/run_evals.sh --dry-run # scores only, no push
+```
+
+👉 **[See backend/eval/README.md](./backend/eval/README.md)** for prerequisites, per-pipeline details, latest scores, and known metric quirks.
 
 ---
 

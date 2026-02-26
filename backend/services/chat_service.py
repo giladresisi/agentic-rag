@@ -51,14 +51,14 @@ class ChatService:
     TEXT_TO_SQL_TOOL = {
         "type": "function",
         "function": {
-            "name": "query_incidents_database",
-            "description": "Query a database of production incidents using natural language. Use for questions about incidents, severity, affected services, resolution times, root causes. Examples: 'Show all P1 incidents', 'Which service had the most outages?', 'Average resolution time for database issues'",
+            "name": "query_deployments_database",
+            "description": "Query a deployment and change management database using natural language. Use for structured questions about deployment history: which versions were deployed, when, by whom, to which service, success/failure status, rollback frequency, deployment counts and averages. Do NOT use for incident root causes, detection gaps, or postmortem analysis — use retrieve_documents for narrative content from uploaded documents.",
             "parameters": {
                 "type": "object",
                 "properties": {
                     "query": {
                         "type": "string",
-                        "description": "Natural language query about production incidents"
+                        "description": "Natural language query about deployments or change history"
                     }
                 },
                 "required": ["query"]
@@ -200,7 +200,7 @@ class ChatService:
                 "content": """You are a helpful assistant with access to multiple tools:
 
 1. retrieve_documents: Search uploaded document content (semantic search, returns 5 relevant chunks)
-2. query_incidents_database: Query a production incidents database with natural language (structured data queries)
+2. query_deployments_database: Query a deployment and change management database with natural language (structured data queries)
 3. search_web: Search web for current information (use for recent events, news)
 4. analyze_document_with_subagent: Delegate complex full-document analysis to specialized sub-agent
 
@@ -273,9 +273,28 @@ PATTERN B - Retrieval + Subagents (for comprehensive analysis):
           analyze_document_with_subagent(document_name="exact_filename.ext", task="...")
   NEVER guess document names - always use names from Step 1!
 
-**Other Tools:**
-- Questions about incidents/severity/services → query_incidents_database (can query multiple times)
-- Current events/recent info → search_web (use after checking documents)
+**Tool selection for incidents vs deployments — CRITICAL:**
+
+INCIDENT CONTENT (postmortem narrative) → ALWAYS use retrieve_documents:
+- WHY an incident happened, root causes, technical failure analysis
+- HOW LONG an incident lasted, timeline from start to detection to resolution
+- Detection gaps, monitoring blind spots, time-to-detect, time-to-resolve
+- Resolution steps, remediation actions, rollback failures
+- Comparisons across incidents (e.g. "which incident had the longest resolution time")
+- Examples: "How long did INC-2024-003 last?", "What monitoring gap caused the outage?",
+  "How was the deployment rollback failure resolved?", "Which incident took longest to fix?"
+- This content lives in uploaded postmortem documents, NOT in the deployments database.
+
+DEPLOYMENT METADATA (structured data) → query_deployments_database:
+- Who deployed what version, when, to which service
+- Deployment success/failure/rollback STATUS (not WHY it failed)
+- Deployment counts, averages, frequency, ordering by date
+- Examples: "How many deployments to auth-service?", "Average deployment duration in seconds?",
+  "List failed deployments ordered by start date"
+- query_deployments_database has NO narrative, no root causes, no incident timelines.
+
+Other tools:
+- Current events/real-time info → search_web (use when documents won't have the answer)
 - Incomplete information? Make additional tool calls with refined queries
 
 QUALITY STANDARDS:
@@ -439,7 +458,7 @@ QUALITY STANDARDS:
                             "content": context_text
                         })
 
-                    elif tool_name == "query_incidents_database":
+                    elif tool_name == "query_deployments_database":
                         query = args.get("query", "")
                         sql_response = await sql_service.natural_language_to_sql(query)
 
@@ -448,7 +467,7 @@ QUALITY STANDARDS:
 
                             # Track tool call for summary
                             tool_call_info = {
-                                "tool": "query_incidents_database",
+                                "tool": "query_deployments_database",
                                 "inputs": {"natural_language_query": query},
                                 "outputs": {
                                     "error": sql_response.error,
@@ -461,18 +480,18 @@ QUALITY STANDARDS:
                             # Trace failed SQL query
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
-                                tool_name="query_incidents_database",
+                                tool_name="query_deployments_database",
                                 inputs=tool_call_info["inputs"],
                                 outputs=tool_call_info["outputs"],
                                 metadata={"status": "failed"}
                             )
                         else:
-                            context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} incidents):\n"
+                            context_text = f"SQL Query: {sql_response.query}\n\nResults ({sql_response.row_count} rows):\n"
                             context_text += "\n".join([str(r) for r in sql_response.results[:20]])
 
                             # Track tool call for summary
                             tool_call_info = {
-                                "tool": "query_incidents_database",
+                                "tool": "query_deployments_database",
                                 "inputs": {"natural_language_query": query},
                                 "outputs": {
                                     "sql_query": sql_response.query,
@@ -486,12 +505,12 @@ QUALITY STANDARDS:
                             # Trace successful SQL query
                             ChatService._trace_tool_call(
                                 parent_run_id=run_id,
-                                tool_name="query_incidents_database",
+                                tool_name="query_deployments_database",
                                 inputs=tool_call_info["inputs"],
                                 outputs=tool_call_info["outputs"],
                                 metadata={
                                     "status": "success",
-                                    "table": "production_incidents"
+                                    "table": "deployments"
                                 }
                             )
 
@@ -502,7 +521,7 @@ QUALITY STANDARDS:
                                 "id": tool_call["id"],
                                 "type": "function",
                                 "function": {
-                                    "name": "query_incidents_database",
+                                    "name": "query_deployments_database",
                                     "arguments": tool_call["function"]["arguments"]
                                 }
                             }]

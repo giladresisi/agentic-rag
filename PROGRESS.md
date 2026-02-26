@@ -874,18 +874,513 @@ After completing post-script steps, user can run:
 
 ## Feature: RAGAS Evaluation Pipeline
 
-### Planning Phase
-**Status**: 📋 Planned
+### Execution Phase
+**Status**: ✅ Complete — pipeline built, behavioral unit tests added, integration tests skippable
 **Started**: 2026-02-24
 **Plan File**: `.agents/plans/ragas-evaluation-pipeline.md`
 **Spec**: `.claude/specs/002-ragas-evaluation/`
 **Depends on**: IR-Copilot Theme Change (postmortem docs must exist and be ingested)
 
-Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.io) library. Calls retrieval + LLM services directly as Python imports (no HTTP, no running server needed). Scores 15 golden Q&A pairs drawn from the 6 postmortem documents across four metrics: `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`. Results are pushed to LangSmith as a named Experiment (`rag-eval-YYYY-MM-DD`). Includes 4 mocked unit tests that run with no live API calls.
+Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.io) library. Calls retrieval + LLM services directly as Python imports (no HTTP, no running server needed). Scores 15 golden Q&A pairs drawn from the 6 postmortem documents across four metrics: `faithfulness`, `answer_relevancy`, `context_precision`, `context_recall`. Results are pushed to LangSmith as dataset `ir-copilot-golden-set`.
 
-**New files:** `backend/eval/dataset.py` · `backend/eval/pipeline.py` · `backend/eval/evaluate.py` · `backend/eval/tests/test_eval_pipeline.py`
-**New dependency:** `ragas>=0.2` (+ `pytest-asyncio>=0.21` for unit tests)
-**Manual step:** Upload postmortem docs via app UI before running `evaluate.py`; live eval costs ~$0.05–0.15 in OpenAI API calls
+**Files created:**
+- `backend/eval/__init__.py`
+- `backend/eval/dataset.py` — 15 EvalSample golden Q&A pairs (5 root cause · 3 timeline · 3 detection gap · 3 remediation · 1 cross-doc)
+- `backend/eval/pipeline.py` — `run_rag_pipeline(question) -> {question, answer, contexts}`
+- `backend/eval/evaluate.py` — RAGAS scoring + LangSmith push
+- `backend/eval/tests/test_eval_pipeline.py` — 4 structural mocked unit tests (all passing)
+- `backend/eval/requirements-eval.txt` — eval-only deps (ragas, datasets)
+- `backend/eval/postmortems/*.md` — 6 incident postmortem documents
+
+**Dependency note:** `ragas` is not in `pyproject.toml` due to transitive conflicts; installed separately via `uv pip install -r eval/requirements-eval.txt`. Must be re-run after any `uv sync`. `langsmith` was upgraded from `==0.1.147` to `>=0.2.0` in `pyproject.toml` (resolved to 0.7.6) to fix the LangSmith trace closure issue (see bug fixes below).
+
+**RAGAS API adaptation:** Plan was written for RAGAS 0.1.x (`Dataset.from_dict()`). Installed version is 0.4.3, which uses `EvaluationDataset` + `SingleTurnSample`. `evaluate.py` uses the 0.4.3 API.
+
+**Windows constraint:** `pyarrow.dataset` DLL is blocked by Windows Application Control. `evaluate.py` patches `sys.modules` at startup to mock it — no-op on Linux/Cloud Run where the DLL loads normally.
+
+**Behavioral tests added (2026-02-25).** Test count expanded from 4 to 12 (10 automated + 2 skippable integration):
+
+| Test | Type | Covers |
+|------|------|--------|
+| `test_pipeline_includes_all_retrieved_contexts` | Unit | Multi-chunk retrieval, context list completeness |
+| `test_pipeline_passes_contexts_to_llm` | Unit | Context concatenation format sent to LLM |
+| `test_off_topic_queries_return_no_context_fallback[x3]` | Unit (parametrized) | Anti-hallucination for 3 off-topic queries |
+| `test_build_ragas_dataset_shape` | Unit | `build_ragas_dataset` produces valid `EvaluationDataset` |
+| `test_in_distribution_query_live` | Integration (skipped) | Golden dataset query retrieves relevant context |
+| `test_no_context_query_live` | Integration (skipped) | Off-topic query returns no-context fallback |
+
+**Remaining gap — new-document queries:** Uploading additional documents via the app UI and verifying retrieval is scoped to those docs requires a full E2E harness. Documented as a manual validation step; cannot be unit-tested.
+
+**Integration tests** run when `EVAL_DOCS_INGESTED=true` env var is set. Skipped otherwise.
+Both integration tests verified passing (2026-02-25): in-distribution retrieval returned relevant context; off-topic query returned anti-hallucination fallback.
+
+**evaluate.py — bugs fixed and first successful run (2026-02-25):**
+
+Four bugs prevented `evaluate.py` from running end-to-end. All fixed:
+
+| Bug | Root Cause | Fix |
+|-----|-----------|-----|
+| `TypeError: All metrics must be initialised metric objects` | `ragas.metrics.collections` exports a new API incompatible with legacy `evaluate()` — its classes don't inherit from `ragas.metrics.base.Metric` | Switched to legacy per-module singletons: `from ragas.metrics._faithfulness import faithfulness` etc. |
+| `answer_relevancy: nan` | `AnswerRelevancy` (`MetricWithEmbeddings`) requires an embeddings object; none was provided | Pass `embeddings=embedding_factory("openai")` to `evaluate()` |
+| LangSmith "ragas evaluation" trace stuck spinning | `langchain_core` 1.2.15 calls `RunTree.patch(exclude_inputs=...)` but langsmith 0.1.147's `patch()` took no arguments — callback threw, run never closed | Bumped `langsmith` to `>=0.2.0` in `pyproject.toml` (resolves to 0.7.6 which has `patch(*, exclude_inputs=False)`) |
+| Cohere 429 on question 11/15 | Trial API key rate-limited to 10 req/min; pipeline called reranker once per question | Workaround: `enable_reranking=False` in `eval/pipeline.py`. Permanent fix: switch `RERANKING_PROVIDER=local` in `.env` (no rate limits) |
+| Scores all 0 (no context retrieved) | `evaluate.py` used placeholder UUID `00000000-...` with no ingested docs | Sign in with `TEST_EMAIL`/`TEST_PASSWORD` via Supabase auth to get the real user UUID; pass it to `run_rag_pipeline` |
+
+**First clean run scores (2026-02-25, test user, reranking disabled):**
+```
+faithfulness          : 0.922
+answer_relevancy      : 0.973
+context_precision     : 0.863
+context_recall        : 0.967
+```
+15 examples pushed to LangSmith dataset `ir-copilot-golden-set`. LangSmith trace closes with green checkmark (no spinner).
+
+**Second run (2026-02-25, test user, local reranking enabled):**
+
+`eval/pipeline.py` updated to use config default (`enable_reranking=None`) instead of the Cohere workaround. `RERANKING_PROVIDER=local` in `.env` means the cross-encoder runs locally with no rate limits.
+
+```
+faithfulness          : 0.978  (+0.056 vs no-rerank baseline)
+answer_relevancy      : 0.958  (-0.015)
+context_precision     : 0.927  (+0.064)
+context_recall        : 0.922  (-0.045)
+```
+
+Local reranking improves faithfulness and context_precision meaningfully. answer_relevancy and context_recall are within noise. Overall: reranking raises retrieval quality with no rate-limit risk.
+
+**Dependency note (updated):** `ragas` cannot be added to `pyproject.toml` via `uv sync --group eval` because ragas 0.4.x requires `langchain-community`, whose 0.4.x series (compatible with langchain 1.x) requires `pydantic-settings>=2.10.1`, conflicting with the production pin `pydantic-settings==2.5.2`. Using `uv pip install -r eval/requirements-eval.txt` works because it installs into the already-resolved env (picking langchain-community 0.4.x + langchain 1.2.10) without re-solving project constraints. `requirements-eval.txt` updated with this explanation.
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/ragas-evaluation-pipeline.md`
+- Full implementation summary (both sessions)
+- Divergences and resolutions (FK constraint, skipif timing, RAGAS API version)
+- Test results and metrics (12/12 passing)
+- Recommendations for plan and process improvements
+
+---
+
+## Feature: RAGAS ToolCallAccuracy Evaluation
+
+**Status**: Complete
+**Completed**: 2026-02-25
+**Plan File**: `.agents/plans/ragas-tool-call-accuracy.md`
+
+### What was built
+- `supabase/migrations/016_production_incidents.sql` — `production_incidents` table (6 seed rows) + `execute_incidents_query` RPC (mirrors 013 pattern)
+- `backend/services/sql_service.py` + `chat_service.py` — `books` domain fully replaced with `production_incidents`; tool renamed `query_incidents_database`
+- `backend/eval/tool_selection_dataset.py` — 12 single-turn + 3 multi-turn samples with `reference_goal` fields
+- `backend/eval/tool_selection_pipeline.py` — `run_tool_selection_pipeline()` (single-turn) + `run_multiturn_pipeline()` (real retrieve→analyze sequence)
+- `backend/eval/evaluate_tool_selection.py` — 3-pass orchestrator: `tool_routing_accuracy`, `sequence_accuracy`, `AgentGoalAccuracy` (gpt-4o-mini); `--dry-run` / `--single-only` CLI flags
+- `backend/eval/tests/test_tool_selection.py` — 11 unit tests, all mocked; full suite 23/23 passing
+- `backend/tests/run_tests.sh` — `--include-evals` flag added; runs `eval/tests/` alongside `tests/auto/` when set; warns if `EVAL_DOCS_INGESTED` not set in `.env`
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/ragas-tool-call-accuracy.md`
+- Full implementation summary (all 4 waves)
+- Divergences: system prompt embedding, manual migration apply, test count fix
+- Test results: 23/23 passing (11 new + 12 pre-existing)
+- Alignment score: 9/10
+
+**System Review:** `.agents/system-reviews/ragas-tool-call-accuracy.md`
+- Alignment score: 9/10
+- Divergence analysis: 3 identified (2 GOOD ✅, 1 ENVIRONMENTAL ⚠️) — none problematic
+- Process improvements: CLAUDE.md additions for migration apply, symbol exportability,
+  eval boilerplate; plan template split for agent-executable vs manual validation steps
+- Key action: create `eval/compat.py` before next eval module to consolidate pyarrow mock
+
+---
+
+## Eval Coverage Gap: Production Chat Endpoint Quality
+
+**Status**: ✅ Complete
+**Identified**: 2026-02-25
+**Completed**: 2026-02-26
+**Plan File**: `.agents/plans/chat-quality-evaluation.md`
+
+### RAGAS Scores (2026-02-26 run 3, `gpt-4o`, 15 golden samples)
+
+#### `evaluate.py` — simplified RAG pipeline (retrieve → one-shot LLM completion)
+| Metric | Score |
+|--------|-------|
+| faithfulness | 0.865 |
+| answer_relevancy | 0.743 |
+| context_precision | 0.347 |
+| context_recall | 0.156 |
+
+#### `evaluate_tool_selection.py` — tool routing + arg quality
+| Metric | Score |
+|--------|-------|
+| routing accuracy (overall) | **1.000 (12/12)** |
+| routing accuracy — retrieve | **1.000 (4/4)** |
+| routing accuracy — sql | **1.000 (4/4)** |
+| routing accuracy — web | **1.000 (4/4)** |
+| arg keyword relevance (deterministic) | **1.000 (12/12)** |
+| multi-turn sequence accuracy | 0.667 (2/3) |
+| arg quality / AgentGoalAccuracy | 0.133 ⚠️ |
+
+#### `evaluate_chat_quality.py` — real ChatService end-to-end
+| Metric | Score |
+|--------|-------|
+| faithfulness | 0.882 |
+| answer_relevancy | **0.963** |
+| context_precision | 0.300 |
+| context_recall | 0.122 |
+| arg_keyword_relevance | **1.000 (15/15)** |
+
+Note: `AgentGoalAccuracy` (0.133) suffered `max_tokens` truncation errors during scoring — the metric's long JSON prompts hit the model's output limit repeatedly, producing unreliable results. All other metrics are reliable.
+
+**Previous run (2026-02-26 run 2, post-deployments fix):** RAG faithfulness 0.600 / chat faithfulness 0.207 / retrieve routing 0.250 (1/4) / chat arg_keyword_relevance 0.667 (10/15). All RAGAS metrics except faithfulness were 0.000 due to `strictness=3` returning only 1 generation.
+
+> **Fixes confirmed working (run 3):**
+> - `answer_relevancy.strictness = 1` resolves the 0.000 RAGAS scores — all 4 RAGAS metrics now produce valid scores
+> - Tool routing at 1.000 across all 3 categories (retrieve routing was 0.250 in run 2, now fixed by deployments table rename + system prompt rewrite)
+> - Chat `arg_keyword_relevance` at 1.000 (15/15), up from 0.667 (10/15)
+>
+> **Remaining gaps:**
+> - `context_precision` and `context_recall` are consistently low (~0.1–0.35) — retrieval ranking quality needs improvement
+> - Multi-turn sequence (retrieve→analyze): 0.667 (2/3) — subagent delegation not fully reliable
+> - `AgentGoalAccuracy` results unreliable due to `max_tokens` truncation
+
+---
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/chat-quality-evaluation.md`
+- Detailed implementation summary
+- Divergences and resolutions
+- Test results and metrics
+- Team performance analysis
+
+**System Review:** `.agents/system-reviews/chat-quality-evaluation.md`
+- Alignment score: 9/10
+- Divergence analysis (1 identified: 1 justified — import placement plan inconsistency, self-corrected by both Wave 1 agents)
+- All 5 validation levels agent-executable and passing (no DB dependency — cleanest validation in eval series)
+- Key actions: create `eval/compat.py` (overdue from prior review), add import-placement testability cross-check to CLAUDE.md
+
+### Background
+
+This section was initially written as a planning document. Here is the retrospective of what was discovered and what was actually built.
+
+**The coverage gap** was identified by the user on 2026-02-25: the production chat endpoint had never been qualitatively evaluated. Two eval scripts existed but neither covered the full agentic loop:
+
+- `eval/evaluate.py` — simplified RAG pipeline (retrieval → single LLM completion). No tool calling, no routing. Good for measuring retrieval quality in isolation.
+- `eval/evaluate_tool_selection.py` — tool routing and arg quality using the real `chat_service.py`. Covers which tool is selected and whether args are reasonable, but never executes the tool and never scores the final synthesized response.
+
+The missing piece: after the LLM selects a tool, executes it, and synthesizes a response from the results — that final response was never scored.
+
+**What was built** — `eval/evaluate_chat_quality.py`:
+- Calls `chat_service.stream_response()` directly as a Python import (no HTTP server needed), exercising the full agentic loop
+- Captures tool calls, retrieved contexts, and final streamed response text
+- Scores with all four RAGAS metrics + deterministic `arg_keyword_relevance` keyword check
+- Pushes per-sample results to LangSmith dataset `ir-copilot-chat-quality`
+- Shares the same 15-question golden dataset as `evaluate.py`
+
+**User's key contributions to the eval improvement story:**
+
+The first runs of `evaluate_chat_quality.py` produced near-zero scores across the board. The user investigated and diagnosed two root causes that agents had missed:
+
+1. **Missing postmortem uploads** — all RAGAS scores (faithfulness, precision, recall) were zero because the postmortem documents had not been re-uploaded to the deployment after the `production_incidents → deployments` table rename. The eval was running against an empty document store. The user identified this directly, re-uploaded the 6 postmortem files, and scores became non-zero immediately.
+
+2. **System prompt routing ambiguity** — after uploads, `arg_keyword_relevance` was still 0/15: the LLM was routing every retrieval question to `query_deployments_database` instead of `retrieve_documents`. The system prompt said "incidents, severity, services, resolution times → query_incidents_database" — which matched the language of most golden questions. The user identified this routing conflict, drove the rename of `production_incidents` to `deployments` and the rewrite of the system prompt to make the domain boundary unambiguous. This brought `arg_keyword_relevance` from 0/15 to 10/15 (run 2) and then 15/15 (run 3).
+
+3. **RAGAS `strictness` bug** — `answer_relevancy`, `context_precision`, and `context_recall` were all 0.000 across all runs due to RAGAS requesting `n=3` completions but modern OpenAI APIs returning only `n=1`. The user flagged this as a scoring infrastructure issue rather than a genuine quality problem. Setting `answer_relevancy.strictness = 1` fixed all three metrics in run 3.
+
+Without the user's investigation, all three issues would have remained invisible — agents would have iterated on prompt tuning against a silent empty document store and broken scoring infrastructure.
+
+### Current automated coverage
+
+| Flow step | Coverage | Script/test |
+|-----------|----------|-------------|
+| Tool routing (which tool) | ✅ mocked unit + ✅ eval script | `test_tool_selection.py`, `evaluate_tool_selection.py` |
+| Arg quality (keyword check) | ✅ keyword logic unit + ✅ eval script | `test_tool_selection.py` T20–T22, `evaluate_tool_selection.py` |
+| Multi-turn sequence | ✅ mocked unit + ✅ eval script | `test_tool_selection.py` T12–T15, `evaluate_tool_selection.py` |
+| Tool execution mechanics | ✅ live auto tests | `test_hybrid_search.py`, `test_sql_service.py`, etc. |
+| Final response quality (real chat) | ✅ scored, faithfulness 0.882 / relevancy 0.963 | `evaluate_chat_quality.py` |
+| Retrieval ranking quality | ⚠️ scored, precision 0.300 / recall 0.122 | all three eval scripts |
+| Multi-turn retrieve→analyze | ⚠️ 2/3 sequences correct | `evaluate_tool_selection.py` |
+
+### Remaining gaps and next steps for the next agent
+
+**1. Low `context_precision` and `context_recall` (0.1–0.35 across all three eval scripts)**
+
+This is the most impactful remaining quality gap. The LLM retrieves chunks that are grounded in the right documents but the ranking is not precise enough: lower-relevance chunks score above the one that directly answers the question, or the right chunk is not retrieved at all.
+
+What to investigate:
+- Run `evaluate.py` with `--verbose` or add per-sample logging to see which questions have the lowest precision/recall. Cross-check the retrieved chunk text against the ground truth to understand whether the problem is ranking (right chunks retrieved but ranked low) or coverage (right chunk not retrieved at all).
+- The golden dataset has 15 questions drawn from 6 short documents — every answer is grounded in one specific paragraph. If the retrieval pipeline returns 5 chunks and the answer chunk is rank 4 or 5, precision will be low.
+- Candidates for improvement:
+  - **Better query construction**: `evaluate.py` uses the raw question as the retrieval query; `evaluate_chat_quality.py` uses whatever arg the LLM chose. Compare the two sets of args in LangSmith — if chat quality precision (0.300) is lower than RAG pipeline precision (0.347), the LLM is choosing suboptimal args.
+  - **Reranker tuning**: `RERANKING_PROVIDER=local` is set; the cross-encoder should improve rank ordering. Verify it is actually being called during eval (add a log or check LangSmith traces).
+  - **Chunk size / overlap**: Current chunking is fixed-size (1000 chars, 200 overlap). The postmortem documents have clearly defined sections (Summary, Timeline, Root Cause, Remediation). Section-aware chunking would likely improve precision significantly since each chunk would correspond to a coherent unit.
+  - **Top-k**: The pipeline returns 5 chunks. If the relevant chunk is always retrieved but ranked 4–5, reducing top-k or tightening the similarity threshold would raise precision at the cost of recall.
+
+**2. Multi-turn sequence accuracy 0.667 (2/3)**
+
+One of the three `retrieve_documents → analyze_document_with_subagent` sequences failed. The dataset has 3 multi-turn samples (see `eval/tool_selection_dataset.py`, `MULTI_TURN_DATASET`). The failing sample needs to be identified from LangSmith traces and the actual tool sequence it produced inspected.
+
+What to investigate:
+- Look at the LangSmith `ir-copilot-tool-selection` dataset run from 2026-02-26. Find the multi-turn sample where `actual_sequence != expected_sequence`. Check what sequence the model actually produced.
+- Common failure modes: (a) model goes straight to `analyze_document_with_subagent` without first calling `retrieve_documents` to get the filename; (b) model calls `retrieve_documents` correctly but never follows up with `analyze_document_with_subagent`; (c) model picks the wrong document filename.
+- If the failure is a system prompt issue, add a more explicit example of the retrieve→analyze pattern to the `PATTERN B` block in `chat_service.py` and `tool_selection_pipeline.py`.
+
+**3. `AgentGoalAccuracy` results unreliable (0.133, truncated)**
+
+The RAGAS `AgentGoalAccuracy` metric generates a long JSON prompt that exceeds `gpt-4o-mini`'s output token limit, causing truncated responses and `InstructorRetryException` after 3 attempts, defaulting to 0.0. The 0.133 score is an artifact of truncation, not actual arg quality.
+
+What to investigate / fix options:
+- Switch to `gpt-4o` instead of `gpt-4o-mini` for the LLM judge in `evaluate_tool_selection.py:score_arg_quality()` — higher token limit may avoid truncation. Edit `AgentGoalAccuracyWithReference(llm=llm_factory("gpt-4o", ...))`.
+- Add `max_tokens` to the `AgentGoalAccuracyWithReference` instantiation to raise the output budget explicitly if the API supports it.
+- If neither works, replace `AgentGoalAccuracy` with a simpler custom LLM judge that asks a direct yes/no question about whether the tool call's query arg matches the reference goal — avoids the long JSON schema entirely.
+
+---
+
+## Investigation: Low Eval Scores (2026-02-26)
+
+**Status**: 🔧 In progress — code fixes applied; awaiting document upload to fully validate
+**Priority**: High — scores are below expectations across all three pipelines
+
+### Expected vs Actual
+
+| Metric | Actual | Expected range | Gap |
+|--------|--------|----------------|-----|
+| RAG pipeline faithfulness | 0.600 | 0.85+ | significant |
+| RAG pipeline answer_relevancy | 0.000 † | 0.70+ | needs investigation |
+| RAG pipeline context_precision | 0.000 † | 0.40+ | needs investigation |
+| RAG pipeline context_recall | 0.000 † | 0.20+ | needs investigation |
+| Chat quality faithfulness | 0.207 | 0.70+ | significant |
+| Chat quality arg_keyword_relevance | 0.667 (10/15) | 1.000 | 5 questions failing |
+| Tool selection — retrieve routing | 0.250 (1/4) | 1.000 | 3/4 misrouted |
+| Multi-turn retrieve→analyze | 0.000 (0/3) | 0.667+ | fully broken |
+
+### Issue 1: RAGAS `†` metrics all 0.000 (answer_relevancy, context_precision, context_recall)
+
+**Symptom:** Every run of both `evaluate.py` and `evaluate_chat_quality.py` produces 0.000 for three metrics. The run log shows:
+```
+LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
+```
+(repeated 15 times, one per sample)
+
+**Hypothesis:** RAGAS `answer_relevancy` generates multiple question variants from the answer to measure how well the answer addresses the question. `context_precision`/`context_recall` use a similar LLM-grading approach. If the RAGAS version expects OpenAI to return `n=3` completions in one API call but OpenAI now defaults to `n=1`, these metrics silently collapse to 0.000.
+
+**How to investigate:**
+1. Check RAGAS version: `cd backend && uv run python -c "import ragas; print(ragas.__version__)"`
+2. Check if this is a known RAGAS issue for this version (search GitHub issues)
+3. Run with 1 sample and inspect what RAGAS actually receives: add debug logging to `ragas` internals or check LangSmith trace for the scoring call
+4. **Quick test:** Check if the previous run 1 scores (faithfulness 0.861, answer_relevancy 0.745) were produced under the same RAGAS version — if yes, something changed between runs; if the previous scores came from a different version, this is a version regression
+
+**Files to check:**
+- `backend/eval/requirements-eval.txt` — pinned RAGAS version
+- `backend/eval/evaluate.py` lines ~100-130 — how RAGAS metrics are instantiated
+
+---
+
+### Issue 2: Chat quality faithfulness = 0.207 (LLM answers not grounded in context)
+
+**Symptom:** When `chat_service.py` calls `retrieve_documents`, gets context back, and generates an answer, RAGAS judges only 20.7% of claims in the answer as grounded in the retrieved context.
+
+**Hypotheses:**
+- **A: Retrieved chunks don't contain the answer.** The LLM calls `retrieve_documents` with a query that retrieves the wrong chunks, then has to hallucinate because the right information wasn't in context.
+- **B: LLM synthesizes beyond context.** The LLM has general knowledge about incident response and adds information not from the retrieved docs.
+- **C: Multi-call retrieval not happening.** The system prompt encourages multiple `retrieve_documents` calls for comprehensive coverage, but the LLM may only make one call and answer from limited context.
+
+**How to investigate:**
+1. Run with `--dry-run` and inspect per-sample output: `cd backend && uv run python eval/evaluate_chat_quality.py --dry-run 2>&1 | head -200`
+   - Look at `tool_name`, `tool_args`, and the actual answer text for each sample
+   - Check if the retrieved contexts actually contain the expected answer
+2. Check `backend/eval/chat_quality_pipeline.py` — how are `contexts` populated for RAGAS? Are they the raw chunk texts or just metadata?
+3. For a single failing question, manually call `retrieve_documents` with the same args the LLM used and inspect the returned chunks
+4. Compare the 5 chunks returned vs the golden `ground_truth` in `eval/dataset.py` — how much overlap is there?
+
+**Files to check:**
+- `backend/eval/chat_quality_pipeline.py` — full pipeline implementation
+- `backend/eval/evaluate_chat_quality.py` — scoring setup
+- `backend/eval/dataset.py` — golden Q&A pairs with ground_truth answers
+
+---
+
+### Issue 3: 5 questions failing arg_keyword_relevance (LLM not calling retrieve_documents)
+
+**The 5 failing questions (from 2026-02-26 run):**
+1. "How long did the INC-2024-003 auth outage last?" — duration question
+2. "How long did it take to identify the root cause of INC-2024-...?" — time-to-detect question
+3. "How long did it take to detect the INC-2024-031 notification...?" — time-to-detect question
+4. "Why did the deployment rollback fail in INC-2024-038?" — mentions "deployment" + "rollback"
+5. "Which incident had the longest resolution time and how long...?" — comparative/aggregate question
+
+**Hypotheses:**
+- **Q1–Q3 (duration/time questions):** The LLM may be routing these to `query_deployments_database` because they mention "how long" (duration) which sounds like `duration_seconds`. The new system prompt routing guidance says "deployment counts and averages → query_deployments_database" — "how long" could match "averages" in the LLM's interpretation.
+- **Q4 (deployment rollback):** Contains the word "deployment" and "rollback" — the tool description for `query_deployments_database` explicitly covers "rollback frequency". This is a clear routing ambiguity: it's asking WHY a deployment rollback failed (→ `retrieve_documents`) but it looks like a deployment fact query.
+- **Q5 (longest resolution time):** Aggregate comparison question — may route to SQL because it sounds like a MAX(duration) query.
+
+**How to investigate:**
+1. Run a targeted dry-run and capture the tool called for each question: `cd backend && uv run python eval/evaluate_chat_quality.py --dry-run 2>&1`
+2. For each failing question, check `tool_name` in the output — is it calling SQL, web, or nothing?
+3. Review `backend/services/chat_service.py` system prompt routing guidance (the NOTE section added in the deployments fix) — does it explicitly cover "how long did an incident last?" as a retrieval question?
+
+---
+
+### Issue 4: Tool selection retrieve routing 0.250 (1/4) and multi-turn 0.000 (0/3)
+
+**The 4 retrieve routing test questions** (from `backend/eval/tool_selection_dataset.py`):
+- Read the file to find the exact 4 questions in the `retrieve` category
+
+**Multi-turn sequences** (from `backend/eval/tool_selection_dataset.py` or pipeline):
+- 3 sequences: retrieve→analyze pattern. 0/3 suggests the second step (analyze_document_with_subagent) is never triggered.
+
+**How to investigate:**
+1. Read `backend/eval/tool_selection_dataset.py` lines 1-58 (retrieve category samples) and the multi-turn sequences
+2. Read `backend/eval/tool_selection_pipeline.py` — how multi-turn is evaluated
+3. Check if the 4 retrieve questions have enough signal words to distinguish from SQL/web in the current system prompt
+
+---
+
+### Diagnostic Quick-Start for Investigating Agent
+
+```bash
+# 1. Check RAGAS version (for Issue 1)
+cd backend && uv run python -c "import ragas; print(ragas.__version__)"
+
+# 2. Get per-sample output for chat quality (for Issues 2 & 3)
+cd backend && uv run python eval/evaluate_chat_quality.py --dry-run 2>&1
+
+# 3. See the retrieve routing test questions
+cd backend && uv run python -c "
+from eval.tool_selection_dataset import TOOL_SELECTION_DATASET
+for s in TOOL_SELECTION_DATASET:
+    if s.category == 'retrieve':
+        print(s.question)
+"
+
+# 4. Manually test a failing question
+cd backend && uv run python -c "
+import asyncio
+from dotenv import load_dotenv
+load_dotenv()
+from services.chat_service import ChatService
+from eval.eval_utils import get_eval_user_id
+
+async def test():
+    user_id = get_eval_user_id()
+    history = [{'role': 'user', 'content': 'How long did the INC-2024-003 auth outage last?'}]
+    async for delta, sources, metadata in ChatService.stream_response(history, user_id):
+        pass
+    print('Tool called:', metadata.get('tool_calls_summary') if metadata else 'none')
+
+asyncio.run(test())
+"
+```
+
+**Key files for the investigating agent:**
+- `backend/eval/evaluate_chat_quality.py` — chat quality eval script
+- `backend/eval/chat_quality_pipeline.py` — pipeline that calls chat_service and captures context
+- `backend/eval/dataset.py` — 15 golden Q&A pairs with ground_truth
+- `backend/eval/tool_selection_dataset.py` — tool routing test questions (retrieve category lines 1-58)
+- `backend/services/chat_service.py` lines 195-290 — system prompt with routing guidance
+- `backend/eval/requirements-eval.txt` — pinned RAGAS version
+
+---
+
+### Findings & Fixes (2026-02-26)
+
+**Root causes confirmed by live testing:**
+
+#### RC1: Postmortem documents not uploaded for the eval test user (CRITICAL)
+Direct retrieval with `threshold=0.0` confirmed only `phoenix_report.txt` exists for the test user —
+the 6 postmortem files (INC-2024-003 through INC-2024-038) are not ingested. This explains:
+- `context_precision=0.000`, `context_recall=0.000` in RAG pipeline eval — retrieved chunks are from
+  `phoenix_report.txt` (irrelevant to postmortem ground_truth answers)
+- Chat quality returning 0-1 irrelevant chunks for every retrieval question
+- Multi-turn 0.000 — empty retrieval result means no document names to pass to analyze_document_with_subagent
+
+**USER ACTION REQUIRED:** Upload all 6 files from `backend/eval/postmortems/` via the app UI
+as the test user (`TEST_EMAIL`), then re-run eval pipelines.
+
+#### RC2: Routing ambiguity — incident content routed to SQL (FIXED ✅)
+5 chat quality questions and 3/4 tool-selection retrieve questions misrouted to
+`query_deployments_database` because the system prompt routing guidance didn't explicitly cover
+incident duration/timeline/comparison questions as retrieve territory.
+
+- Confirmed via live testing: "How long did INC-2024-003 last?" → SQL, validation error, no fallback
+- Fix applied: Replaced vague NOTE with explicit INCIDENT vs DEPLOYMENT routing tables in:
+  - `backend/services/chat_service.py` lines ~276-297
+  - `backend/eval/tool_selection_pipeline.py` TOOL_SELECTION_SYSTEM_PROMPT
+
+**Validation:** All 4 previously failing chat-quality questions now route to `retrieve_documents`.
+Tool selection single-turn accuracy jumped from 0.750 → 1.000 (12/12).
+
+#### RC3: RAGAS answer_relevancy strictness=3 requesting n=3 completions (FIXED ✅)
+RAGAS 0.4.3 `answer_relevancy.strictness=3` requests n=3 LLM completions per sample to generate
+question variants for cosine similarity scoring. Modern OpenAI APIs return only n=1, emitting:
+`"LLM returned 1 generations instead of requested 3. Proceeding with 1 generations."`
+This likely causes 0.000 scores for answer_relevancy.
+
+Fix applied: `answer_relevancy.strictness = 1` set before `evaluate()` in both:
+- `backend/eval/evaluate.py`
+- `backend/eval/evaluate_chat_quality.py`
+
+---
+
+### Next step: re-run evals after document upload
+
+After the user uploads all 6 postmortem files:
+```bash
+cd backend && bash eval/run_evals.sh --dry-run
+```
+Expected improvements after RC1+RC2+RC3 fixes:
+- Tool selection retrieve: 0.250 → 1.000 ✅ (already verified)
+- Chat quality arg_keyword_relevance: 0.667 → ~1.000 (all 15 route to retrieve)
+- Chat quality faithfulness: 0.207 → 0.70+ (proper contexts now retrieved)
+- RAG pipeline context_precision/recall: 0.000 → real scores (postmortem chunks available)
+- answer_relevancy: 0.000 → real scores (strictness=1 fix)
+
+---
+
+## Feature: SQL Tool Topic — Replace production_incidents with Deployments
+
+**Status**: ✅ Complete (pending user DB migration for Levels 3–4)
+**Started**: 2026-02-26
+**Completed**: 2026-02-26
+**Plan File**: `.agents/plans/sql-topic-replace-incidents-with-deployments.md`
+
+### What Changed
+
+Replaced `production_incidents` SQL table with `deployments` (change management log) to eliminate tool-routing ambiguity. The two tools now cover orthogonal domains:
+- `retrieve_documents` → postmortem narrative content (uploaded documents)
+- `query_deployments_database` → deployment facts (SQL table)
+
+### Files Changed (14 total)
+
+- `supabase/migrations/016_production_incidents.sql` → deleted
+- `supabase/migrations/016_deployments.sql` → created (15 seed rows, RLS, `execute_deployments_query` RPC)
+- `supabase/migrations/ADHOC_migrate_to_deployments.sql` → created (one-shot upgrade for existing DB)
+- `backend/services/sql_service.py` — `DEPLOYMENTS_SCHEMA`, all validation strings, RPC call
+- `backend/services/chat_service.py` — tool name/description, system prompt routing guidance, all dispatch refs
+- `backend/eval/tool_selection_dataset.py` — 4 deployment-domain SQL samples
+- `backend/eval/tool_selection_pipeline.py` — TOOL_SELECTION_SYSTEM_PROMPT updated
+- `backend/eval/README.md` — table row updated
+- `backend/eval/tests/test_tool_selection.py` — `valid_tools` set updated
+- `backend/tests/auto/test_sql_service.py` — all 6 tests updated to deployments domain
+- `backend/tests/auto/test_multi_tool_integration.py` — incident→deployment questions
+- `backend/tests/auto/test_simple_strategic.py`, `tests/manual/test_strategic_*.py` — tool name refs
+
+### Validation Results
+
+| Level | Status | Notes |
+|-------|--------|-------|
+| 1 — No dead refs | ✅ | Zero source matches for old names |
+| 2 — Import sanity | ✅ | `DEPLOYMENTS_SCHEMA` imports OK |
+| 3 — SQL service tests | ✅ | 6/6 passed against live deployments table |
+| 4 — Full pytest suite | ✅ | 86/86 passed, 0 regressions |
+| 5 — Eval dry-run | ✅ | sql 4/4 = 1.000 — deployment questions route correctly |
+
+### Reports Generated
+
+**Execution Report:** `.agents/execution-reports/sql-topic-replace-incidents-with-deployments.md`
+- Alignment score: 9/10
+- 3 divergences identified (all justified: missing `--limit` flag in plan, 2 extra files discovered by grep, more dispatch occurrences than plan counted)
+- Levels 1, 2, 5 validated; Levels 3–4 pending DB migration
 
 ---
 
@@ -900,9 +1395,3 @@ Adds a reproducible RAG quality benchmark using the [RAGAS](https://docs.ragas.i
 - Python 3.12 (required - 3.14 has pydantic compilation issues)
 - Node.js with npm
 - Supabase project in supported region (pgvector enabled)
-
-**Next Steps:**
-1. Begin Module 3: Record Manager
-2. Optional: Address pre-existing test failures (auth/chat suites)
-3. Optional: Complete manual testing checklist from Module 2
-

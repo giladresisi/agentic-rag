@@ -8,6 +8,7 @@
 -- CASCADE handles indexes, triggers, RLS policies, and FK constraints
 -- ----------------------------------------
 DROP TABLE IF EXISTS books;
+DROP TABLE IF EXISTS production_incidents;
 DROP TABLE IF EXISTS chunks;
 DROP TABLE IF EXISTS documents;
 DROP TABLE IF EXISTS messages;
@@ -17,6 +18,7 @@ DROP TABLE IF EXISTS threads;
 -- Drop all functions
 -- ----------------------------------------
 DROP FUNCTION IF EXISTS execute_books_query(TEXT);
+DROP FUNCTION IF EXISTS execute_incidents_query(TEXT);
 DROP FUNCTION IF EXISTS hybrid_search_chunks(TEXT, VECTOR, UUID, INT, REAL, REAL, INT, REAL);
 DROP FUNCTION IF EXISTS keyword_search_chunks(TEXT, UUID, INT);
 DROP FUNCTION IF EXISTS chunks_content_tsv_trigger();

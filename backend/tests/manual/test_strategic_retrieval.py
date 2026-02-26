@@ -155,13 +155,13 @@ def run_strategic_retrieval(token, thread_id):
     print("[OK] Test 2 completed")
     print("="*80)
 
-    # Test Query 3: Should trigger query_incidents_database
+    # Test Query 3: Should trigger query_deployments_database
     print("\n" + "="*80)
     print("TEST 3: Incidents database query")
     print("="*80)
 
-    query3 = """What P1 incidents affected the auth-service?
-    Also show me incidents with a root cause of database."""
+    query3 = """What P1 incidents are in the database?
+    Also show me incidents that affected the payment or auth service."""
 
     response = requests.post(
         f"{BASE_URL}/chat/threads/{thread_id}/messages",

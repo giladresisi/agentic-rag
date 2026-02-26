@@ -42,12 +42,12 @@ def main():
     # Send complex query that should trigger multiple tool calls
     print("="*70)
     print("QUERY: Multi-part incidents database question")
-    print("(Should trigger multiple query_incidents_database calls)")
+    print("(Should trigger multiple query_deployments_database calls)")
     print("="*70)
 
     query = """I have two separate questions about production incidents:
-    1. What P1 and P2 incidents affected the auth-service?
-    2. Which incidents had a root cause of database?
+    1. What P1 incidents had resolution times over 100 minutes?
+    2. Which incidents affected the payment service?
 
     Please answer both questions thoroughly."""
 
