@@ -999,46 +999,49 @@ Local reranking improves faithfulness and context_precision meaningfully. answer
 **Completed**: 2026-02-26
 **Plan File**: `.agents/plans/chat-quality-evaluation.md`
 
-### RAGAS Scores (2026-02-26 run 2, `gpt-4o`, 15 golden samples, post-deployments fix)
+### RAGAS Scores (2026-02-26 run 3, `gpt-4o`, 15 golden samples)
 
 #### `evaluate.py` — simplified RAG pipeline (retrieve → one-shot LLM completion)
 | Metric | Score |
 |--------|-------|
-| faithfulness | 0.600 |
-| answer_relevancy | 0.000 † |
-| context_precision | 0.000 † |
-| context_recall | 0.000 † |
+| faithfulness | 0.865 |
+| answer_relevancy | 0.743 |
+| context_precision | 0.347 |
+| context_recall | 0.156 |
 
 #### `evaluate_tool_selection.py` — tool routing + arg quality
 | Metric | Score |
 |--------|-------|
-| routing accuracy (overall) | 0.750 |
-| routing accuracy — sql | **1.000 (4/4)** ✅ fixed |
+| routing accuracy (overall) | **1.000 (12/12)** |
+| routing accuracy — retrieve | **1.000 (4/4)** |
+| routing accuracy — sql | **1.000 (4/4)** |
 | routing accuracy — web | **1.000 (4/4)** |
-| routing accuracy — retrieve | 0.250 (1/4) ⚠️ |
 | arg keyword relevance (deterministic) | **1.000 (12/12)** |
-| multi-turn sequence accuracy | 0.000 (0/3) ⚠️ |
-| arg quality / AgentGoalAccuracy | 0.133 |
+| multi-turn sequence accuracy | 0.667 (2/3) |
+| arg quality / AgentGoalAccuracy | 0.133 ⚠️ |
 
 #### `evaluate_chat_quality.py` — real ChatService end-to-end
 | Metric | Score |
 |--------|-------|
-| faithfulness | **0.207** (up from 0.000) |
-| answer_relevancy | 0.000 † |
-| context_precision | 0.000 † |
-| context_recall | 0.000 † |
-| arg_keyword_relevance | **0.667 (10/15)** (up from 0/15) |
+| faithfulness | 0.882 |
+| answer_relevancy | **0.963** |
+| context_precision | 0.300 |
+| context_recall | 0.122 |
+| arg_keyword_relevance | **1.000 (15/15)** |
 
-† RAGAS `answer_relevancy`, `context_precision`, `context_recall` require the scorer LLM to generate 3 question variants per sample; the current RAGAS version returns only 1 for all samples, producing 0.000 for these metrics. `faithfulness` and `arg_keyword_relevance` use different scoring paths and are reliable.
+Note: `AgentGoalAccuracy` (0.133) suffered `max_tokens` truncation errors during scoring — the metric's long JSON prompts hit the model's output limit repeatedly, producing unreliable results. All other metrics are reliable.
 
-**Previous run (2026-02-26 run 1, pre-deployments fix):** faithfulness 0.861 / answer_relevancy 0.745 / context_precision 0.413 / context_recall 0.200 for RAG pipeline; chat quality all zeros; sql routing 1.000 / retrieve routing 0.000.
+**Previous run (2026-02-26 run 2, post-deployments fix):** RAG faithfulness 0.600 / chat faithfulness 0.207 / retrieve routing 0.250 (1/4) / chat arg_keyword_relevance 0.667 (10/15). All RAGAS metrics except faithfulness were 0.000 due to `strictness=3` returning only 1 generation.
 
-> **Root cause confirmed and fixed (2026-02-26):** The system prompt line `- Questions about incidents, severity, services, resolution times → query_incidents_database` caused all 15 retrieval questions to route to SQL. Fixed by renaming the SQL table to `deployments` and rewriting routing guidance to explicitly partition domains. After the fix: `arg_keyword_relevance` improved from 0/15 to 10/15 and chat faithfulness from 0.000 to 0.207.
+> **Fixes confirmed working (run 3):**
+> - `answer_relevancy.strictness = 1` resolves the 0.000 RAGAS scores — all 4 RAGAS metrics now produce valid scores
+> - Tool routing at 1.000 across all 3 categories (retrieve routing was 0.250 in run 2, now fixed by deployments table rename + system prompt rewrite)
+> - Chat `arg_keyword_relevance` at 1.000 (15/15), up from 0.667 (10/15)
 >
-> **Remaining gaps after fix:**
-> - Single-turn retrieve routing: 0.250 (1/4) — LLM still sometimes routes retrieval questions to wrong tool
-> - Multi-turn sequence (retrieve→analyze): 0.000 (0/3) — subagent delegation chain not triggering reliably
-> - 5 failing arg_keyword_relevance questions: 3 are time-based ("how long did..."), 1 is about deployment rollback, 1 is a cross-incident aggregate
+> **Remaining gaps:**
+> - `context_precision` and `context_recall` are consistently low (~0.1–0.35) — retrieval ranking quality needs improvement
+> - Multi-turn sequence (retrieve→analyze): 0.667 (2/3) — subagent delegation not fully reliable
+> - `AgentGoalAccuracy` results unreliable due to `max_tokens` truncation
 
 ---
 
@@ -1099,17 +1102,216 @@ A third eval script: **`eval/evaluate_chat_quality.py`** that:
 - Needs `EVAL_DOCS_INGESTED=true` in `backend/.env` and postmortems ingested — same prerequisite as `evaluate.py`.
 - Golden dataset: 15 samples in `eval/dataset.py` — all are retrieval questions (relevant tool: `retrieve_documents`). For SQL/web questions, a separate question set would be needed (or reuse a subset of `tool_selection_dataset.py`).
 
-### Current automated coverage (for context)
+### Current automated coverage
 
 | Flow step | Automated coverage | Script/test |
 |---|---|---|
-| Tool routing (which tool) | ✅ mocked unit + ✅ eval script (manual) | `test_tool_selection.py`, `evaluate_tool_selection.py` |
-| Arg quality (are args good) | ✅ keyword logic unit + ✅ eval script (manual) | `test_tool_selection.py` T20–T22, `evaluate_tool_selection.py` |
-| Multi-turn sequence | ✅ mocked unit + ✅ eval script (manual) | `test_tool_selection.py` T12–T15, `evaluate_tool_selection.py` |
+| Tool routing (which tool) | ✅ mocked unit + ✅ eval script | `test_tool_selection.py`, `evaluate_tool_selection.py` |
+| Arg quality (are args good) | ✅ keyword logic unit + ✅ eval script | `test_tool_selection.py` T20–T22, `evaluate_tool_selection.py` |
+| Multi-turn sequence | ✅ mocked unit + ✅ eval script | `test_tool_selection.py` T12–T15, `evaluate_tool_selection.py` |
 | Tool execution mechanics | ✅ live auto tests | `test_hybrid_search.py`, `test_sql_service.py`, etc. |
-| Retrieval result quality | ❌ not scored for actual LLM-chosen args | — |
-| Final response quality | ✅ simplified pipeline only | `evaluate.py` (manual) |
-| Final response quality (real chat) | ❌ **gap** | — |
+| Final response quality (real chat) | ✅ eval script exists, scores low | `evaluate_chat_quality.py` |
+
+---
+
+## Investigation: Low Eval Scores (2026-02-26)
+
+**Status**: 🔧 In progress — code fixes applied; awaiting document upload to fully validate
+**Priority**: High — scores are below expectations across all three pipelines
+
+### Expected vs Actual
+
+| Metric | Actual | Expected range | Gap |
+|--------|--------|----------------|-----|
+| RAG pipeline faithfulness | 0.600 | 0.85+ | significant |
+| RAG pipeline answer_relevancy | 0.000 † | 0.70+ | needs investigation |
+| RAG pipeline context_precision | 0.000 † | 0.40+ | needs investigation |
+| RAG pipeline context_recall | 0.000 † | 0.20+ | needs investigation |
+| Chat quality faithfulness | 0.207 | 0.70+ | significant |
+| Chat quality arg_keyword_relevance | 0.667 (10/15) | 1.000 | 5 questions failing |
+| Tool selection — retrieve routing | 0.250 (1/4) | 1.000 | 3/4 misrouted |
+| Multi-turn retrieve→analyze | 0.000 (0/3) | 0.667+ | fully broken |
+
+### Issue 1: RAGAS `†` metrics all 0.000 (answer_relevancy, context_precision, context_recall)
+
+**Symptom:** Every run of both `evaluate.py` and `evaluate_chat_quality.py` produces 0.000 for three metrics. The run log shows:
+```
+LLM returned 1 generations instead of requested 3. Proceeding with 1 generations.
+```
+(repeated 15 times, one per sample)
+
+**Hypothesis:** RAGAS `answer_relevancy` generates multiple question variants from the answer to measure how well the answer addresses the question. `context_precision`/`context_recall` use a similar LLM-grading approach. If the RAGAS version expects OpenAI to return `n=3` completions in one API call but OpenAI now defaults to `n=1`, these metrics silently collapse to 0.000.
+
+**How to investigate:**
+1. Check RAGAS version: `cd backend && uv run python -c "import ragas; print(ragas.__version__)"`
+2. Check if this is a known RAGAS issue for this version (search GitHub issues)
+3. Run with 1 sample and inspect what RAGAS actually receives: add debug logging to `ragas` internals or check LangSmith trace for the scoring call
+4. **Quick test:** Check if the previous run 1 scores (faithfulness 0.861, answer_relevancy 0.745) were produced under the same RAGAS version — if yes, something changed between runs; if the previous scores came from a different version, this is a version regression
+
+**Files to check:**
+- `backend/eval/requirements-eval.txt` — pinned RAGAS version
+- `backend/eval/evaluate.py` lines ~100-130 — how RAGAS metrics are instantiated
+
+---
+
+### Issue 2: Chat quality faithfulness = 0.207 (LLM answers not grounded in context)
+
+**Symptom:** When `chat_service.py` calls `retrieve_documents`, gets context back, and generates an answer, RAGAS judges only 20.7% of claims in the answer as grounded in the retrieved context.
+
+**Hypotheses:**
+- **A: Retrieved chunks don't contain the answer.** The LLM calls `retrieve_documents` with a query that retrieves the wrong chunks, then has to hallucinate because the right information wasn't in context.
+- **B: LLM synthesizes beyond context.** The LLM has general knowledge about incident response and adds information not from the retrieved docs.
+- **C: Multi-call retrieval not happening.** The system prompt encourages multiple `retrieve_documents` calls for comprehensive coverage, but the LLM may only make one call and answer from limited context.
+
+**How to investigate:**
+1. Run with `--dry-run` and inspect per-sample output: `cd backend && uv run python eval/evaluate_chat_quality.py --dry-run 2>&1 | head -200`
+   - Look at `tool_name`, `tool_args`, and the actual answer text for each sample
+   - Check if the retrieved contexts actually contain the expected answer
+2. Check `backend/eval/chat_quality_pipeline.py` — how are `contexts` populated for RAGAS? Are they the raw chunk texts or just metadata?
+3. For a single failing question, manually call `retrieve_documents` with the same args the LLM used and inspect the returned chunks
+4. Compare the 5 chunks returned vs the golden `ground_truth` in `eval/dataset.py` — how much overlap is there?
+
+**Files to check:**
+- `backend/eval/chat_quality_pipeline.py` — full pipeline implementation
+- `backend/eval/evaluate_chat_quality.py` — scoring setup
+- `backend/eval/dataset.py` — golden Q&A pairs with ground_truth answers
+
+---
+
+### Issue 3: 5 questions failing arg_keyword_relevance (LLM not calling retrieve_documents)
+
+**The 5 failing questions (from 2026-02-26 run):**
+1. "How long did the INC-2024-003 auth outage last?" — duration question
+2. "How long did it take to identify the root cause of INC-2024-...?" — time-to-detect question
+3. "How long did it take to detect the INC-2024-031 notification...?" — time-to-detect question
+4. "Why did the deployment rollback fail in INC-2024-038?" — mentions "deployment" + "rollback"
+5. "Which incident had the longest resolution time and how long...?" — comparative/aggregate question
+
+**Hypotheses:**
+- **Q1–Q3 (duration/time questions):** The LLM may be routing these to `query_deployments_database` because they mention "how long" (duration) which sounds like `duration_seconds`. The new system prompt routing guidance says "deployment counts and averages → query_deployments_database" — "how long" could match "averages" in the LLM's interpretation.
+- **Q4 (deployment rollback):** Contains the word "deployment" and "rollback" — the tool description for `query_deployments_database` explicitly covers "rollback frequency". This is a clear routing ambiguity: it's asking WHY a deployment rollback failed (→ `retrieve_documents`) but it looks like a deployment fact query.
+- **Q5 (longest resolution time):** Aggregate comparison question — may route to SQL because it sounds like a MAX(duration) query.
+
+**How to investigate:**
+1. Run a targeted dry-run and capture the tool called for each question: `cd backend && uv run python eval/evaluate_chat_quality.py --dry-run 2>&1`
+2. For each failing question, check `tool_name` in the output — is it calling SQL, web, or nothing?
+3. Review `backend/services/chat_service.py` system prompt routing guidance (the NOTE section added in the deployments fix) — does it explicitly cover "how long did an incident last?" as a retrieval question?
+
+---
+
+### Issue 4: Tool selection retrieve routing 0.250 (1/4) and multi-turn 0.000 (0/3)
+
+**The 4 retrieve routing test questions** (from `backend/eval/tool_selection_dataset.py`):
+- Read the file to find the exact 4 questions in the `retrieve` category
+
+**Multi-turn sequences** (from `backend/eval/tool_selection_dataset.py` or pipeline):
+- 3 sequences: retrieve→analyze pattern. 0/3 suggests the second step (analyze_document_with_subagent) is never triggered.
+
+**How to investigate:**
+1. Read `backend/eval/tool_selection_dataset.py` lines 1-58 (retrieve category samples) and the multi-turn sequences
+2. Read `backend/eval/tool_selection_pipeline.py` — how multi-turn is evaluated
+3. Check if the 4 retrieve questions have enough signal words to distinguish from SQL/web in the current system prompt
+
+---
+
+### Diagnostic Quick-Start for Investigating Agent
+
+```bash
+# 1. Check RAGAS version (for Issue 1)
+cd backend && uv run python -c "import ragas; print(ragas.__version__)"
+
+# 2. Get per-sample output for chat quality (for Issues 2 & 3)
+cd backend && uv run python eval/evaluate_chat_quality.py --dry-run 2>&1
+
+# 3. See the retrieve routing test questions
+cd backend && uv run python -c "
+from eval.tool_selection_dataset import TOOL_SELECTION_DATASET
+for s in TOOL_SELECTION_DATASET:
+    if s.category == 'retrieve':
+        print(s.question)
+"
+
+# 4. Manually test a failing question
+cd backend && uv run python -c "
+import asyncio
+from dotenv import load_dotenv
+load_dotenv()
+from services.chat_service import ChatService
+from eval.eval_utils import get_eval_user_id
+
+async def test():
+    user_id = get_eval_user_id()
+    history = [{'role': 'user', 'content': 'How long did the INC-2024-003 auth outage last?'}]
+    async for delta, sources, metadata in ChatService.stream_response(history, user_id):
+        pass
+    print('Tool called:', metadata.get('tool_calls_summary') if metadata else 'none')
+
+asyncio.run(test())
+"
+```
+
+**Key files for the investigating agent:**
+- `backend/eval/evaluate_chat_quality.py` — chat quality eval script
+- `backend/eval/chat_quality_pipeline.py` — pipeline that calls chat_service and captures context
+- `backend/eval/dataset.py` — 15 golden Q&A pairs with ground_truth
+- `backend/eval/tool_selection_dataset.py` — tool routing test questions (retrieve category lines 1-58)
+- `backend/services/chat_service.py` lines 195-290 — system prompt with routing guidance
+- `backend/eval/requirements-eval.txt` — pinned RAGAS version
+
+---
+
+### Findings & Fixes (2026-02-26)
+
+**Root causes confirmed by live testing:**
+
+#### RC1: Postmortem documents not uploaded for the eval test user (CRITICAL)
+Direct retrieval with `threshold=0.0` confirmed only `phoenix_report.txt` exists for the test user —
+the 6 postmortem files (INC-2024-003 through INC-2024-038) are not ingested. This explains:
+- `context_precision=0.000`, `context_recall=0.000` in RAG pipeline eval — retrieved chunks are from
+  `phoenix_report.txt` (irrelevant to postmortem ground_truth answers)
+- Chat quality returning 0-1 irrelevant chunks for every retrieval question
+- Multi-turn 0.000 — empty retrieval result means no document names to pass to analyze_document_with_subagent
+
+**USER ACTION REQUIRED:** Upload all 6 files from `backend/eval/postmortems/` via the app UI
+as the test user (`TEST_EMAIL`), then re-run eval pipelines.
+
+#### RC2: Routing ambiguity — incident content routed to SQL (FIXED ✅)
+5 chat quality questions and 3/4 tool-selection retrieve questions misrouted to
+`query_deployments_database` because the system prompt routing guidance didn't explicitly cover
+incident duration/timeline/comparison questions as retrieve territory.
+
+- Confirmed via live testing: "How long did INC-2024-003 last?" → SQL, validation error, no fallback
+- Fix applied: Replaced vague NOTE with explicit INCIDENT vs DEPLOYMENT routing tables in:
+  - `backend/services/chat_service.py` lines ~276-297
+  - `backend/eval/tool_selection_pipeline.py` TOOL_SELECTION_SYSTEM_PROMPT
+
+**Validation:** All 4 previously failing chat-quality questions now route to `retrieve_documents`.
+Tool selection single-turn accuracy jumped from 0.750 → 1.000 (12/12).
+
+#### RC3: RAGAS answer_relevancy strictness=3 requesting n=3 completions (FIXED ✅)
+RAGAS 0.4.3 `answer_relevancy.strictness=3` requests n=3 LLM completions per sample to generate
+question variants for cosine similarity scoring. Modern OpenAI APIs return only n=1, emitting:
+`"LLM returned 1 generations instead of requested 3. Proceeding with 1 generations."`
+This likely causes 0.000 scores for answer_relevancy.
+
+Fix applied: `answer_relevancy.strictness = 1` set before `evaluate()` in both:
+- `backend/eval/evaluate.py`
+- `backend/eval/evaluate_chat_quality.py`
+
+---
+
+### Next step: re-run evals after document upload
+
+After the user uploads all 6 postmortem files:
+```bash
+cd backend && bash eval/run_evals.sh --dry-run
+```
+Expected improvements after RC1+RC2+RC3 fixes:
+- Tool selection retrieve: 0.250 → 1.000 ✅ (already verified)
+- Chat quality arg_keyword_relevance: 0.667 → ~1.000 (all 15 route to retrieve)
+- Chat quality faithfulness: 0.207 → 0.70+ (proper contexts now retrieved)
+- RAG pipeline context_precision/recall: 0.000 → real scores (postmortem chunks available)
+- answer_relevancy: 0.000 → real scores (strictness=1 fix)
 
 ---
 

@@ -110,6 +110,13 @@ def run_ragas_scoring(dataset):
     from ragas.embeddings.base import embedding_factory
 
     embeddings = embedding_factory("openai")
+
+    # Reduce strictness from 3→1: RAGAS requests n=strictness completions per sample.
+    # Modern OpenAI APIs return only n=1, causing the "LLM returned 1 generations
+    # instead of requested 3" warning and producing 0.000 for answer_relevancy.
+    # With strictness=1 we get valid scores from the single generation we actually receive.
+    answer_relevancy.strictness = 1
+
     print("\nScoring with RAGAS (LLM-graded -- takes 1-3 minutes)...")
     return evaluate(
         dataset,

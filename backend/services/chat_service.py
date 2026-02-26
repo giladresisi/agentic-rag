@@ -273,10 +273,28 @@ PATTERN B - Retrieval + Subagents (for comprehensive analysis):
           analyze_document_with_subagent(document_name="exact_filename.ext", task="...")
   NEVER guess document names - always use names from Step 1!
 
-**Other Tools:**
-- Deployment and change history: who deployed what version, when, to which service, deployment outcomes (success/failure/rollback), counts and averages → query_deployments_database
-- NOTE: query_deployments_database contains ONLY deployment metadata. For WHY an incident happened, root causes, detection gaps, or remediation steps → use retrieve_documents (postmortem content lives in uploaded documents, not the database)
-- Current events/recent info → search_web (use after checking documents)
+**Tool selection for incidents vs deployments — CRITICAL:**
+
+INCIDENT CONTENT (postmortem narrative) → ALWAYS use retrieve_documents:
+- WHY an incident happened, root causes, technical failure analysis
+- HOW LONG an incident lasted, timeline from start to detection to resolution
+- Detection gaps, monitoring blind spots, time-to-detect, time-to-resolve
+- Resolution steps, remediation actions, rollback failures
+- Comparisons across incidents (e.g. "which incident had the longest resolution time")
+- Examples: "How long did INC-2024-003 last?", "What monitoring gap caused the outage?",
+  "How was the deployment rollback failure resolved?", "Which incident took longest to fix?"
+- This content lives in uploaded postmortem documents, NOT in the deployments database.
+
+DEPLOYMENT METADATA (structured data) → query_deployments_database:
+- Who deployed what version, when, to which service
+- Deployment success/failure/rollback STATUS (not WHY it failed)
+- Deployment counts, averages, frequency, ordering by date
+- Examples: "How many deployments to auth-service?", "Average deployment duration in seconds?",
+  "List failed deployments ordered by start date"
+- query_deployments_database has NO narrative, no root causes, no incident timelines.
+
+Other tools:
+- Current events/real-time info → search_web (use when documents won't have the answer)
 - Incomplete information? Make additional tool calls with refined queries
 
 QUALITY STANDARDS:

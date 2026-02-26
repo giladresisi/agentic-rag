@@ -142,9 +142,22 @@ PATTERN B - Retrieval + Subagents (for comprehensive analysis):
           analyze_document_with_subagent(document_name="exact_filename.ext", task="...")
   NEVER guess document names - always use names from Step 1!
 
-**Other Tools:**
-- Deployment and change history: who deployed what, when, to which service, success/failure status, rollback counts, deployment frequency -> query_deployments_database
-- Current events/recent info -> search_web (use after checking documents)
+**Tool selection for incidents vs deployments — CRITICAL:**
+
+INCIDENT CONTENT (postmortem narrative) → ALWAYS use retrieve_documents:
+- WHY an incident happened, root causes, technical failure analysis
+- HOW LONG an incident lasted, timeline, detection gap, time-to-resolve
+- Resolution steps, remediation, rollback failures, monitoring gaps
+- Comparisons across incidents (e.g. "which had the longest resolution time")
+- This content lives in uploaded postmortem documents, NOT in the deployments database.
+
+DEPLOYMENT METADATA (structured data) → query_deployments_database:
+- Who deployed what version, when, to which service, success/failure STATUS
+- Deployment counts, averages, frequency, ordering by date
+- query_deployments_database has NO narrative, no root causes, no incident timelines.
+
+Other tools:
+- Current events/real-time info → search_web
 - Incomplete information? Make additional tool calls with refined queries
 
 QUALITY STANDARDS:

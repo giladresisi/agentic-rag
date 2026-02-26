@@ -6,7 +6,7 @@ A complete agentic RAG system with multi-tenant chat interface, document ingesti
 
 See it in action:
 
-[![IR-Copilot App](./video-thumbnail.png)](https://youtu.be/iybjMFp-JdQ?si=BjiJO3fdn7ontHe7)
+![IR-Copilot App](./gif.gif)
 
 ---
 
@@ -290,34 +290,14 @@ This project was inspired by the **[Claude Code RAG Masterclass](https://www.you
 
 The project ships with three [RAGAS](https://docs.ragas.io) eval pipelines covering the full quality stack — from simplified retrieval through tool routing to end-to-end chat quality — with results pushed to LangSmith.
 
-**Latest scores (2026-02-26, `gpt-4o`, 15 golden samples):**
-
-| Eval | Metric | Score |
-|------|--------|-------|
-| RAG pipeline | faithfulness | 0.600 |
-| RAG pipeline | answer relevancy | 0.000 † |
-| RAG pipeline | context precision | 0.000 † |
-| RAG pipeline | context recall | 0.000 † |
-| Tool selection | routing accuracy (sql) | **1.000** (4/4) |
-| Tool selection | routing accuracy (web) | **1.000** (4/4) |
-| Tool selection | routing accuracy (retrieve) | 0.250 (1/4) ⚠️ |
-| Tool selection | arg keyword relevance | **1.000** (12/12) |
-| Tool selection | multi-turn sequence | 0.000 (0/3) ⚠️ |
-| Chat quality | faithfulness | 0.207 |
-| Chat quality | arg keyword relevance | 0.667 (10/15) |
-| Chat quality | answer relevancy / precision / recall | 0.000 † |
-
-† RAGAS `answer_relevancy`, `context_precision`, and `context_recall` require the scorer LLM to generate multiple question variants per sample; the current RAGAS version returns only 1 of the requested 3 for all 15 samples, producing 0.000 for these metrics. `faithfulness` and `arg_keyword_relevance` use different scoring paths and are unaffected.
-
-> **SQL routing fixed** — `query_deployments_database` routes correctly at 1.000 (4/4) after the SQL topic rename. Chat quality `arg_keyword_relevance` improved from 0/15 to 10/15, confirming the LLM now calls `retrieve_documents` for most postmortem questions instead of the SQL tool. Remaining gaps: single-turn retrieve routing (1/4) and multi-turn retrieve→analyze sequences (0/3).
-
 Run all three pipelines with one command:
+
 ```bash
 cd backend && bash eval/run_evals.sh          # push to LangSmith
 cd backend && bash eval/run_evals.sh --dry-run # scores only, no push
 ```
 
-👉 **[See SETUP.md for prerequisites and full run instructions](./SETUP.md)**
+👉 **[See backend/eval/README.md](./backend/eval/README.md)** for prerequisites, per-pipeline details, latest scores, and known metric quirks.
 
 ---
 
