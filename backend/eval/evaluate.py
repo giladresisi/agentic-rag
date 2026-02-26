@@ -62,6 +62,11 @@ async def collect_pipeline_results(user_id: str) -> list[dict]:
         except Exception as exc:
             result = {"question": sample.question, "answer": f"[PIPELINE ERROR: {exc}]", "contexts": []}
         results.append(result)
+        # Small delay between questions to avoid Supabase RPC rate limiting.
+        # Without this, rapid sequential calls (~10+) return HTTP errors that
+        # corrupt answers and produce contexts=[] for several samples.
+        if i < len(GOLDEN_DATASET) - 1:
+            await asyncio.sleep(2)
     return results
 
 
@@ -96,6 +101,12 @@ def run_ragas_scoring(dataset):
     embeddings= is required for answer_relevancy (MetricWithEmbeddings).
     Uses embedding_factory("openai") which picks up OPENAI_API_KEY from env.
 
+    llm= is configured explicitly with max_tokens=8192.  Without this, RAGAS
+    (via instructor) defaults to max_tokens=3072; with RETRIEVAL_LIMIT=10 the
+    faithfulness prompt (10 contexts × ~1000 chars + answer + instructions)
+    regularly exceeds that limit, causing instructor to retry 3× at ~5-6 min
+    each, making the overall scoring wall time 15-20 min.  8192 fits comfortably.
+
     Scores are LLM-graded — expects ~60 OpenAI API calls for 15 questions.
     """
     from ragas import evaluate
@@ -104,8 +115,11 @@ def run_ragas_scoring(dataset):
     from ragas.metrics._context_precision import context_precision
     from ragas.metrics._context_recall import context_recall
     from ragas.embeddings.base import embedding_factory
+    from ragas.llms import LangchainLLMWrapper
+    from langchain_openai import ChatOpenAI
 
     embeddings = embedding_factory("openai")
+    llm = LangchainLLMWrapper(ChatOpenAI(model="gpt-4o-mini", max_tokens=8192))
 
     # Reduce strictness from 3→1: RAGAS requests n=strictness completions per sample.
     # Modern OpenAI APIs return only n=1, causing the "LLM returned 1 generations
@@ -117,6 +131,7 @@ def run_ragas_scoring(dataset):
     return evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+        llm=llm,
         embeddings=embeddings,
     )
 

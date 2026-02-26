@@ -56,7 +56,7 @@ class Settings(BaseSettings):
     SUPPORTED_FILE_TYPES: str = "pdf,docx,pptx,html,md,txt,csv,json,xml,rtf"
 
     # Retrieval
-    RETRIEVAL_LIMIT: int = 5
+    RETRIEVAL_LIMIT: int = 10
     RETRIEVAL_SIMILARITY_THRESHOLD: float = 0.25  # Lowered for better recall with varied LLM-generated queries
 
     # Hybrid Search (Module 6)

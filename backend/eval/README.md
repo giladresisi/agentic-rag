@@ -4,28 +4,18 @@ Three evaluation pipelines covering the full quality stack — from simplified r
 
 ---
 
-## Latest scores (2026-02-26, `gpt-4o`, 15 golden samples)
+## Latest scores (2026-02-26, run 6)
 
-### `evaluate.py` — simplified RAG pipeline
-
-| Metric | Score |
-|--------|-------|
-| faithfulness | 0.865 |
-| answer_relevancy | 0.743 |
-| context_precision | 0.347 |
-| context_recall | 0.156 |
-
-### `evaluate_chat_quality.py` — real ChatService end-to-end
+### `evaluate.py` — simplified RAG pipeline (run 6, post-fixes)
 
 | Metric | Score |
 |--------|-------|
-| faithfulness | 0.882 |
-| answer_relevancy | 0.963 |
-| context_precision | 0.300 |
-| context_recall | 0.122 |
-| arg_keyword_relevance | **1.000 (15/15)** |
+| faithfulness | **0.967** |
+| answer_relevancy | **0.881** |
+| context_precision | 0.585 |
+| context_recall | **0.878** |
 
-### `evaluate_tool_selection.py` — tool routing + arg quality
+### `evaluate_tool_selection.py` — tool routing + arg quality (run 4)
 
 | Metric | Score |
 |--------|-------|
@@ -34,10 +24,20 @@ Three evaluation pipelines covering the full quality stack — from simplified r
 | — sql | 1.000 (4/4) |
 | — web | 1.000 (4/4) |
 | arg_keyword_relevance | **1.000 (12/12)** |
-| multi-turn sequence accuracy | 0.667 (2/3) |
-| arg_quality / AgentGoalAccuracy | 0.133 ⚠️ |
+| multi-turn sequence accuracy | **1.000 (3/3)** |
+| arg_quality / AgentGoalAccuracy | **1.000 (12 single-turn)** |
 
-> `AgentGoalAccuracy` (0.133) results are unreliable — the metric's long JSON prompts hit the model's `max_tokens` limit repeatedly. All other metrics are reliable.
+### `evaluate_chat_quality.py` — real ChatService end-to-end (run 3, pre-dataset-fix)
+
+| Metric | Score |
+|--------|-------|
+| faithfulness | 0.882 |
+| answer_relevancy | 0.963 |
+| context_precision | 0.300 |
+| context_recall | 0.122 |
+| arg_keyword_relevance | 1.000 (15/15) |
+
+> evaluate_chat_quality.py has not been re-run since the dataset fix (run 3). Context precision/recall are expected to improve substantially given the same retrieval stack as evaluate.py.
 
 ---
 
@@ -82,9 +82,11 @@ uv run python eval/evaluate_tool_selection.py
 
 All scripts support `--dry-run` to skip LangSmith push.
 
-### Cohere free-tier note
+### Rate limit notes
 
-If `RERANKING_PROVIDER=cohere` on the free tier (10 req/min), the eval hits a 429 at question 11. Use `RERANKING_PROVIDER=local` instead — it runs an on-device cross-encoder with no rate limits.
+**Supabase RPC** — `evaluate.py` adds a 2-second delay between pipeline calls to stay under Supabase's free-tier RPC rate limit. Without this, calls 10–15 return HTTP errors whose headers are silently embedded in answers, zeroing context_recall for those samples.
+
+**Cohere reranker** — if `RERANKING_PROVIDER=cohere` on the free tier (10 req/min), the eval hits a 429 at question 11. Use `RERANKING_PROVIDER=local` instead — it runs an on-device cross-encoder with no rate limits.
 
 ---
 
@@ -113,7 +115,9 @@ Scores the LLM's routing decision across three passes:
 | 1 | `tool_routing_accuracy` | Binary per sample — did the model call the right tool? (12 single-turn) |
 | 2 | `sequence_accuracy` | Binary per sample — correct 2-step sequence? (3 multi-turn: retrieve → analyze) |
 | 3a | `arg_keyword_relevance` | Deterministic keyword check on the query arg (12 single-turn, free) |
-| 3b | `arg_quality` | RAGAS `AgentGoalAccuracy` LLM judge — do the args satisfy the reference goal? (all 15) |
+| 3b | `arg_quality` | RAGAS `AgentGoalAccuracy` LLM judge — do the args satisfy the reference goal? (12 single-turn only) |
+
+Multi-turn samples are excluded from pass 3b: `AgentGoalAccuracyWithReference` does not handle multi-step reference goals reliably, producing 0 for every multi-turn sample regardless of actual arg quality. Sequence correctness for multi-turn is already captured by `sequence_accuracy`.
 
 Supports `--single-only` to skip the multi-turn pipeline.
 
@@ -200,6 +204,9 @@ backend/eval/
 
 | Metric | Issue | Status |
 |--------|-------|--------|
-| `AgentGoalAccuracy` | Long JSON prompts hit `max_tokens` limit — results truncated and unreliable | Known, no fix yet |
-| `context_precision` / `context_recall` | Consistently low (0.1–0.35) — retrieval ranking, not a scoring bug | Genuine quality gap |
+| `AgentGoalAccuracy` | Long JSON prompts hit `gpt-4o-mini` output token limit — truncated responses, all 0.0 | Fixed: switched to `gpt-4o`; multi-turn samples excluded (metric not designed for multi-step goals) |
+| `AgentGoalAccuracy` multi-turn | Scores 0 for all multi-turn samples even when sequence is correct — metric limitation with multi-step reference goals | By design: multi-turn excluded from pass 3b; covered by `sequence_accuracy` instead |
+| `context_precision` / `context_recall` | Were low (0.1–0.35) — root cause was dataset quality bug, not retrieval | Fixed: all 15 ground truths rewritten; run 6 shows context_recall 0.878 |
+| Supabase RPC rate limiting | 15 questions fired without delay saturate Supabase's free-tier RPC limit (~10 rapid calls). Affected samples silently return `contexts=[]` and inject raw HTTP response headers into answers, corrupting RAGAS scores. | Fixed: `asyncio.sleep(2)` between pipeline calls in `evaluate.py` |
+| RAGAS scoring wall time ~17 min | RAGAS runs all 60 scoring jobs in one parallel batch; wall time = slowest job. With `RETRIEVAL_LIMIT=10`, the faithfulness prompt (10 contexts × ~1000 chars) exceeds instructor's default `max_tokens=3072`, triggering 3 retries at ~5-6 min each. | Fixed: `evaluate.py` configures RAGAS LLM with `max_tokens=8192` |
 | `pyarrow.dataset` import | DLL blocked by Windows Application Control — mocked at startup in all eval scripts | Fixed (harmless) |

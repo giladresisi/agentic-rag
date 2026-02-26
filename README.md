@@ -52,11 +52,20 @@ For structured data sources (codebases, API documentation with organized folders
 ## Features
 
 - **Multi-tenant chat interface** - User auth, threaded streamed chats, model selection (OpenAI, OpenRouter, local via LM Studio)
-- **Document ingestion pipeline** - Multi-format document support, processing status tracking, content hashing + deduplication
-- **Advanced RAG pipeline** - Intelligent chunking, embeddings, pgvector storage, metadata filtering, hybrid search, reranking
-- **Agentic capabilities** - LLM tool selection (text-to-SQL, web search, retrieval), subagent delegation for complex analysis
-- **Built-in observability** - Every LLM call, tool invocation, and subagent trace automatically captured in [LangSmith](https://smith.langchain.com) with zero extra instrumentation
-- **RAG evaluation** - Reproducible quality benchmarking via [RAGAS](https://docs.ragas.io): scores retrieval and answer quality across faithfulness, relevancy, precision, and recall; results pushed to LangSmith as named experiments
+- **Document ingestion pipeline** - Multi-format support, processing status tracking, content hashing + deduplication
+- **Advanced RAG pipeline** - Chunking, embeddings, pgvector storage, hybrid search (vector + keyword), reranking
+- **Agentic capabilities** - LLM tool selection with four tools (see below), subagent delegation for complex analysis
+- **Built-in observability** - Every LLM call, tool invocation, and subagent trace captured in [LangSmith](https://smith.langchain.com) with zero instrumentation
+- **RAG evaluation** - Reproducible quality benchmarking via [RAGAS](https://docs.ragas.io)
+
+### Agentic Tools
+
+| Tool | Purpose | Implementation |
+| :--- | :--- | :--- |
+| **Document Retrieval** | Answer questions from uploaded documents | Hybrid search (vector + keyword, RRF fusion) with optional cross-encoder reranking via pgvector |
+| **Text-to-SQL** | Query structured deployment history | LLM-generated SQL executed via Supabase RPC with allowlist safety validation |
+| **Web Search** | Real-time info not in documents | Tavily API; only invoked after document retrieval fails to answer |
+| **Document Subagent** | Deep full-document analysis | Spawns an isolated sub-agent with full document context for summarization and extraction |
 
 ---
 
@@ -257,9 +266,9 @@ While all 8 modules have been implemented and core functionality is working, sev
 
 - **Bugs only real files could expose** — Synthetic PDFs passed; real-world uploads (including Hebrew filenames and complex multi-column layouts) surfaced 9 separate bugs across two sessions, all caught through hands-on validation.
 
-- **9-issue Cloud Run gauntlet** — Identified memory constraints on Render, drove migration to Cloud Run, and resolved 9 production issues — including a blocking event loop from synchronous ML inference inside `async def` that only appeared under concurrent load.
-
 - **Clean-slate QA pass** — After all modules shipped, set up the project from scratch as a first-time user, found 40 silently skipped tests and multiple broken selectors, and drove fixes to 86/86 backend and 39/39 E2E tests before closing.
+
+- **RAG quality benchmarked from the ground up** — Initiated RAGAS evaluation for LLM qualitative validation, diagnosed near-zero first-run scores agents had missed, and drove the golden dataset and system prompt redesign that brought tool routing from 0.250 → 1.000 and chat faithfulness to 0.967.
 
 </details>
 

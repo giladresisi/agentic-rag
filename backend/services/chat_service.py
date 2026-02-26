@@ -267,6 +267,7 @@ PATTERN B - Retrieval + Subagents (for comprehensive analysis):
 - Query: "Analyze documents for themes, specs, conclusions" → Use TWO-STEP workflow below
 - Query: "Summarize my documents" → Use TWO-STEP workflow below
 - Query: "What are the main points across all documents?" → Use TWO-STEP workflow below
+- Query: "Give me a comprehensive summary of [specific incident/document]" → Use TWO-STEP workflow below
 - TWO-STEP WORKFLOW:
   STEP 1: retrieve_documents(query="broad search to discover documents")
   STEP 2: For each unique document name in results:

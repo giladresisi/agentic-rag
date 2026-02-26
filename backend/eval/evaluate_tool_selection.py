@@ -128,9 +128,9 @@ async def score_arg_quality(all_results: list[dict]) -> list[dict]:
     from ragas.llms.base import llm_factory
     from openai import AsyncOpenAI
 
-    # gpt-4o-mini for cost-efficient LLM grading of arg quality
+    # gpt-4o: gpt-4o-mini caused InstructorRetryException due to output token truncation on long JSON prompts
     metric = AgentGoalAccuracyWithReference(
-        llm=llm_factory("gpt-4o-mini", client=AsyncOpenAI())
+        llm=llm_factory("gpt-4o", client=AsyncOpenAI())
     )
     print(f"Scoring arg quality with AgentGoalAccuracy for {len(all_results)} samples...")
     for i, r in enumerate(all_results):
@@ -197,10 +197,10 @@ def print_summary(single_results: list[dict], multi_results: list[dict], all_res
         print(f"\nMulti-turn sequence accuracy ({len(multi_results)} samples):")
         print(f"  retrieve -> analyze : {multi_overall:.3f}   ({correct_multi}/{len(multi_results)})")
 
-    # Arg quality from AgentGoalAccuracy (LLM judge, all 15 samples)
+    # Arg quality from AgentGoalAccuracy (LLM judge, single-turn only)
     if all_results and "arg_quality" in all_results[0]:
         arg_overall = sum(r["arg_quality"] for r in all_results) / len(all_results)
-        print(f"\nArg quality / AgentGoalAccuracy LLM judge ({len(all_results)} samples):")
+        print(f"\nArg quality / AgentGoalAccuracy LLM judge ({len(all_results)} single-turn samples):")
         print(f"  overall  : {arg_overall:.3f}")
 
     print("=" * 64)
@@ -267,8 +267,12 @@ async def main() -> None:
     # Pass 3a: deterministic keyword check (single-turn only, no API calls)
     single_results = score_arg_keyword_relevance(single_results)
 
-    # Pass 3b: LLM-judge arg quality (all 15 samples via AgentGoalAccuracy)
-    all_results = await score_arg_quality(single_results + multi_results)
+    # Pass 3b: LLM-judge arg quality (single-turn only).
+    # Multi-turn samples are excluded: AgentGoalAccuracyWithReference scores against
+    # a single goal statement and cannot handle two-step reference goals reliably,
+    # producing 0 for every multi-turn sample regardless of actual arg quality.
+    # Sequence correctness for multi-turn is already captured by sequence_accuracy above.
+    all_results = await score_arg_quality(single_results)
 
     print_summary(single_results, multi_results, all_results)
 

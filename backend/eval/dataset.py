@@ -21,9 +21,11 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="What was the root cause of the INC-2024-003 auth service outage?",
         ground_truth=(
-            "A Redis TTL misconfiguration caused by a code deployment at 14:32 UTC "
-            "changed the session TTL from 3600 seconds to 360 seconds, causing mass "
-            "token expiry and cache-poisoning of auth state."
+            "During a Redis cluster maintenance window, an operator ran a CONFIG RESETSTAT "
+            "command that inadvertently reset the maxttl configuration to 0, causing all "
+            "JWT cache entries to expire immediately on write. This forced every authentication "
+            "request to hit PostgreSQL directly, exhausting the connection pool and causing "
+            "502 errors application-wide."
         ),
         source_doc="INC-2024-003-auth-outage.md",
         required_arg_keywords=["INC-2024-003", "auth", "redis"],
@@ -31,17 +33,19 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="How long did the INC-2024-003 auth outage last?",
         ground_truth=(
-            "The INC-2024-003 auth outage lasted 47 minutes, from 14:32 UTC to 15:19 UTC."
+            "The INC-2024-003 auth outage lasted 47 minutes, from approximately 02:14 UTC "
+            "when the alert fired to 03:01 UTC when the error rate returned to normal."
         ),
         source_doc="INC-2024-003-auth-outage.md",
         required_arg_keywords=["INC-2024-003", "auth"],
     ),
     EvalSample(
-        question="What monitoring gap allowed the INC-2024-003 auth outage to go undetected for 6 minutes?",
+        question="What monitoring gap existed in the INC-2024-003 auth service outage?",
         ground_truth=(
-            "There was no alert on Redis hit-rate drop and token validation latency "
-            "was not monitored, leaving only a generic 5xx spike alert that fired "
-            "6 minutes after the incident began."
+            "The Redis hit-rate metric existed in the dashboard but had no alert configured. "
+            "The auth-service error rate alert (15% threshold) fired 8 minutes after the "
+            "incident began, and the root cause took an additional 16 minutes to identify "
+            "because engineers investigated the PostgreSQL side first rather than Redis."
         ),
         source_doc="INC-2024-003-auth-outage.md",
         required_arg_keywords=["INC-2024-003", "monitoring"],
@@ -50,9 +54,11 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="What caused the payment database corruption in INC-2024-011?",
         ground_truth=(
-            "A schema migration script ran without a transaction wrapper. When the "
-            "migration failed midway on adding a NOT NULL constraint, partial writes "
-            "left 1,847 payment records with NULL payment_method fields."
+            "A PostgreSQL 14.1 bug (PG Bug #17761) caused B-tree index corruption when "
+            "the replica was shut down uncleanly during a network partition event. The "
+            "replica had full_page_writes = off as a performance optimisation, which "
+            "allowed in-flight B-tree page splits to leave the index in an inconsistent "
+            "state that then replicated to the primary."
         ),
         source_doc="INC-2024-011-payment-db-corruption.md",
         required_arg_keywords=["INC-2024-011", "payment"],
@@ -60,9 +66,10 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="How was the INC-2024-011 payment database corruption resolved?",
         ground_truth=(
-            "The migration was rolled back, a data repair script backfilled the NULL "
-            "payment_method fields from transaction logs for all 1,847 affected records, "
-            "and the migration was re-run with a proper transaction wrapper."
+            "REINDEX CONCURRENTLY was run on both the primary and replica to rebuild the "
+            "corrupted B-tree indexes. Read traffic was rerouted to the replica during the "
+            "primary rebuild, and write traffic was restored to the primary once its index "
+            "rebuild completed at 10:47."
         ),
         source_doc="INC-2024-011-payment-db-corruption.md",
         required_arg_keywords=["INC-2024-011", "payment"],
@@ -71,19 +78,22 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="What was the root cause of the INC-2024-019 data pipeline memory leak?",
         ground_truth=(
-            "A background chunking worker accumulated file handles without releasing "
-            "them because a Python context manager was missing from the PDF parser call "
-            "added in v2.3.1, causing handles to leak until the pod was OOM killed."
+            "The pipeline worker maintained a module-level pending_tasks list to track "
+            "in-flight asyncio tasks, but completed tasks were never removed from it. "
+            "Over a nightly run processing 2.1 million records, the list accumulated "
+            "847,000 Task objects that kept large intermediate data structures alive, "
+            "eventually causing all worker pods to be OOMKilled."
         ),
         source_doc="INC-2024-019-pipeline-memory-leak.md",
         required_arg_keywords=["INC-2024-019", "memory", "pipeline"],
     ),
     EvalSample(
-        question="Why was the INC-2024-019 memory leak not detected for over 6 hours?",
+        question="Why was the INC-2024-019 memory leak not caught before the pods were OOMKilled?",
         ground_truth=(
-            "There was no memory growth trend alert; only OOM kill alerting existed. "
-            "The issue started overnight at 01:04 UTC and was not detected until the "
-            "Kubernetes OOM kill alert fired at 07:15 UTC, a 6 hour 11 minute detection gap."
+            "Memory growth was gradual and only became critical after 28 minutes of "
+            "processing. No memory growth rate alert existed; the only alert was on SLA "
+            "breach (batch not completed by 01:00), which fired at 01:00 — 50 minutes "
+            "after the job started, not on any infrastructure health signal."
         ),
         source_doc="INC-2024-019-pipeline-memory-leak.md",
         required_arg_keywords=["INC-2024-019", "memory"],
@@ -92,10 +102,11 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="What caused the API gateway timeout cascade in INC-2024-027?",
         ground_truth=(
-            "A downstream ML inference service began returning responses after 29.5 "
-            "seconds, just under the 30-second gateway timeout. Under load, these "
-            "near-timeout responses exhausted the connection pool of 50 connections, "
-            "causing the gateway to queue and drop requests with 504 errors."
+            "An expired intermediate TLS certificate on the load balancer caused upstream "
+            "TLS handshake failures between the API gateway and its backend services, "
+            "resulting in 504 Gateway Timeout errors on all API routes. The automated "
+            "cert-rotation job covered only leaf certificates and did not renew the "
+            "intermediate certificate in the chain."
         ),
         source_doc="INC-2024-027-gateway-timeout.md",
         required_arg_keywords=["INC-2024-027", "gateway", "timeout"],
@@ -103,9 +114,10 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="How long did it take to identify the root cause of INC-2024-027?",
         ground_truth=(
-            "The synthetic monitor detected elevated response times at 16:04 UTC, "
-            "2 minutes after the incident started, but it took an additional 45 minutes "
-            "to trace the root cause to the ML inference service near-timeout responses."
+            "The on-call alert fired at 14:05 when error rate spiked to 100%. TLS "
+            "handshake errors were observed in gateway logs at 14:13, and intermediate "
+            "certificate expiry was confirmed via openssl s_client at 14:18 — 13 minutes "
+            "after the incident began."
         ),
         source_doc="INC-2024-027-gateway-timeout.md",
         required_arg_keywords=["INC-2024-027", "gateway"],
@@ -113,9 +125,9 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="What remediation steps were taken for the INC-2024-027 gateway timeout cascade?",
         ground_truth=(
-            "The ML inference service timeout was reduced from 30 seconds to 10 seconds, "
-            "the connection pool was increased from 50 to 200, and a circuit breaker was "
-            "added for the ML inference service."
+            "A new intermediate certificate was issued from the internal PKI at 14:22 "
+            "and deployed to the load balancer by 14:31, at which point TLS handshakes "
+            "began succeeding and all routes returned 200 by 14:38."
         ),
         source_doc="INC-2024-027-gateway-timeout.md",
         required_arg_keywords=["INC-2024-027", "gateway"],
@@ -124,10 +136,11 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="What was the root cause of the INC-2024-031 notification queue backup?",
         ground_truth=(
-            "A 10x surge in signup events from a viral social media post overwhelmed "
-            "the notification worker which processed only 1 message per second. The queue "
-            "grew to 2.1 million messages with no backpressure mechanism, and the email "
-            "provider rate limit was 500 emails per minute."
+            "A planned maintenance window scaled the notification-service consumer group "
+            "from 20 to 2 workers, but the maintenance runbook had no step to restore the "
+            "count when the window ended. The HPA was configured on CPU utilisation rather "
+            "than queue depth, so it never triggered a scale-up, leaving 2 consumers to "
+            "fall behind an accumulating queue of approximately 340,000 messages."
         ),
         source_doc="INC-2024-031-notif-queue-backup.md",
         required_arg_keywords=["INC-2024-031", "notification", "queue"],
@@ -135,30 +148,34 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="How long did it take to detect the INC-2024-031 notification queue backup?",
         ground_truth=(
-            "Detection took 2.5 hours. The incident began at 11:00 UTC but was not "
-            "discovered until 13:30 UTC when users reported missing welcome emails, "
-            "because no queue depth alert or email delivery lag tracking existed."
+            "The queue depth grew for 3 hours before detection. The maintenance window "
+            "ended at 07:30 and the queue began accumulating, but the queue depth alert "
+            "did not fire until 10:30 when the depth reached 500,000 messages — a "
+            "threshold calibrated for batch processing, not streaming consumer saturation."
         ),
         source_doc="INC-2024-031-notif-queue-backup.md",
         required_arg_keywords=["INC-2024-031", "notification"],
     ),
     # ── INC-2024-038 deploy-rollback (2 questions: root cause, remediation) ──
     EvalSample(
-        question="Why did the deployment rollback fail in INC-2024-038?",
+        question="What caused the INC-2024-038 payment-api deployment to fail and require rollback?",
         ground_truth=(
-            "The v4.2.0 deployment included a DB migration that added a required column. "
-            "When the team attempted rollback to v4.1.9, the older version did not know "
-            "about the new column and crashed on startup, leaving the service down."
+            "The deployment rollback did not fail — it succeeded. Payment-api v2.14.1 "
+            "caused a nil pointer panic because it accessed GetWebhookConfig().Endpoint "
+            "without a nil check, and the production config did not include the new "
+            "WebhookConfig block. Rollback to v2.14.0 was completed successfully within "
+            "10 minutes, restoring the error rate to 0%."
         ),
         source_doc="INC-2024-038-deploy-rollback.md",
         required_arg_keywords=["INC-2024-038", "rollback"],
     ),
     EvalSample(
-        question="How was the INC-2024-038 failed deployment rollback resolved?",
+        question="How was the INC-2024-038 payment-api deployment failure resolved?",
         ground_truth=(
-            "A forward-fix v4.2.1 was written that made the new column optional "
-            "(nullable with a default value), deployed to staging for verification, "
-            "and then deployed to production to restore the service."
+            "The incident was resolved by rolling back payment-api from v2.14.1 to "
+            "v2.14.0. The rollback was initiated at 11:24, the v2.14.0 deployment "
+            "completed at 11:34, and the error rate returned to 0%, resolving the "
+            "incident after 22 minutes total impact."
         ),
         source_doc="INC-2024-038-deploy-rollback.md",
         required_arg_keywords=["INC-2024-038", "rollback"],
@@ -167,11 +184,11 @@ GOLDEN_DATASET: List[EvalSample] = [
     EvalSample(
         question="Which incident had the longest resolution time and how long was it?",
         ground_truth=(
-            "INC-2024-031 (notification queue backup) had the longest resolution time "
-            "at 14 hours and 18 minutes, running from 11:00 UTC on Day 1 to 01:18 UTC "
-            "on Day 2."
+            "INC-2024-019 (data pipeline OOM crash loop) had the longest resolution time "
+            "at 378 minutes (6 hours 18 minutes), from the batch job start at 00:10 to "
+            "completion at 06:28. The next longest was INC-2024-031 at 257 minutes."
         ),
-        source_doc="INC-2024-031-notif-queue-backup.md",
+        source_doc="INC-2024-019-pipeline-memory-leak.md",
         required_arg_keywords=["resolution", "longest"],
     ),
 ]
