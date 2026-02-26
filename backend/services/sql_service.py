@@ -16,13 +16,15 @@ INCIDENTS_SCHEMA = """production_incidents table columns:
 - id (INTEGER PRIMARY KEY)
 - incident_id (TEXT) -- e.g. 'INC-2024-003'
 - title (TEXT)
-- affected_service (TEXT)
-- severity (TEXT) -- 'P1' or 'P2'
-- root_cause_category (TEXT)
-- detection_gap_minutes (INTEGER)
-- resolution_time_minutes (INTEGER)
-- incident_date (DATE)
-- status (TEXT)"""
+- severity (TEXT) -- 'P1', 'P2', 'P3', or 'P4'
+- service_affected (TEXT)
+- status (TEXT) -- 'resolved', 'open', or 'monitoring'
+- started_at (TIMESTAMPTZ) -- when the incident started
+- resolved_at (TIMESTAMPTZ) -- when resolved, NULL if still active
+- duration_minutes (INTEGER) -- total duration in minutes, NULL if still active
+- root_cause_category (TEXT) -- 'database', 'deployment', 'network', 'third-party', or 'configuration'
+- description (TEXT)
+- postmortem_written (BOOLEAN)"""
 
 
 class SQLService:

@@ -823,14 +823,26 @@ Without `EVAL_DOCS_INGESTED=true` the eval tests are automatically skipped — `
 
 ### Evaluation
 
-Run the RAGAS evaluation pipeline to get objective RAG quality scores pushed to LangSmith:
+The project ships with three RAGAS evaluation pipelines and a combined runner:
+
+| Script | What it measures | LangSmith dataset |
+|--------|-----------------|-------------------|
+| `eval/evaluate.py` | Simplified RAG pipeline (retrieve → one-shot LLM) — faithfulness, answer relevancy, context precision, context recall | `ir-copilot-golden-set` |
+| `eval/evaluate_tool_selection.py` | Tool routing accuracy, arg keyword relevance, multi-turn sequence accuracy, AgentGoalAccuracy | `ir-copilot-tool-selection` |
+| `eval/evaluate_chat_quality.py` | Real `ChatService` end-to-end — same RAGAS metrics on the actual user-facing response + arg keyword relevance | `ir-copilot-chat-quality` |
 
 ```bash
 # Install eval dependencies (separate from production deps due to version constraints)
 cd backend && uv pip install -r eval/requirements-eval.txt
 
-# Run evaluation (requires postmortem docs ingested and LANGSMITH_API_KEY set)
-cd backend && uv run python eval/evaluate.py
+# Run all three evals (recommended)
+cd backend && bash eval/run_evals.sh             # push results to LangSmith
+cd backend && bash eval/run_evals.sh --dry-run   # print scores only, no push
+
+# Run individual evals
+cd backend && uv run python eval/evaluate.py [--dry-run]
+cd backend && uv run python eval/evaluate_tool_selection.py [--dry-run]
+cd backend && uv run python eval/evaluate_chat_quality.py [--dry-run] [--limit N]
 
 # Unit tests only (no API calls, no ingested docs required)
 cd backend && uv run python -m pytest eval/tests/ -v
@@ -838,11 +850,12 @@ cd backend && uv run python -m pytest eval/tests/ -v
 
 **Prerequisites for a full eval run:**
 1. Upload the 6 postmortem docs via the app UI (`backend/eval/postmortems/*.md`)
-2. Set `LANGSMITH_API_KEY` in `backend/.env`
+2. Set `TEST_EMAIL` and `TEST_PASSWORD` in `backend/.env` (needed by all three scripts to sign in and retrieve docs as the correct user)
+3. Set `LANGSMITH_API_KEY` in `backend/.env` (skip with `--dry-run`)
 
-Results appear in LangSmith under dataset `ir-copilot-golden-set`. Expect ~$0.05–0.15 in OpenAI API costs per run (RAGAS uses an LLM to grade faithfulness and answer relevancy).
+Each script costs ~$0.05 in OpenAI API calls (RAGAS uses an LLM to grade faithfulness and answer relevancy). Running all three costs ~$0.15 total.
 
-**Reranking provider:** The eval pipeline uses whatever `RERANKING_PROVIDER` is set to in `backend/.env`. The recommended setting is `local` (no rate limits, no API key needed). If `RERANKING_PROVIDER=cohere`, the Cohere free tier caps at **10 requests/minute** — with 15 golden questions the run hits that limit at question 11 and fails. See `backend/eval/evaluate.py` for instructions on trimming the dataset to work within the limit.
+**Reranking provider:** The eval pipelines use whatever `RERANKING_PROVIDER` is set to in `backend/.env`. The recommended setting is `local` (no rate limits, no API key needed). If `RERANKING_PROVIDER=cohere`, the Cohere free tier caps at **10 requests/minute** — with 15 golden questions the run hits that limit at question 11 and fails. See `backend/eval/evaluate.py` for instructions on trimming the dataset to work within the limit.
 
 **Dependency note:** `ragas` is installed via `uv pip install` rather than `uv add` due to transitive version conflicts that cannot be resolved by `uv sync`. The full explanation is in `backend/eval/requirements-eval.txt`.
 

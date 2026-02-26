@@ -106,6 +106,11 @@ ALTER TABLE production_incidents ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "authenticated_read_incidents" ON production_incidents
     FOR SELECT TO authenticated USING (true);
 
+-- Allow sql_query_role to read incidents (GRANT SELECT alone is insufficient when RLS is enabled;
+-- a matching policy is required for the role to see any rows)
+CREATE POLICY "sql_query_role_read_incidents" ON production_incidents
+    FOR SELECT TO sql_query_role USING (true);
+
 -- Part 6: RPC function for safe SQL execution on production_incidents table
 CREATE OR REPLACE FUNCTION execute_incidents_query(query_text TEXT)
 RETURNS JSONB

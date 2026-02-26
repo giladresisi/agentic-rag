@@ -996,8 +996,59 @@ Local reranking improves faithfulness and context_precision meaningfully. answer
 
 **Status**: ✅ Complete
 **Identified**: 2026-02-25
-**Completed**: 2026-02-25
+**Completed**: 2026-02-26
 **Plan File**: `.agents/plans/chat-quality-evaluation.md`
+
+### RAGAS Scores (2026-02-26, `gpt-4o`, 15 golden samples)
+
+#### `evaluate.py` — simplified RAG pipeline (retrieve → one-shot LLM completion)
+| Metric | Score |
+|--------|-------|
+| faithfulness | 0.861 |
+| answer_relevancy | 0.745 |
+| context_precision | 0.413 |
+| context_recall | 0.200 |
+
+#### `evaluate_tool_selection.py` — tool routing + arg quality
+| Metric | Score |
+|--------|-------|
+| routing accuracy (overall) | 0.667 |
+| routing accuracy — sql | 1.000 (4/4) |
+| routing accuracy — web | 1.000 (4/4) |
+| routing accuracy — retrieve | 0.000 (0/4) ⚠️ |
+| arg keyword relevance (deterministic) | 1.000 |
+| multi-turn sequence accuracy | 0.333 (1/3) |
+| arg quality / AgentGoalAccuracy | 0.267 |
+
+#### `evaluate_chat_quality.py` — real ChatService end-to-end
+| Metric | Score |
+|--------|-------|
+| faithfulness | 0.000 ⚠️ |
+| answer_relevancy | 0.000 ⚠️ |
+| context_precision | 0.000 ⚠️ |
+| context_recall | 0.000 ⚠️ |
+| arg_keyword_relevance | 0.000 (0/15) ⚠️ |
+
+> **Note on chat quality zeros — investigation context for next agent:**
+>
+> **Symptom:** All 15 retrieval questions score 0 on every metric. `arg_keyword_relevance = 0/15` means the `retrieve_documents` wrapper in `chat_quality_pipeline.py` was never triggered — i.e. the LLM did not call `retrieve_documents` for a single one of the 15 questions. Without a retrieval call, `contexts = []`, which explains `context_precision = 0` and `context_recall = 0`.
+>
+> **Most likely root cause — system prompt conflict in `backend/services/chat_service.py` line 277:**
+> ```
+> - Questions about incidents, severity, services, resolution times → query_incidents_database
+> ```
+> All 15 golden dataset questions mention incident IDs (INC-2024-003 etc.), root causes, resolution times, and services. This guidance tells the LLM to route them to `query_incidents_database` (SQL) instead of `retrieve_documents`. The structured incidents table contains metadata (title, severity, dates) but NOT the postmortem narrative (root causes, detection gaps, remediation steps) that the golden questions ask about. The LLM is almost certainly calling SQL, getting back only structured rows, and then producing a weak or failed answer.
+>
+> **Why `answer_relevancy = 0` is suspicious:** RAGAS `answer_relevancy` measures whether the answer addresses the question, independent of context. A score of 0 across all 15 samples (not just low, but exactly 0) suggests either (a) the answers are empty strings or boilerplate error messages like "I couldn't find that in the database", or (b) RAGAS 0.4.x assigns 0 when contexts are empty even for this metric. Worth checking actual answer text from a sample run.
+>
+> **Verification steps for the next agent:**
+> 1. Run `cd backend && uv run python eval/evaluate_chat_quality.py --dry-run --limit 3` and inspect the printed output — look at what `tool_name` and `tool_args` show for the first 3 questions. If `tool_name` is `None` (no tool called at all) vs `query_incidents_database`, these are two different problems with different fixes.
+> 2. Check LangSmith — the run was pushed to dataset `ir-copilot-chat-quality` on 2026-02-26. The per-sample outputs include `tool_name` and `tool_args` which will show exactly which tool the LLM called.
+> 3. Inspect `backend/services/chat_service.py` lines 200–288 (the full system prompt). The conflict is at line 277 but the broader guidance may need rethinking to distinguish "questions about incident metadata" (→ SQL) from "questions about postmortem narrative content" (→ `retrieve_documents`).
+>
+> **Likely fix:** Tighten the `query_incidents_database` guidance in the system prompt so it only covers structured/aggregate queries (counts, averages, date ranges, severity filters) and add explicit examples showing that questions asking *why* or *how* something happened should use `retrieve_documents`. The tool description on `query_incidents_database` itself (in the `TOOL_DEFINITIONS` block of `chat_service.py`) may also need updating to narrow its scope.
+
+---
 
 ### Reports Generated
 
@@ -1006,6 +1057,12 @@ Local reranking improves faithfulness and context_precision meaningfully. answer
 - Divergences and resolutions
 - Test results and metrics
 - Team performance analysis
+
+**System Review:** `.agents/system-reviews/chat-quality-evaluation.md`
+- Alignment score: 9/10
+- Divergence analysis (1 identified: 1 justified — import placement plan inconsistency, self-corrected by both Wave 1 agents)
+- All 5 validation levels agent-executable and passing (no DB dependency — cleanest validation in eval series)
+- Key actions: create `eval/compat.py` (overdue from prior review), add import-placement testability cross-check to CLAUDE.md
 
 ### Background
 
@@ -1061,6 +1118,16 @@ A third eval script: **`eval/evaluate_chat_quality.py`** that:
 | Retrieval result quality | ❌ not scored for actual LLM-chosen args | — |
 | Final response quality | ✅ simplified pipeline only | `evaluate.py` (manual) |
 | Final response quality (real chat) | ❌ **gap** | — |
+
+---
+
+## Feature: SQL Tool Topic — Replace production_incidents with Deployments
+
+**Status**: Planning
+**Started**: 2026-02-26
+**Plan File**: `.agents/plans/sql-topic-replace-incidents-with-deployments.md`
+
+Planning in progress...
 
 ---
 

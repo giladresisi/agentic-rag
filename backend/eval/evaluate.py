@@ -15,6 +15,7 @@ The workaround below mocks pyarrow.dataset before importing ragas/datasets.
 This does not affect evaluation correctness — RAGAS 0.4.x uses EvaluationDataset,
 not pyarrow.dataset, for its evaluation logic.
 """
+import argparse
 import asyncio
 import os
 import sys
@@ -169,13 +170,24 @@ def push_to_langsmith(df, experiment_name: str) -> None:
 
 
 async def main() -> None:
+    parser = argparse.ArgumentParser(description="RAG pipeline evaluation using RAGAS")
+    parser.add_argument("--dry-run", action="store_true", help="Skip LangSmith push")
+    args = parser.parse_args()
+
     user_id = get_eval_user_id()
     pipeline_results = await collect_pipeline_results(user_id)
     dataset = build_ragas_dataset(pipeline_results)
     score = run_ragas_scoring(dataset)
     df = print_results(score)
-    push_to_langsmith(df, experiment_name=f"rag-eval-{date.today()}")
-    print("\nDone. View results at: https://smith.langchain.com/")
+
+    if not args.dry_run:
+        try:
+            push_to_langsmith(df, experiment_name=f"rag-eval-{date.today()}")
+            print("\nDone. View results at: https://smith.langchain.com/")
+        except Exception as e:
+            print(f"\nWarning: LangSmith push failed ({e}). Scores printed above.")
+    else:
+        print("\nDry run complete — LangSmith push skipped.")
 
 
 if __name__ == "__main__":

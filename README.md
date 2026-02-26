@@ -288,9 +288,30 @@ This project was inspired by the **[Claude Code RAG Masterclass](https://www.you
 
 ## Evaluation
 
-The RAG pipeline ships with a built-in [RAGAS](https://docs.ragas.io) evaluation suite — 15 golden Q&A pairs scored on faithfulness, answer relevancy, context precision, and context recall, with results pushed to LangSmith.
+The project ships with three [RAGAS](https://docs.ragas.io) eval pipelines covering the full quality stack — from simplified retrieval through tool routing to end-to-end chat quality — with results pushed to LangSmith.
 
-👉 **[See backend/eval/README.md for full details and run instructions](./backend/eval/README.md)**
+**Latest scores (2026-02-26, `gpt-4o`, 15 golden samples):**
+
+| Eval | Metric | Score |
+|------|--------|-------|
+| RAG pipeline | faithfulness | **0.861** |
+| RAG pipeline | answer relevancy | **0.745** |
+| RAG pipeline | context precision | 0.413 |
+| RAG pipeline | context recall | 0.200 |
+| Tool selection | routing accuracy (sql + web) | **1.000** |
+| Tool selection | arg keyword relevance | **1.000** |
+| Tool selection | routing accuracy (retrieve) | 0.000 ⚠️ |
+| Chat quality | all metrics | 0.000 ⚠️ (retrieve routing issue) |
+
+> The retrieve routing issue (0/4 in tool selection, all zeros in chat quality) is a known system prompt problem, not an eval infrastructure issue. Fixing it is the next priority.
+
+Run all three pipelines with one command:
+```bash
+cd backend && bash eval/run_evals.sh          # push to LangSmith
+cd backend && bash eval/run_evals.sh --dry-run # scores only, no push
+```
+
+👉 **[See SETUP.md for prerequisites and full run instructions](./SETUP.md)**
 
 ---
 

@@ -273,8 +273,11 @@ async def main() -> None:
     print_summary(single_results, multi_results, all_results)
 
     if not args.dry_run:
-        push_to_langsmith(single_results, multi_results, experiment_name=f"tool-selection-eval-{date.today()}")
-        print("\nDone. View results at: https://smith.langchain.com/")
+        try:
+            push_to_langsmith(single_results, multi_results, experiment_name=f"tool-selection-eval-{date.today()}")
+            print("\nDone. View results at: https://smith.langchain.com/")
+        except Exception as e:
+            print(f"\nWarning: LangSmith push failed ({e}). Scores printed above.")
     else:
         print("\nDry run — LangSmith push skipped.")
 
