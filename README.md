@@ -290,14 +290,7 @@ This project was inspired by the **[Claude Code RAG Masterclass](https://www.you
 
 The project ships with three [RAGAS](https://docs.ragas.io) eval pipelines covering the full quality stack — from simplified retrieval through tool routing to end-to-end chat quality — with results pushed to LangSmith.
 
-Run all three pipelines with one command:
-
-```bash
-cd backend && bash eval/run_evals.sh          # push to LangSmith
-cd backend && bash eval/run_evals.sh --dry-run # scores only, no push
-```
-
-👉 **[See backend/eval/README.md](./backend/eval/README.md)** for prerequisites, per-pipeline details, latest scores, and known metric quirks.
+👉 **See [backend/eval/README.md](./backend/eval/README.md)** for prerequisites, per-pipeline details, latest scores, and known metric quirks.
 
 ---
 
