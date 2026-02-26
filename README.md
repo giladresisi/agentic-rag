@@ -294,16 +294,22 @@ The project ships with three [RAGAS](https://docs.ragas.io) eval pipelines cover
 
 | Eval | Metric | Score |
 |------|--------|-------|
-| RAG pipeline | faithfulness | **0.861** |
-| RAG pipeline | answer relevancy | **0.745** |
-| RAG pipeline | context precision | 0.413 |
-| RAG pipeline | context recall | 0.200 |
-| Tool selection | routing accuracy (sql + web) | **1.000** |
-| Tool selection | arg keyword relevance | **1.000** |
-| Tool selection | routing accuracy (retrieve) | 0.000 ⚠️ |
-| Chat quality | all metrics | 0.000 ⚠️ (retrieve routing issue) |
+| RAG pipeline | faithfulness | 0.600 |
+| RAG pipeline | answer relevancy | 0.000 † |
+| RAG pipeline | context precision | 0.000 † |
+| RAG pipeline | context recall | 0.000 † |
+| Tool selection | routing accuracy (sql) | **1.000** (4/4) |
+| Tool selection | routing accuracy (web) | **1.000** (4/4) |
+| Tool selection | routing accuracy (retrieve) | 0.250 (1/4) ⚠️ |
+| Tool selection | arg keyword relevance | **1.000** (12/12) |
+| Tool selection | multi-turn sequence | 0.000 (0/3) ⚠️ |
+| Chat quality | faithfulness | 0.207 |
+| Chat quality | arg keyword relevance | 0.667 (10/15) |
+| Chat quality | answer relevancy / precision / recall | 0.000 † |
 
-> The retrieve routing issue (0/4 in tool selection, all zeros in chat quality) is a known system prompt problem, not an eval infrastructure issue. Fixing it is the next priority.
+† RAGAS `answer_relevancy`, `context_precision`, and `context_recall` require the scorer LLM to generate multiple question variants per sample; the current RAGAS version returns only 1 of the requested 3 for all 15 samples, producing 0.000 for these metrics. `faithfulness` and `arg_keyword_relevance` use different scoring paths and are unaffected.
+
+> **SQL routing fixed** — `query_deployments_database` routes correctly at 1.000 (4/4) after the SQL topic rename. Chat quality `arg_keyword_relevance` improved from 0/15 to 10/15, confirming the LLM now calls `retrieve_documents` for most postmortem questions instead of the SQL tool. Remaining gaps: single-turn retrieve routing (1/4) and multi-turn retrieve→analyze sequences (0/3).
 
 Run all three pipelines with one command:
 ```bash
