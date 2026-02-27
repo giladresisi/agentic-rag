@@ -116,6 +116,7 @@ def run_ragas_scoring(dataset):
     from ragas.metrics._context_recall import context_recall
     from ragas.embeddings.base import embedding_factory
     from ragas.llms import LangchainLLMWrapper
+    from ragas.run_config import RunConfig
     from langchain_openai import ChatOpenAI
 
     embeddings = embedding_factory("openai")
@@ -127,12 +128,19 @@ def run_ragas_scoring(dataset):
     # With strictness=1 we get valid scores from the single generation we actually receive.
     answer_relevancy.strictness = 1
 
+    # Limit concurrent API calls to avoid OpenAI rate-limit timeouts.
+    # Default max_workers=16 fires 16 simultaneous requests; after ~30 jobs the TPM
+    # limit is exhausted and remaining jobs fail with TimeoutError (returning NaN).
+    # max_workers=4 keeps throughput reasonable while staying under rate limits.
+    run_config = RunConfig(max_workers=4, timeout=180)
+
     print("\nScoring with RAGAS (LLM-graded -- takes 1-3 minutes)...")
     return evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
         llm=llm,
         embeddings=embeddings,
+        run_config=run_config,
     )
 
 

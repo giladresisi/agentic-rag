@@ -63,6 +63,10 @@ async def collect_pipeline_results(user_id: str, limit: int | None = None) -> li
                 "tool_args": {},
             }
         results.append(result)
+        # Small delay between questions to avoid Supabase RPC rate limiting.
+        # Mirrors the same protection in evaluate.py.
+        if i < total - 1:
+            await asyncio.sleep(2)
     return results
 
 
@@ -108,8 +112,16 @@ def run_ragas_scoring(dataset):
     from ragas.metrics._context_precision import context_precision
     from ragas.metrics._context_recall import context_recall
     from ragas.embeddings.base import embedding_factory
+    from ragas.llms import LangchainLLMWrapper
+    from ragas.run_config import RunConfig
+    from langchain_openai import ChatOpenAI
 
     embeddings = embedding_factory("openai")
+    # Explicit LLM with max_tokens=8192 to match evaluate.py.
+    # Without this, RAGAS auto-creates an LLM with its default max_tokens (3072).
+    # With RETRIEVAL_LIMIT=10, faithfulness prompts (10 chunks × ~1000 chars) exceed
+    # 3072 tokens, causing instructor to retry 3× at ~5-6 min each.
+    llm = LangchainLLMWrapper(ChatOpenAI(model="gpt-4o-mini", max_tokens=8192))
 
     # Reduce strictness from 3→1: RAGAS requests n=strictness completions per sample.
     # Modern OpenAI APIs return only n=1, causing the "LLM returned 1 generations
@@ -117,11 +129,19 @@ def run_ragas_scoring(dataset):
     # With strictness=1 we get valid scores from the single generation we actually receive.
     answer_relevancy.strictness = 1
 
+    # Limit concurrent API calls to avoid OpenAI rate-limit timeouts.
+    # Default max_workers=16 fires 16 simultaneous requests; after ~30 jobs the TPM
+    # limit is exhausted and remaining jobs fail with TimeoutError (returning NaN).
+    # max_workers=4 keeps throughput reasonable while staying under rate limits.
+    run_config = RunConfig(max_workers=4, timeout=180)
+
     print("\nScoring with RAGAS (LLM-graded -- takes 1-3 minutes)...")
     return evaluate(
         dataset,
         metrics=[faithfulness, answer_relevancy, context_precision, context_recall],
+        llm=llm,
         embeddings=embeddings,
+        run_config=run_config,
     )
 
 

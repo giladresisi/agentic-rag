@@ -8,17 +8,13 @@ See it in action:
 
 ![IR-Copilot App](./gif.gif)
 
+<p align="center"><a href="https://frontend-eosin-six-81.vercel.app/"><strong>See live demo →</strong></a></p>
+
 ---
 
-## Why? What is it for?
+## Problem Statement
 
-This is a complete foundation for building agentic RAG-based chat applications that retrieve precise information from unstructured data sources without hallucinations.
-It's designed for real-world use cases where organizations need intelligent document retrieval and Q&A systems:
-
-- **Internal knowledge bases** - Corporate documentation, policies, procedures, onboarding materials
-- **Customer support systems** - Product documentation, troubleshooting guides, FAQs
-- **Research and analysis** - Academic papers, market research, technical reports
-- **Legal and compliance** - Contracts, regulations, case law, compliance documents
+Traditional RAG often fails at complex, multi-hop queries. IR-Copilot solves this by introducing agentic delegation, allowing the system to decompose complex incidents into sub-tasks, query specialized indices, and synthesize reliable incident responses.
 
 <details>
 <summary><strong>When to use RAG (vector search):</strong></summary>
@@ -58,7 +54,22 @@ For structured data sources (codebases, API documentation with organized folders
 - **Built-in observability** - Every LLM call, tool invocation, and subagent trace captured in [LangSmith](https://smith.langchain.com) with zero instrumentation
 - **RAG evaluation** - Reproducible quality benchmarking via [RAGAS](https://docs.ragas.io)
 
-### Agentic Tools
+### Agentic Thought Trace
+
+```jsonc
+// "Analyze the ZetaCorp outage and list recent deployments"
+{ "turn_1": { "thought": "needs docs + DB",
+              "tools":  ["retrieve_documents", "query_deployments_database"],
+              "answer": "Outage caused by DB exhaustion; failed rollback 2h prior..." } }
+
+// "Extract all action items from that postmortem"
+{ "turn_2": { "thought": "full doc needed — delegate",
+              "tools":  ["retrieve_documents", "analyze_document_with_subagent"],
+              "subagent": "loads full document → extracts action items",
+              "answer": "7 action items found with owners and due dates..." } }
+```
+
+### Available Tools
 
 | Tool | Purpose | Implementation |
 | :--- | :--- | :--- |
@@ -268,7 +279,7 @@ While all 8 modules have been implemented and core functionality is working, sev
 
 - **Clean-slate QA pass** — After all modules shipped, set up the project from scratch as a first-time user, found 40 silently skipped tests and multiple broken selectors, and drove fixes to 86/86 backend and 39/39 E2E tests before closing.
 
-- **RAG quality benchmarked from the ground up** — Initiated RAGAS evaluation for LLM qualitative validation, diagnosed near-zero first-run scores agents had missed, and drove the golden dataset and system prompt redesign that brought tool routing from 0.250 → 1.000 and chat faithfulness to 0.967.
+- **RAG quality benchmarked from the ground up** — Initiated RAGAS evaluation for LLM qualitative validation, diagnosed near-zero first-run scores agents had missed, and drove the golden dataset and system prompt redesign that brought evaluation scores to where they are now, see [here](https://github.com/giladresisi/ir-copilot?tab=readme-ov-file#evaluation).
 
 </details>
 
@@ -299,7 +310,18 @@ This project was inspired by the **[Claude Code RAG Masterclass](https://www.you
 
 The project ships with three [RAGAS](https://docs.ragas.io) eval pipelines covering the full quality stack — from simplified retrieval through tool routing to end-to-end chat quality — with results pushed to LangSmith.
 
-👉 **See [backend/eval/README.md](./backend/eval/README.md)** for prerequisites, per-pipeline details, latest scores, and known metric quirks.
+**Scores**
+
+| Pipeline | Faithfulness | Answer Relevancy | Context Precision | Context Recall |
+|----------|-------------|-----------------|-------------------|----------------|
+| `evaluate.py` — simplified RAG | **0.950** | **0.883** | 0.567 | **0.878** |
+| `evaluate_chat_quality.py` — full agentic loop | **0.941** | **0.969** | 0.622 | **0.800** |
+
+| Pipeline | Routing Accuracy | Multi-turn Sequence | Arg Quality |
+|----------|-----------------|---------------------|-------------|
+| `evaluate_tool_selection.py` | **1.000 (12/12)** | **1.000 (3/3)** | **0.917** |
+
+👉 **See [backend/eval/README.md](./backend/eval/README.md)** for prerequisites, per-pipeline details, and known metric quirks.
 
 ---
 

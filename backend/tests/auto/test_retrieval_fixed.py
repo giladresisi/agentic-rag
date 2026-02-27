@@ -11,7 +11,7 @@ import sys
 from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin
 from services.chat_service import chat_service
-from test_utils import cleanup_test_documents_and_storage, TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
+from test_utils import TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
 
 load_dotenv()
 
@@ -156,12 +156,9 @@ async def main():
         else:
             log_pass("No orphaned files (storage matches database)")
 
-        # Test cleanup function exists and works
-        try:
-            cleanup_test_documents_and_storage(user_id)
-            log_pass("Cleanup utility executed successfully")
-        except Exception as e:
-            log_fail(f"Cleanup utility failed: {e}")
+        # Cleanup skipped — this test uses existing documents and must not
+        # destroy them (postmortem files etc. are needed by the eval pipeline).
+        log_info("Cleanup skipped (this test does not create its own documents)")
 
     except Exception as e:
         log_fail(f"Storage check failed: {e}")

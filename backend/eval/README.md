@@ -4,18 +4,18 @@ Three evaluation pipelines covering the full quality stack — from simplified r
 
 ---
 
-## Latest scores (2026-02-26, run 6)
+## Latest scores (2026-02-27, run 7)
 
-### `evaluate.py` — simplified RAG pipeline (run 6, post-fixes)
+### `evaluate.py` — simplified RAG pipeline (run 7)
 
 | Metric | Score |
 |--------|-------|
-| faithfulness | **0.967** |
-| answer_relevancy | **0.881** |
-| context_precision | 0.585 |
+| faithfulness | **0.950** |
+| answer_relevancy | **0.883** |
+| context_precision | 0.567 |
 | context_recall | **0.878** |
 
-### `evaluate_tool_selection.py` — tool routing + arg quality (run 4)
+### `evaluate_tool_selection.py` — tool routing + arg quality (run 5)
 
 | Metric | Score |
 |--------|-------|
@@ -25,19 +25,17 @@ Three evaluation pipelines covering the full quality stack — from simplified r
 | — web | 1.000 (4/4) |
 | arg_keyword_relevance | **1.000 (12/12)** |
 | multi-turn sequence accuracy | **1.000 (3/3)** |
-| arg_quality / AgentGoalAccuracy | **1.000 (12 single-turn)** |
+| arg_quality / AgentGoalAccuracy | **0.917 (12 single-turn)** |
 
-### `evaluate_chat_quality.py` — real ChatService end-to-end (run 3, pre-dataset-fix)
+### `evaluate_chat_quality.py` — real ChatService end-to-end (run 4)
 
 | Metric | Score |
 |--------|-------|
-| faithfulness | 0.882 |
-| answer_relevancy | 0.963 |
-| context_precision | 0.300 |
-| context_recall | 0.122 |
-| arg_keyword_relevance | 1.000 (15/15) |
-
-> evaluate_chat_quality.py has not been re-run since the dataset fix (run 3). Context precision/recall are expected to improve substantially given the same retrieval stack as evaluate.py.
+| faithfulness | **0.941** |
+| answer_relevancy | **0.969** |
+| context_precision | 0.622 |
+| context_recall | **0.800** |
+| arg_keyword_relevance | **1.000 (15/15)** |
 
 ---
 

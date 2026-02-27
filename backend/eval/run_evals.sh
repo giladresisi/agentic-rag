@@ -32,6 +32,10 @@ echo " IR-Copilot RAGAS Evaluation Suite"
 echo "================================================================"
 echo ""
 
+echo "===== [0/3] Ingesting postmortem docs (eval_setup.py) ====="
+uv run python eval/eval_setup.py
+
+echo ""
 echo "===== [1/3] RAG Pipeline Eval (evaluate.py) ====="
 uv run python eval/evaluate.py $DRY_RUN_FLAG
 

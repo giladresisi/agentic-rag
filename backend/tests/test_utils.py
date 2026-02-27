@@ -25,29 +25,50 @@ TEST_EMAIL = os.getenv("TEST_EMAIL", "test@...")
 TEST_PASSWORD = os.getenv("TEST_PASSWORD", "***")
 
 
-def cleanup_test_documents_and_storage(user_id: str, cleanup_orphaned: bool = True):
+def cleanup_test_documents_and_storage(user_id: str, doc_ids: list | None = None, cleanup_orphaned: bool = True):
     """
-    Clean up test documents from database AND storage, including orphaned files.
-
-    This prevents orphaned files in storage after tests run.
+    Clean up test documents from database AND storage.
 
     Args:
-        user_id: User ID whose documents should be cleaned up
-        cleanup_orphaned: Also delete orphaned files (files without DB records)
+        user_id: User ID (required for storage orphan cleanup)
+        doc_ids: Specific document IDs to delete. When provided, only those
+                 documents are removed and orphaned cleanup is skipped — this
+                 is the safe mode that avoids touching unrelated user data
+                 (e.g. eval postmortem files). When None, ALL documents for
+                 the user are deleted (legacy behaviour — avoid in new tests).
+        cleanup_orphaned: When True and doc_ids is None, also delete storage
+                          files that have no matching DB record.
     """
     supabase = get_supabase_admin()
 
     try:
-        # Step 1: Get all documents for this user (to get storage paths)
-        docs_response = supabase.table("documents")\
-            .select("storage_path")\
-            .eq("user_id", user_id)\
-            .execute()
+        if doc_ids is not None:
+            # Targeted cleanup: only the documents this test created.
+            if not doc_ids:
+                return  # Nothing to clean up
 
-        storage_paths_from_db = [doc['storage_path'] for doc in docs_response.data if doc.get('storage_path')]
+            # Step 1: Fetch storage paths for the specific docs
+            docs_response = supabase.table("documents")\
+                .select("storage_path")\
+                .in_("id", doc_ids)\
+                .execute()
 
-        # Step 2: Delete from database (chunks cascade automatically)
-        supabase.table("documents").delete().eq("user_id", user_id).execute()
+            storage_paths_from_db = [doc['storage_path'] for doc in docs_response.data if doc.get('storage_path')]
+
+            # Step 2: Delete from database (chunks cascade automatically)
+            supabase.table("documents").delete().in_("id", doc_ids).execute()
+        else:
+            # Legacy full-user cleanup (use only when no doc_ids are available).
+            # Step 1: Get all documents for this user (to get storage paths)
+            docs_response = supabase.table("documents")\
+                .select("storage_path")\
+                .eq("user_id", user_id)\
+                .execute()
+
+            storage_paths_from_db = [doc['storage_path'] for doc in docs_response.data if doc.get('storage_path')]
+
+            # Step 2: Delete from database (chunks cascade automatically)
+            supabase.table("documents").delete().eq("user_id", user_id).execute()
 
         # Step 3: Delete files from storage (both tracked and orphaned)
         deleted_count = 0
@@ -61,8 +82,10 @@ def cleanup_test_documents_and_storage(user_id: str, cleanup_orphaned: bool = Tr
             except Exception as e:
                 print(f"[WARN] Storage cleanup error (tracked files): {e}")
 
-        # Step 4: Clean up orphaned files (files in storage without DB records)
-        if cleanup_orphaned:
+        # Step 4: Clean up orphaned files (files in storage without DB records).
+        # Only applies to full-user cleanup; targeted (doc_ids) cleanup never
+        # touches files outside the explicitly requested set.
+        if doc_ids is None and cleanup_orphaned:
             try:
                 # List all files in user's storage folder
                 user_folder_files = supabase.storage.from_("documents").list(user_id)

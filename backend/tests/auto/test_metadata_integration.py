@@ -90,9 +90,6 @@ def test_end_to_end_metadata_extraction():
     token = get_auth_token()
     user_id = get_user_id_from_token(token)
 
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
-
     # Upload document with metadata extraction enabled
     timestamp = int(time.time() * 1000)
     filename = f"test_metadata_e2e_{timestamp}.md"
@@ -153,8 +150,8 @@ def test_end_to_end_metadata_extraction():
     assert extracted_at is not None, "extracted_at should not be None"
     print(f"  Extracted at: {extracted_at}")
 
-    # Clean up
-    cleanup_test_documents_and_storage(user_id)
+    # Clean up only the document this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc_id])
     print("[PASS] End-to-end metadata extraction works correctly")
 
 
@@ -164,9 +161,6 @@ def test_metadata_extraction_disabled():
 
     token = get_auth_token()
     user_id = get_user_id_from_token(token)
-
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
 
     # Upload document with metadata extraction disabled
     timestamp = int(time.time() * 1000)
@@ -214,8 +208,8 @@ def test_metadata_extraction_disabled():
 
     print("  Confirmed: summary, document_type are None, key_topics is None or []")
 
-    # Clean up
-    cleanup_test_documents_and_storage(user_id)
+    # Clean up only the document this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc_id])
     print("[PASS] Metadata extraction correctly skipped when disabled")
 
 
@@ -225,9 +219,6 @@ def test_metadata_failure_does_not_block_ingestion():
 
     token = get_auth_token()
     user_id = get_user_id_from_token(token)
-
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
 
     # Upload a very small document (may fail metadata extraction due to
     # insufficient content, or may succeed with minimal output)
@@ -281,8 +272,8 @@ def test_metadata_failure_does_not_block_ingestion():
 
     print(f"  Ingestion status: {doc['status']} (chunks: {doc.get('chunk_count')})")
 
-    # Clean up
-    cleanup_test_documents_and_storage(user_id)
+    # Clean up only the document this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc_id])
     print("[PASS] Ingestion succeeded regardless of metadata extraction outcome")
 
 

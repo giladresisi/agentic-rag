@@ -172,7 +172,7 @@ Keep documentation up to date. Include README files, API docs, and inline commen
     log("\n[6] Testing storage cleanup (tracked + orphaned)...")
     log("    Running cleanup...")
 
-    cleanup_test_documents_and_storage(user_id, cleanup_orphaned=True)
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc_id])
 
     # Verify cleanup
     try:

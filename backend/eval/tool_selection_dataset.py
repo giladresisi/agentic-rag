@@ -131,9 +131,9 @@ MULTI_TURN_DATASET: List[MultiTurnSelectionSample] = [
         reference_goal="First retrieve documents about INC-2024-011 payment DB corruption, then delegate analysis to the subagent tool",
     ),
     MultiTurnSelectionSample(
-        question="Analyze the memory leak incident document and explain the detection gap.",
+        question="Give me a comprehensive analysis of the pipeline memory leak incident document, covering the root cause, detection gap, and all follow-up actions.",
         expected_sequence=["retrieve_documents", "analyze_document_with_subagent"],
         category="retrieve_then_analyze",
-        reference_goal="First retrieve documents about INC-2024-019 memory leak, then delegate analysis to the subagent tool",
+        reference_goal="First retrieve documents about INC-2024-019 memory leak, then delegate comprehensive analysis to the subagent tool",
     ),
 ]

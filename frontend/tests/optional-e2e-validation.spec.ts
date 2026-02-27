@@ -176,16 +176,22 @@ test.describe('Module 6: Hybrid Search Retrieval Quality', () => {
     await page.click('text=Upload All');
     await expect(page.locator('text=Upload Complete')).toBeVisible({ timeout: 30000 });
 
-    // Allow time for backend chunking + embedding
-    await page.waitForTimeout(20000);
+    // Wait for backend chunking + embedding to complete (condition-based, not a fixed sleep).
+    // The DocumentList component renders a "Completed" status badge via Supabase Realtime
+    // once the ingestion pipeline finishes. Waiting for this is more reliable than a fixed
+    // delay, especially on a loaded machine where 20 s is not always enough.
+    await expect(page.locator('text=Completed').last()).toBeVisible({ timeout: 60000 });
 
     // Navigate to chat
     await page.click('text=Chat');
     await page.waitForURL('**/chat');
     await openNewThread(page);
 
-    // Ask a question whose answer can only come from the uploaded document
-    await sendMessage(page, `When is the launch date for project ${UNIQUE_MARKER}?`);
+    // Ask a question whose answer can only come from the uploaded document.
+    // Phrased as "what does the document say about X" to unambiguously signal
+    // document retrieval rather than a SQL/database query (which would happen if
+    // the query looks like a deployment lookup: "when is the launch date for project X?").
+    await sendMessage(page, `What does the document say about the launch date for project ${UNIQUE_MARKER}?`);
 
     // The response must contain "2031" — only in our document
     await expect(

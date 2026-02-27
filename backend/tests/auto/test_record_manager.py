@@ -68,9 +68,6 @@ def test_duplicate_same_file():
     user_id = get_user_id_from_token(token)
     supabase = get_supabase_admin()
 
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
-
     # Create test file content
     content = b"This is a test document for duplicate detection.\n\nIt has multiple lines."
 
@@ -112,8 +109,8 @@ def test_duplicate_same_file():
     assert doc1.data[0]["text_content_hash"] == doc2.data[0]["text_content_hash"], "Text hashes should match"
     print(f"  + Text hashes match: {doc1.data[0]['text_content_hash'][:16]}...")
 
-    # Cleanup
-    cleanup_test_documents_and_storage(user_id)
+    # Cleanup — only the documents this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc1_id, doc2_id])
     print("[PASS] Duplicate detection works for same file")
 
 
@@ -124,9 +121,6 @@ def test_modified_content_reprocesses():
     token = get_auth_token()
     user_id = get_user_id_from_token(token)
     supabase = get_supabase_admin()
-
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
 
     # Upload first version
     content_v1 = b"Version 1 of the document content."
@@ -171,8 +165,8 @@ def test_modified_content_reprocesses():
     assert doc2.data[0]["chunk_count"] > 0, "Version 2 should have chunks"
     print(f"  + Both versions have chunks: v1={doc1.data[0]['chunk_count']}, v2={doc2.data[0]['chunk_count']}")
 
-    # Cleanup
-    cleanup_test_documents_and_storage(user_id)
+    # Cleanup — only the documents this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc1_id, doc2_id])
     print("[PASS] Modified content re-processes correctly")
 
 
@@ -183,9 +177,6 @@ def test_duplicate_no_chunks_created():
     token = get_auth_token()
     user_id = get_user_id_from_token(token)
     supabase = get_supabase_admin()
-
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
 
     # Upload original
     content = b"Content for chunk testing. This should create chunks only once."
@@ -216,8 +207,8 @@ def test_duplicate_no_chunks_created():
     assert len(chunks2.data) == 0, f"Duplicate should have 0 chunks, found {len(chunks2.data)}"
     print(f"  + Duplicate created 0 chunks (as expected)")
 
-    # Cleanup
-    cleanup_test_documents_and_storage(user_id)
+    # Cleanup — only the documents this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc1_id, doc2_id])
     print("[PASS] Duplicate documents don't create chunks")
 
 
@@ -228,9 +219,6 @@ def test_duplicate_different_filename_same_content():
     token = get_auth_token()
     user_id = get_user_id_from_token(token)
     supabase = get_supabase_admin()
-
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
 
     # Upload with first filename
     content = b"Shared content across different filenames"
@@ -257,8 +245,8 @@ def test_duplicate_different_filename_same_content():
     print(f"  + Second file (filename_b.md) marked as duplicate")
     print(f"  + Duplicate detection works across filenames")
 
-    # Cleanup
-    cleanup_test_documents_and_storage(user_id)
+    # Cleanup — only the documents this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc1_id, doc2_id])
     print("[PASS] Duplicate detection works regardless of filename")
 
 
@@ -269,9 +257,6 @@ def test_database_constraints():
     token = get_auth_token()
     user_id = get_user_id_from_token(token)
     supabase = get_supabase_admin()
-
-    # Clean up before test
-    cleanup_test_documents_and_storage(user_id)
 
     # Create two documents to test duplicate_of foreign key
     content1 = b"Original document content"
@@ -305,8 +290,8 @@ def test_database_constraints():
     assert doc2.data[0]["text_content_hash"] == "test_hash_value", "text_content_hash should be set"
     print("  + All new columns are writable and readable")
 
-    # Cleanup
-    cleanup_test_documents_and_storage(user_id)
+    # Cleanup — only the documents this test created
+    cleanup_test_documents_and_storage(user_id, doc_ids=[doc1_id, doc2_id])
     print("[PASS] Database schema supports duplicate tracking")
 
 

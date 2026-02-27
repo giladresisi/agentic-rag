@@ -14,7 +14,7 @@ import sys
 from dotenv import load_dotenv
 from services.supabase_service import get_supabase_admin
 from services.chat_service import chat_service
-from test_utils import cleanup_test_documents_and_storage, TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
+from test_utils import TEST_EMAIL as TEST_USER_EMAIL, TEST_PASSWORD as TEST_USER_PASSWORD
 
 load_dotenv()
 
@@ -185,26 +185,9 @@ async def main():
             orphaned_count = storage_count - db_count
             log_info(f"Found {orphaned_count} orphaned file(s)")
 
-        # Test cleanup function
-        log_info("\nTesting cleanup function...")
-        try:
-            cleanup_test_documents_and_storage(user_id, cleanup_orphaned=True)
-            log_pass("Cleanup utility executed successfully")
-
-            # Verify storage is clean
-            try:
-                remaining_files = supabase.storage.from_("documents").list(user_id)
-                if len(remaining_files) == 0:
-                    log_pass("All files removed from storage")
-                else:
-                    log_info(f"Remaining files: {len(remaining_files)}")
-            except:
-                log_pass("Storage folder cleaned (no longer exists)")
-
-        except Exception as e:
-            all_passed = log_fail(f"Cleanup failed: {e}")
-            import traceback
-            traceback.print_exc()
+        # Cleanup is skipped — this test uses existing documents and must not
+        # destroy them (postmortem files etc. are needed by the eval pipeline).
+        log_info("Cleanup skipped (this test does not create its own documents)")
 
     except Exception as e:
         all_passed = log_fail(f"Storage test failed: {e}")
