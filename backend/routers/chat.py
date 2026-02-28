@@ -8,7 +8,8 @@ from models.thread import ThreadCreate, ThreadResponse
 from models.message import MessageCreate, MessageResponse
 from typing import List
 import json
-from datetime import datetime
+import uuid
+from datetime import datetime, timezone
 from config import settings
 import os
 
@@ -130,8 +131,6 @@ async def generate_thread_title(
     run_id = None
     if langsmith_enabled and langsmith_client:
         try:
-            import uuid
-            from datetime import datetime, timezone
             run_id = uuid.uuid4()
             langsmith_client.create_run(
                 id=run_id,
@@ -183,7 +182,6 @@ async def generate_thread_title(
         # Close LangSmith trace on success
         if langsmith_enabled and langsmith_client and run_id:
             try:
-                from datetime import datetime, timezone
                 langsmith_client.update_run(
                     run_id=run_id,
                     outputs={"title": generated_title},
@@ -196,7 +194,6 @@ async def generate_thread_title(
         # Close trace with error
         if langsmith_enabled and langsmith_client and run_id:
             try:
-                from datetime import datetime, timezone
                 langsmith_client.update_run(
                     run_id=run_id,
                     error=str(e),

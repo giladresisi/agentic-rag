@@ -8,7 +8,8 @@ from typing import Optional
 from fastapi import HTTPException
 
 from models.subagent import SubAgentRequest, SubAgentResult, ReasoningStep
-from services.document_service import get_document_by_id, read_full_document
+from services.document_service import read_full_document
+from services.supabase_service import get_supabase_admin
 from services.provider_service import provider_service
 
 # Initialize LangSmith tracing
@@ -81,31 +82,30 @@ async def execute_subagent(request: SubAgentRequest, user_id: str) -> SubAgentRe
             document_name=document_name,
         )
 
-    # Read document
-    try:
-        document = get_document_by_id(request.document_id, user_id)
-        document_name = document.get("filename", "unknown")
-    except HTTPException as e:
-        if e.status_code == 404:
-            return SubAgentResult(
-                status="failed",
-                error="Document not found",
-                document_name=document_name,
-            )
-        return SubAgentResult(
-            status="failed",
-            error=f"Failed to fetch document: {e.detail}",
-            document_name=document_name,
-        )
+    # Use caller-supplied document_name if available to skip an extra DB round-trip.
+    # read_full_document internally validates the document exists, so we avoid calling
+    # get_document_by_id separately when the caller already has the name.
+    # If not supplied, do a cheap single-field lookup after confirming the doc exists.
+    document_name = request.document_name or "unknown"
 
     try:
         document_text = await read_full_document(request.document_id, user_id)
     except HTTPException as e:
+        error = "Document not found" if e.status_code == 404 else f"Failed to read document content: {e.detail}"
         return SubAgentResult(
             status="failed",
-            error=f"Failed to read document content: {e.detail}",
+            error=error,
             document_name=document_name,
         )
+
+    # Resolve document name if caller didn't supply it (single cheap field query)
+    if not request.document_name:
+        try:
+            supabase = get_supabase_admin()
+            resp = supabase.table("documents").select("filename").eq("id", request.document_id).single().execute()
+            document_name = resp.data.get("filename", "unknown")
+        except Exception:
+            pass
 
     # Build isolated conversation
     system_message = SUBAGENT_SYSTEM_PROMPT.format(document_text=document_text)
@@ -135,10 +135,10 @@ async def execute_subagent(request: SubAgentRequest, user_id: str) -> SubAgentRe
         except Exception:
             run_id = None
 
-    # Stream response and collect reasoning steps
-    full_response = ""
-    reasoning_steps = []
-    step_number = 0
+    # Stream response — collect chunks into a list to avoid O(n²) string concatenation.
+    # Reasoning steps represent meaningful analysis phases, not individual tokens.
+    response_parts = []
+    start_time = datetime.now(timezone.utc).isoformat()
 
     try:
         async for chunk in provider_service.stream_chat_completion(
@@ -150,17 +150,16 @@ async def execute_subagent(request: SubAgentRequest, user_id: str) -> SubAgentRe
         ):
             if chunk.choices and len(chunk.choices) > 0:
                 delta = chunk.choices[0].delta
-
                 if delta.content:
-                    full_response += delta.content
-                    step_number += 1
-                    reasoning_steps.append(
-                        ReasoningStep(
-                            step_number=step_number,
-                            content=delta.content,
-                            timestamp=datetime.now(timezone.utc).isoformat(),
-                        )
-                    )
+                    response_parts.append(delta.content)
+
+        full_response = "".join(response_parts)
+
+        # Two meaningful steps: document read + analysis result (not one per token)
+        reasoning_steps = [
+            ReasoningStep(step_number=1, content="Read and analyzed document content", timestamp=start_time),
+            ReasoningStep(step_number=2, content=full_response, timestamp=datetime.now(timezone.utc).isoformat()),
+        ]
 
         # Close LangSmith trace on success
         if langsmith_enabled and langsmith_client and run_id:
@@ -170,7 +169,7 @@ async def execute_subagent(request: SubAgentRequest, user_id: str) -> SubAgentRe
                     outputs={
                         "content": full_response,
                         "document_name": document_name,
-                        "step_count": step_number,
+                        "step_count": len(reasoning_steps),
                     },
                     end_time=datetime.now(timezone.utc),
                 )
@@ -199,6 +198,5 @@ async def execute_subagent(request: SubAgentRequest, user_id: str) -> SubAgentRe
         return SubAgentResult(
             status="failed",
             error=f"Sub-agent execution failed: {str(e)}",
-            reasoning_steps=reasoning_steps,
             document_name=document_name,
         )

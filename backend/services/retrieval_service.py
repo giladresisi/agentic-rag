@@ -122,20 +122,16 @@ class RetrievalService:
                     provider=settings.RERANKING_PROVIDER
                 )
 
-                # Create mapping of chunk_id -> rerank_score
+                # Create mapping of chunk_id -> rerank_score and position (O(n) dict, not O(n²) list)
                 rerank_scores = {
                     result.id: result.relevance_score
                     for result in rerank_response.results
                 }
+                rerank_order = {result.id: i for i, result in enumerate(rerank_response.results)}
 
-                # Filter and reorder chunks by rerank results
-                reranked_chunk_ids = [result.id for result in rerank_response.results]
-                chunks = [
-                    chunk for chunk in chunks
-                    if chunk['id'] in reranked_chunk_ids
-                ]
-                # Sort by rerank order
-                chunks.sort(key=lambda c: reranked_chunk_ids.index(c['id']))
+                # Filter and reorder chunks by rerank results (O(1) dict lookups instead of O(n) list ops)
+                chunks = [chunk for chunk in chunks if chunk['id'] in rerank_order]
+                chunks.sort(key=lambda c: rerank_order[c['id']])
 
                 # Add rerank scores to chunks
                 for chunk in chunks:

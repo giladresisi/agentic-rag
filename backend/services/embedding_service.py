@@ -3,6 +3,7 @@ from services.provider_service import provider_service
 from typing import List, Optional
 from pathlib import Path
 import asyncio
+import hashlib
 import tempfile
 import os
 
@@ -115,7 +116,6 @@ class EmbeddingService:
         Returns:
             64-character lowercase hex string (SHA-256 digest)
         """
-        import hashlib
         sha256_hash = hashlib.sha256()
         with open(file_path, "rb") as f:
             # Read in 4KB chunks to handle large files efficiently
@@ -133,7 +133,6 @@ class EmbeddingService:
         Returns:
             64-character lowercase hex string (SHA-256 digest)
         """
-        import hashlib
         return hashlib.sha256(text.encode('utf-8')).hexdigest()
 
     @staticmethod

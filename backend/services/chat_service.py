@@ -5,6 +5,8 @@ from services.web_search_service import web_search_service
 from typing import AsyncGenerator, List, Dict, Tuple, Optional
 import os
 import json
+import uuid
+from datetime import datetime, timezone
 
 # Initialize LangSmith tracing
 langsmith_enabled = False
@@ -129,9 +131,6 @@ class ChatService:
             return
 
         try:
-            import uuid
-            from datetime import datetime, timezone
-
             child_run_id = uuid.uuid4()
 
             # Start the tool run
@@ -186,7 +185,7 @@ class ChatService:
         Yields:
             Tuples of (text_delta, sources, subagent_metadata) where sources/metadata populated on final yield
         """
-        full_response = ""
+        full_response_parts = []  # Collect chunks; joined at end to avoid O(n²) string concat
         sources = None
         subagent_metadata = None
         tool_calls_summary = []  # Track all tool calls for tracing
@@ -313,8 +312,6 @@ QUALITY STANDARDS:
         run_id = None
         if langsmith_enabled and langsmith_client:
             try:
-                import uuid
-                from datetime import datetime, timezone
                 run_id = uuid.uuid4()
                 langsmith_client.create_run(
                     id=run_id,
@@ -358,7 +355,7 @@ QUALITY STANDARDS:
 
                     # Handle content delta
                     if delta.content:
-                        full_response += delta.content
+                        full_response_parts.append(delta.content)
                         yield (delta.content, None, None)
 
                     # Handle tool call deltas
@@ -657,7 +654,8 @@ QUALITY STANDARDS:
                                 task_description=task_description,
                                 document_id=doc_response.data[0]["id"],
                                 parent_depth=0,
-                                user_id=user_id
+                                user_id=user_id,
+                                document_name=document_name,
                             )
                             result = await execute_subagent(request, user_id)
 
@@ -730,7 +728,7 @@ QUALITY STANDARDS:
                     if chunk.choices and len(chunk.choices) > 0:
                         delta = chunk.choices[0].delta
                         if delta.content:
-                            full_response += delta.content
+                            full_response_parts.append(delta.content)
                             yield (delta.content, None, None)
 
             # Yield sources and/or subagent_metadata on final message
@@ -745,7 +743,6 @@ QUALITY STANDARDS:
             # Always close LangSmith trace
             if langsmith_enabled and langsmith_client and run_id:
                 try:
-                    from datetime import datetime, timezone
                     if error_occurred:
                         # Close with error
                         langsmith_client.update_run(
@@ -758,7 +755,7 @@ QUALITY STANDARDS:
                         langsmith_client.update_run(
                             run_id=run_id,
                             outputs={
-                                "content": full_response,
+                                "content": "".join(full_response_parts),
                                 "sources": sources,
                                 "subagent_metadata": subagent_metadata,
                                 "tool_calls": tool_calls_summary,

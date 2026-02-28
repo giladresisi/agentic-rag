@@ -1486,6 +1486,20 @@ The response was already **complete** (input enabled in screenshot) when the 90s
 
 ---
 
+## Performance Optimization (2026-02-28)
+
+Five hot-path fixes across retrieval, chat, and subagent services:
+
+| Fix | File | Impact |
+|-----|------|--------|
+| O(n²) → O(n) reranking: replaced `list.index()` sort key with dict position lookup | `retrieval_service.py` | High |
+| Eliminated double document DB fetch in subagent: callers that supply `document_name` skip the redundant `get_document_by_id` round-trip | `subagent_service.py`, `models/subagent.py` | High |
+| Per-token `ReasoningStep` objects reduced from hundreds/thousands to 2 per response | `subagent_service.py` | High |
+| O(n²) string concatenation in streaming loops replaced with list-append + single join | `chat_service.py`, `subagent_service.py` | Medium |
+| `hashlib`, `uuid`, `datetime` imports moved from function bodies to module level | `embedding_service.py`, `chat_service.py`, `routers/chat.py` | Low |
+
+---
+
 # System Status
 
 **Servers:**

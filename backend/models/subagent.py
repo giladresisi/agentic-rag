@@ -8,6 +8,7 @@ class SubAgentRequest(BaseModel):
     document_id: str
     parent_depth: int = 0
     user_id: str
+    document_name: Optional[str] = None  # Pass from caller to avoid redundant DB lookup
 
 
 class ReasoningStep(BaseModel):
