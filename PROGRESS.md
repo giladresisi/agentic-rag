@@ -1500,6 +1500,28 @@ Five hot-path fixes across retrieval, chat, and subagent services:
 
 ---
 
+## Cold Start & Upload Warmup (2026-02-28)
+
+Root cause of ~42s Cloud Run cold starts identified and fixed: Docling ML models were being downloaded from HuggingFace at container startup on every cold start (min-instances=0, scale-to-zero). This caused login to appear broken and the app to be unusable for ~42s after each deployment or period of inactivity.
+
+**Changes:**
+
+| Change | File | Impact |
+|--------|------|--------|
+| Pre-bake Docling models into Docker image at build time | `backend/Dockerfile` | Eliminates ~35-40s HuggingFace download on cold start |
+| CMD port default aligned with EXPOSE (8000 → 8080) | `backend/Dockerfile` | Fixes misleading local docker run behavior |
+| Warmup converted to non-blocking background thread | `backend/main.py` | Server accepts auth/chat requests immediately on startup |
+| `GET /health/warmup` endpoint added | `backend/main.py` | Exposes `{ready, error}` state; no auth required |
+| `useWarmup` hook polls `/health/warmup` every 2s | `frontend/src/hooks/useWarmup.ts` | Detects when backend is ready; stops polling on ready |
+| Upload UI blocked with banner during warmup | `frontend/src/components/Ingestion/DocumentUpload.tsx` | Shows spinner + "~15 seconds" message, disables all controls |
+| `IngestionInterface` wires warmup state to upload | `frontend/src/components/Ingestion/IngestionInterface.tsx` | Passes `isWarmingUp={!isWarmupReady}` to DocumentUpload |
+
+**Test coverage:** 3 tests added in `backend/tests/auto/test_warmup_endpoint.py` — structure check, no-auth check, error-path-unblocks-upload. Total: 89 passing.
+
+**Branch:** `feat/docling-warmup-optimization` (rebased on origin/main, not yet merged)
+
+---
+
 # System Status
 
 **Servers:**

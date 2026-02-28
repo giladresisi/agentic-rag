@@ -9,10 +9,12 @@ import { MessageSquare, AlertCircle, FileText } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { SettingsModal } from '@/components/Settings/SettingsModal';
 import { useModelConfig } from '@/hooks/useModelConfig';
+import { useWarmup } from '@/hooks/useWarmup';
 import { UserProfileMenu } from '@/components/Layout/UserProfileMenu';
 
 export function IngestionInterface() {
   const { user, token, logout } = useAuth();
+  const { isReady: isWarmupReady } = useWarmup();
   const {
     documents,
     isLoading,
@@ -112,6 +114,7 @@ export function IngestionInterface() {
               onUpload={handleUpload}
               isUploading={isUploading}
               embeddingConfig={modelConfig.embeddingsConfig.current}
+              isWarmingUp={!isWarmupReady}
             />
 
             {error && (

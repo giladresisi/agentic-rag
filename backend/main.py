@@ -17,6 +17,7 @@ from routers import auth, chat, ingestion
 # resetting the level to INFO on every import/re-import. Filters are never cleared
 # by setLevel(), so this persists regardless of what rapidocr does internally.
 import logging
+import threading
 
 class _RapidOCRWarningFilter(logging.Filter):
     def filter(self, record):
@@ -27,27 +28,29 @@ logging.getLogger("RapidOCR").addFilter(_RapidOCRWarningFilter())
 
 logger = logging.getLogger(__name__)
 
+_warmup_state: dict = {"ready": False, "error": None}
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Warm up docling's DocumentConverter at startup.
-    # Docling downloads its ML models (layout, tableformer, OCR) lazily on first use.
-    # Without this, a partial/interrupted HuggingFace download is only discovered
-    # mid-upload — failing silently for the end user. Warming up here ensures:
-    #   1. Models are downloaded once at boot (not during a user's first upload).
-    #   2. Any model issue surfaces as a visible WARNING rather than a silent per-upload failure.
-    #   3. The DocumentConverter singleton is ready before the first request.
-    # Non-fatal: a warmup failure logs a warning but does not prevent the server from starting,
-    # so auth/chat endpoints still work even if docling has a model issue.
+
+def _background_warmup() -> None:
+    """Run DocumentConverter warm-up in a thread so startup is non-blocking."""
     from services.embedding_service import warmup_converter
     try:
         warmup_converter()
+        _warmup_state["ready"] = True
     except Exception as e:
+        _warmup_state.update({"error": str(e), "ready": True})  # unblock upload even on error
         logger.warning(
             "Docling warmup failed — PDF/DOCX parsing will fail until this is resolved. "
-            "Run 'python -c \"from docling.document_converter import DocumentConverter; DocumentConverter()\"' "
-            "in the venv to diagnose. Error: %s", e
+            "Error: %s", e
         )
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start Docling warm-up in a background thread so the server is immediately
+    # ready to serve auth/chat requests. Upload UI polls /health/warmup and
+    # stays disabled until this thread sets _warmup_state["ready"] = True.
+    threading.Thread(target=_background_warmup, daemon=True).start()
     yield
 
 
@@ -83,3 +86,8 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/health/warmup")
+def warmup_status():
+    return _warmup_state

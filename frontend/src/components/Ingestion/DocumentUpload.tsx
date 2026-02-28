@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Upload, FileText, X } from 'lucide-react';
+import { Upload, FileText, X, Loader2 } from 'lucide-react';
 import type { ProviderConfig } from '@/types/chat';
 import { UploadErrorDialog } from './UploadErrorDialog';
 
@@ -36,9 +36,10 @@ interface DocumentUploadProps {
   onUpload: (file: File, embeddingConfig?: ProviderConfig) => Promise<void>;
   isUploading: boolean;
   embeddingConfig?: ProviderConfig;
+  isWarmingUp?: boolean;
 }
 
-export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: DocumentUploadProps) {
+export function DocumentUpload({ onUpload, isUploading, embeddingConfig, isWarmingUp = false }: DocumentUploadProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [fileQueue, setFileQueue] = useState<QueuedFile[]>([]);
   const [currentUploadIndex, setCurrentUploadIndex] = useState<number>(-1);
@@ -315,16 +316,30 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
       <Card className="p-6">
         <h2 className="text-lg font-semibold mb-4">Upload Documents</h2>
 
+        {isWarmingUp && (
+          <div className="flex items-start gap-3 p-3 rounded-md bg-muted border border-border mb-4">
+            <Loader2 className="w-4 h-4 mt-0.5 animate-spin flex-shrink-0 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-medium">Document processing engine is initializing</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                First start after deployment takes ~15 seconds. Upload will be available shortly.
+              </p>
+            </div>
+          </div>
+        )}
+
         {fileQueue.length === 0 ? (
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-              isDragging
-                ? 'border-primary bg-primary/5'
-                : 'border-muted-foreground/25 hover:border-primary/50'
+              isWarmingUp
+                ? 'border-muted-foreground/15 opacity-40 pointer-events-none'
+                : isDragging
+                  ? 'border-primary bg-primary/5'
+                  : 'border-muted-foreground/25 hover:border-primary/50'
             }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
+            onDragOver={isWarmingUp ? undefined : handleDragOver}
+            onDragLeave={isWarmingUp ? undefined : handleDragLeave}
+            onDrop={isWarmingUp ? undefined : handleDrop}
           >
             <Upload className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
             <p className="text-sm text-muted-foreground mb-2">
@@ -339,14 +354,14 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
               className="hidden"
               accept={SUPPORTED_TYPES.join(',')}
               onChange={handleFileInput}
-              disabled={isUploading}
+              disabled={isUploading || isWarmingUp}
               multiple
             />
             <Button
               variant="outline"
               size="sm"
               onClick={() => document.getElementById('file-input')?.click()}
-              disabled={isUploading}
+              disabled={isUploading || isWarmingUp}
             >
               Browse Files
             </Button>
@@ -388,19 +403,20 @@ export function DocumentUpload({ onUpload, isUploading, embeddingConfig }: Docum
                 className="hidden"
                 accept={SUPPORTED_TYPES.join(',')}
                 onChange={handleFileInput}
-                disabled={currentUploadIndex >= 0}
+                disabled={isWarmingUp || currentUploadIndex >= 0}
                 multiple
               />
               <Button
                 variant="outline"
                 onClick={() => document.getElementById('file-input-add')?.click()}
-                disabled={currentUploadIndex >= 0}
+                disabled={isWarmingUp || currentUploadIndex >= 0}
               >
                 Add More Files
               </Button>
               <Button
                 onClick={handleUploadAll}
                 disabled={
+                  isWarmingUp ||
                   currentUploadIndex >= 0 ||
                   fileQueue.every(f => f.validationError || f.status !== 'pending')
                 }
