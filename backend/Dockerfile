@@ -17,6 +17,12 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
+# Pre-download Docling ML models at image build time.
+# Models land in /root/.cache/huggingface/ as a cached layer.
+# Rebuilds only when pyproject.toml / uv.lock changes.
+RUN /app/.venv/bin/python -c \
+    "from docling.document_converter import DocumentConverter; DocumentConverter()"
+
 # Copy application source
 COPY . .
 
