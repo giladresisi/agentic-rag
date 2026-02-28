@@ -425,89 +425,78 @@ Use this checklist to verify your setup:
 
 ## Cloud Deployment
 
+Deployments are automated via GitHub Actions (`.github/workflows/deploy.yml`). Any push to `main` that changes files under `backend/**` redeploys the backend to Cloud Run; changes under `frontend/**` redeploy the frontend to Vercel. Both jobs run in parallel when both subtrees change.
+
 ### Backend: Google Cloud Run
 
-The backend is deployed to Google Cloud Run with continuous deployment wired to the `main` branch via Cloud Build.
-
-**Live service:** `https://agentic-rag-94676406483.me-west1.run.app`
+**Live demo service:** `https://agentic-rag-94676406483.me-west1.run.app`
 
 #### GCP Project Setup (one-time)
 
-1. Create a GCP project at https://console.cloud.google.com
-2. Enable the required APIs:
+1. Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install), then authenticate:
+   ```bash
+   gcloud auth login
+   gcloud config set project YOUR_PROJECT_ID
+   ```
+2. Create a GCP project at https://console.cloud.google.com
+3. Enable the required APIs:
    ```bash
    gcloud services enable cloudbuild.googleapis.com run.googleapis.com \
      artifactregistry.googleapis.com --project=YOUR_PROJECT_ID
    ```
-3. Create an Artifact Registry repository:
-   ```bash
-   gcloud artifacts repositories create cloud-run-source-deploy \
-     --repository-format=docker --location=YOUR_REGION --project=YOUR_PROJECT_ID
-   ```
 
-#### Wire GitHub Continuous Deployment
+#### Create the Deployment Service Account (one-time)
 
-1. Open the [Cloud Run console](https://console.cloud.google.com/run)
-2. Click **Create Service** → **Continuously deploy from a repository**
-3. Connect your GitHub account and select the repository
-4. Set **Branch** to `main` and **Build type** to `Dockerfile`
-5. Set **Dockerfile location** to `backend/Dockerfile`
-6. Set **Memory** to **4 GiB** (required — torch+docling ML models exceed 2 GiB during document ingestion)
-7. Click **Create**
+The GitHub Actions workflow authenticates to GCP using a dedicated service account.
 
-> **One-time fix required after creation:** The Cloud Run console generates a Cloud Build trigger with an inline config that looks for `Dockerfile` at the repo root. This repo uses `cloudbuild.yaml` (at the repo root) which correctly points to `backend/Dockerfile`. You must update the trigger once to use it.
->
-> **Prerequisite:** Install the [gcloud CLI](https://cloud.google.com/sdk/docs/install), then authenticate:
-> ```bash
-> gcloud auth login
-> gcloud config set project YOUR_PROJECT_ID
-> ```
->
-> **Find your trigger ID:**
-> ```bash
-> gcloud builds triggers list --project=YOUR_PROJECT_ID
-> ```
-> Note the `ID` of the trigger targeting your repo (e.g. `53871fa8-...`).
->
-> **Update the trigger to use `cloudbuild.yaml`:**
->
-> Create a file `/tmp/trigger-update.json`:
-> ```json
-> {
->   "filename": "cloudbuild.yaml",
->   "github": {
->     "owner": "YOUR_GITHUB_USERNAME",
->     "name": "YOUR_REPO_NAME",
->     "push": { "branch": "^main$" }
->   }
-> }
-> ```
->
-> Then apply it:
-> ```bash
-> gcloud builds triggers update github TRIGGER_ID \
->   --trigger-config=/tmp/trigger-update.json \
->   --project=YOUR_PROJECT_ID
-> ```
->
-> Push a commit to `main` to verify the build succeeds using `cloudbuild.yaml`.
+```bash
+# Create the service account
+gcloud iam service-accounts create github-deployer \
+  --project=YOUR_PROJECT_ID \
+  --display-name="GitHub Actions Deployer"
 
-Every push to `main` now triggers an automatic build and deploy.
+SA="github-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com"
+
+# Grant required roles (run each line separately)
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/run.admin"
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/cloudbuild.builds.editor"
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/artifactregistry.writer"
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/iam.serviceAccountUser"
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/storage.admin"
+
+# Download the JSON key
+gcloud iam service-accounts keys create ~/gcp-deployer-key.json \
+  --iam-account="$SA"
+```
+
+#### Add GitHub Secret
+
+1. `cat ~/gcp-deployer-key.json` — copy the entire JSON output
+2. Go to your GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**
+3. Name: `GCP_SA_KEY`, Value: paste the JSON
+4. Delete the local key file: `rm ~/gcp-deployer-key.json`
+
+Every push to `main` that touches `backend/**` now triggers an automatic Cloud Run deploy.
 
 #### Configure Environment Variables
 
 Create `.cloudrun_env.yaml` at the repo root (this file is gitignored — never commit it):
 
 ```yaml
-SUPABASE_URL: https://your-project-id.supabase.co
+# Required
+SUPABASE_URL: https://your-project-ref.supabase.co
 SUPABASE_ANON_KEY: your-anon-key
 SUPABASE_SERVICE_ROLE_KEY: your-service-role-key
 OPENAI_API_KEY: your-openai-key
-CORS_ORIGINS: https://your-app.vercel.app
-LANGSMITH_API_KEY: your-langsmith-key   # optional
-LANGSMITH_PROJECT: default              # optional
-COHERE_API_KEY: your-cohere-key         # optional
-TAVILY_API_KEY: your-tavily-key         # optional
+CORS_ORIGINS: https://your-app.vercel.app   # must match your Vercel frontend URL exactly, no trailing slash
+SQL_QUERY_ROLE_PASSWORD: your-sql-role-password   # same value as in backend/.env
+
+# Optional
+LANGSMITH_API_KEY: your-langsmith-key
+LANGSMITH_PROJECT: default
+COHERE_API_KEY: your-cohere-key       # required if RERANKING_PROVIDER=cohere
+OPENROUTER_API_KEY: your-openrouter-key
+TAVILY_API_KEY: your-tavily-key       # required if WEB_SEARCH_ENABLED=true
 ```
 
 Apply the env vars to the service (do this **before or immediately after** the first push — the app crashes at startup without them):
@@ -563,26 +552,38 @@ You can verify the connection at any time with `/mcp` in the Claude Code chat.
 
 ### Frontend: Vercel
 
-The React frontend is deployed to Vercel with automatic deployments on every push to `main`.
+The React frontend is deployed to Vercel via the GitHub Actions workflow — no Vercel GitHub App required.
 
-**Live site:** `https://agentic-rag-giladresisis-projects.vercel.app`
+**Live demo site:** `https://frontend-eosin-six-81.vercel.app/`
 
-#### Deploy
+#### Create a Vercel Project (one-time)
 
 1. Go to https://vercel.com and import your GitHub repository
 2. Set the **Root Directory** to `frontend`
 3. Vercel auto-detects Vite — no build command changes needed
-4. Click **Deploy**
+4. Click **Deploy** (this creates the project; subsequent deploys come from GitHub Actions)
 
-#### Configure Environment Variables
+#### Configure Environment Variables in Vercel
 
 In the Vercel dashboard under **Settings → Environment Variables**, add:
 
-| Variable | Value |
-|----------|-------|
-| `VITE_SUPABASE_URL` | Your Supabase project URL |
-| `VITE_SUPABASE_ANON_KEY` | Your Supabase anon key |
-| `VITE_API_URL` | Your Cloud Run backend URL |
+| Variable | Required | Value |
+|----------|----------|-------|
+| `VITE_SUPABASE_URL` | Yes | `https://your-project-ref.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | Yes | Your Supabase anon key |
+| `VITE_BACKEND_API_URL` | Yes | Your Cloud Run backend URL (e.g. `https://agentic-rag-xxx.run.app`) |
+
+#### Add GitHub Secrets for Vercel Deployment
+
+The GitHub Actions workflow needs three secrets to deploy to Vercel. Add them at GitHub repo → **Settings → Secrets and variables → Actions**:
+
+| Secret | Where to find it |
+|--------|-----------------|
+| `VERCEL_TOKEN` | vercel.com → Account Settings → Tokens → Create |
+| `VERCEL_ORG_ID` | vercel.com → Account Settings → General → **Team ID** (starts with `team_` or `usr_`) |
+| `VERCEL_PROJECT_ID` | vercel.com → [your project] → Settings → General → **Project ID** |
+
+Every push to `main` that touches `frontend/**` now triggers an automatic Vercel deploy.
 
 #### Claude Code MCP Integration
 

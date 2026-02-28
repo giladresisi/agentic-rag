@@ -1518,7 +1518,57 @@ Root cause of ~42s Cloud Run cold starts identified and fixed: Docling ML models
 
 **Test coverage:** 3 tests added in `backend/tests/auto/test_warmup_endpoint.py` — structure check, no-auth check, error-path-unblocks-upload. Total: 89 passing.
 
-**Branch:** `feat/docling-warmup-optimization` (rebased on origin/main, not yet merged)
+**Branch:** `feat/docling-warmup-optimization` — merged to main as PR #16 (2026-02-28 15:56 UTC+7).
+
+**Post-merge bug:** Cloud Run was not redeployed after the PR merged. The frontend (Vercel, auto-deploys via GitHub App) picked up the new `useWarmup` hook immediately, but the backend image on Cloud Run was still the pre-PR version with no `/health/warmup` endpoint → 404 on every poll → upload UI stuck "initializing" indefinitely. Fix: redeploy backend (see CI/CD section below).
+
+---
+
+## CI/CD: Auto-deploy to Cloud Run on PR Merge (2026-02-28)
+
+**Problem:** Merging a PR to main did not trigger a Cloud Run redeploy. Vercel auto-deploys via its GitHub App (handles both direct push and PR merge), but Cloud Run had no equivalent hook.
+
+**Solution:** Added `.github/workflows/deploy.yml` — triggers on `push` to `main` (which covers both direct push and PR merge) when any file inside `backend/**` changes. Uses `google-github-actions/deploy-cloudrun@v2` with `source: ./backend`, which invokes Cloud Build to build the image from the Dockerfile and deploy to Cloud Run.
+
+**Files changed:**
+- `.github/workflows/deploy.yml` — new workflow
+
+**Status:** Workflow created. Requires one-time GCP setup (service account + GitHub secret) to activate. Steps below.
+
+### One-time GCP setup (run in order)
+
+Service account `github-deployer` was already created. Continue from step 2:
+
+**Step 2 — Grant IAM roles (run each line separately):**
+```bash
+SA="github-deployer@agentic-rag-gilad.iam.gserviceaccount.com"
+
+gcloud projects add-iam-policy-binding agentic-rag-gilad --member="serviceAccount:$SA" --role="roles/run.admin"
+gcloud projects add-iam-policy-binding agentic-rag-gilad --member="serviceAccount:$SA" --role="roles/cloudbuild.builds.editor"
+gcloud projects add-iam-policy-binding agentic-rag-gilad --member="serviceAccount:$SA" --role="roles/artifactregistry.writer"
+gcloud projects add-iam-policy-binding agentic-rag-gilad --member="serviceAccount:$SA" --role="roles/iam.serviceAccountUser"
+gcloud projects add-iam-policy-binding agentic-rag-gilad --member="serviceAccount:$SA" --role="roles/storage.admin"
+```
+
+**Step 3 — Create JSON key and save to file:**
+```bash
+gcloud iam service-accounts keys create ~/gcp-deployer-key.json \
+  --iam-account=github-deployer@agentic-rag-gilad.iam.gserviceaccount.com
+```
+
+**Step 4 — Add GitHub secret:**
+1. `cat ~/gcp-deployer-key.json` — copy the entire JSON output
+2. Go to: GitHub repo → Settings → Secrets and variables → Actions → New repository secret
+3. Name: `GCP_SA_KEY`, Value: paste the JSON
+4. Delete the local key file: `rm ~/gcp-deployer-key.json`
+
+**Step 5 — Manually redeploy now** to fix the current 404 (one-off, until a backend change is pushed):
+
+Use the Cloud Run MCP tool or run:
+```bash
+cd backend && gcloud run deploy agentic-rag \
+  --source . --region me-west1 --project agentic-rag-gilad
+```
 
 ---
 
