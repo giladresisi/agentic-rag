@@ -81,9 +81,9 @@ export function DocumentList({ documents, onDelete, isLoading }: DocumentListPro
   }
 
   return (
-    <Card className="p-4">
+    <Card className="p-4 h-full flex flex-col">
       <h2 className="text-lg font-semibold mb-3 px-2">Documents</h2>
-      <ScrollArea className="h-[calc(100vh-12rem)]">
+      <ScrollArea className="flex-1">
         <div className="space-y-2">
           {documents.map((doc) => (
             <div

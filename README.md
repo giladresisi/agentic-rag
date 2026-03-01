@@ -8,7 +8,7 @@ See it in action:
 
 ![IR-Copilot App](./gif.gif)
 
-<p align="center"><a href="https://frontend-eosin-six-81.vercel.app/"><strong>See live demo →</strong></a></p>
+<p align="center"><a href="https://frontend-eosin-six-81.vercel.app/"><strong><big>See Live Demo >>></big></strong></a></p>
 
 ---
 

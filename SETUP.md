@@ -259,6 +259,13 @@ This table holds static demo/seed data (15 incident records) that is intentional
 
 Enabling RLS on this table would add no security value and is not required.
 
+#### Disable Email Confirmation
+
+By default Supabase requires users to confirm their email address before they can sign in. Disable this so signups work immediately without an email confirmation flow:
+
+1. Go to **Authentication → Sign In / Providers**
+2. Under **User Signups**, toggle **Confirm email** OFF
+
 #### Create Test User
 
 > **Required for automated tests.** Without this, all backend and frontend E2E test suites will fail.
