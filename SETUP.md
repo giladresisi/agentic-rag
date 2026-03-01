@@ -470,6 +470,7 @@ gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/artifactregistry.writer"
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/iam.serviceAccountUser"
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/storage.admin"
+gcloud projects add-iam-policy-binding YOUR_PROJECT_ID --member="serviceAccount:$SA" --role="roles/serviceusage.serviceUsageConsumer"
 
 # Download the JSON key
 gcloud iam service-accounts keys create ~/gcp-deployer-key.json \
