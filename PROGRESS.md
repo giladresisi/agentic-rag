@@ -1533,7 +1533,23 @@ Root cause of ~42s Cloud Run cold starts identified and fixed: Docling ML models
 **Files changed:**
 - `.github/workflows/deploy.yml` — new workflow
 
-**Status:** Workflow created. Requires one-time GCP setup (service account + GitHub secret) to activate. Steps below.
+**Status:** ✅ Complete — workflow live and verified. Auto-deploys backend to Cloud Run on every push/merge to `main` that touches `backend/**`.
+
+---
+
+## CI/CD: Backend Integration Tests on PR (2026-03-04)
+
+**Problem:** No automated test gate on PRs — bad backend code could be merged and auto-deployed without any test signal.
+
+**Solution:** Added `.github/workflows/integration-tests.yml` — triggers on PRs to `main` when `backend/**` changes. Tests run *inside* the production Docker container via `docker exec` (avoids reinstalling heavy deps like torch/docling on the bare runner). Docker layer cache (`type=gha`) means the 500MB Docling model layer is only downloaded on first CI run; subsequent runs take ~5-8 min.
+
+**Files changed:**
+- `.github/workflows/integration-tests.yml` — new workflow
+- `.github/workflows/claude-code-review.yml` — fixed `pull-requests: write` permission
+
+**Infrastructure:** Uses a dedicated CI Supabase project (`agentic-rag-ci`) fully isolated from production. GitHub secrets: `CI_SUPABASE_URL`, `CI_SUPABASE_ANON_KEY`, `CI_SUPABASE_SERVICE_ROLE_KEY`, `CI_OPENAI_API_KEY`, `CI_TEST_EMAIL`, `CI_TEST_PASSWORD`.
+
+**Status:** ✅ Complete — 89 tests collected, all passing in CI. Branch protection for `main` configured (PRs required; "Integration Tests / backend-integration" to be added as required check after next run).
 
 ### One-time GCP setup (run in order)
 
