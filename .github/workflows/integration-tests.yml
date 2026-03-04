@@ -1,0 +1,74 @@
+# .github/workflows/integration-tests.yml
+# Runs backend integration tests on PRs targeting main.
+# Tests run inside the production Docker container (via docker exec) to avoid
+# reinstalling heavy deps (torch, docling, ~2GB) on the bare runner.
+name: Integration Tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'backend/**'
+
+jobs:
+  backend-integration:
+    name: Backend integration tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Buildx enables layer-level caching via GitHub Actions cache
+      - uses: docker/setup-buildx-action@v3
+
+      # Build the production image locally (load: true).
+      # cache-from/to reuses cached layers across runs — critical for
+      # the 500MB Docling model layer (only downloaded on first cold run).
+      - name: Build backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          load: true
+          tags: backend:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Run backend container with CI Supabase credentials.
+      # PORT=8000 (internal) so test HTTP calls to localhost:8000 work
+      # from inside the container via docker exec.
+      - name: Start backend
+        run: |
+          docker run -d \
+            --name backend-ci \
+            -p 8000:8000 \
+            -e PORT=8000 \
+            -e SUPABASE_URL=${{ secrets.CI_SUPABASE_URL }} \
+            -e SUPABASE_ANON_KEY=${{ secrets.CI_SUPABASE_ANON_KEY }} \
+            -e SUPABASE_SERVICE_ROLE_KEY=${{ secrets.CI_SUPABASE_SERVICE_ROLE_KEY }} \
+            -e OPENAI_API_KEY=${{ secrets.CI_OPENAI_API_KEY }} \
+            -e TEST_EMAIL=${{ secrets.CI_TEST_EMAIL }} \
+            -e TEST_PASSWORD=${{ secrets.CI_TEST_PASSWORD }} \
+            -e LANGSMITH_TRACING=false \
+            backend:ci
+
+      # Wait up to 60s for the server to be ready
+      - name: Wait for backend
+        run: |
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:8000/health && echo " ready" && break
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+
+      # Tests are excluded from the Docker image (.dockerignore has tests/).
+      # Copy them in at runtime so pytest can find + import them inside the container.
+      - name: Copy tests into container
+        run: docker cp ./backend/tests backend-ci:/app/tests
+
+      # Run pytest inside the container.
+      # All backend deps (torch, docling, supabase, etc.) are already installed.
+      # Env vars (SUPABASE_URL, TEST_EMAIL, etc.) are inherited from docker run.
+      - name: Run integration tests
+        run: |
+          docker exec backend-ci \
+            uv run pytest tests/auto/ -v --tb=short
