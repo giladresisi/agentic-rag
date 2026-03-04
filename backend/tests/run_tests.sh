@@ -2,7 +2,6 @@
 # Run all automated backend tests (pytest).
 # Usage (from project root):  bash backend/tests/run_tests.sh
 # Usage (from backend/tests): bash run_tests.sh
-#
 # Options:
 #   --include-evals   Also run eval integration tests (requires EVAL_DOCS_INGESTED=true in backend/.env)
 # Any other args are forwarded to pytest, e.g.: bash run_tests.sh -k test_auth -v
