@@ -2,7 +2,7 @@
 
 ![Static Badge](https://img.shields.io/badge/automated%20tests-135-blue)
 
-A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities — with out-of-the-box **LLM observability** via [LangSmith](https://smith.langchain.com) and **evaluation** via [RAGAS](https://docs.ragas.io/).
+A complete agentic RAG system with multi-tenant chat interface, document ingestion pipeline, hybrid search, metadata filtering, LLM-based tool calling, reranking, and subagent delegation capabilities — with baked-in **CI** via [GitHub Actions](https://github.com/giladresisi/ir-copilot/actions) and out-of-the-box **LLM observability** via [LangSmith](https://smith.langchain.com) and **evaluation** via [RAGAS](https://docs.ragas.io/).
 
 See it in action:
 
@@ -183,7 +183,10 @@ This project was developed mostly using the skills in the [al-dev-env](https://g
 
 Automated code review and fix workflows for AI-assisted development (located in [`.github/workflows/`](./.github/workflows/)):
 
-- `claude-review.yml` / `claude-fix.yml` - Claude Code integration for PR reviews and fixes
+- `claude-code-review.yml` - Automatic Claude code review on every PR
+- `integration-tests.yml` - Backend integration tests on every PR touching `backend/**` (optional, see [SETUP.md](./SETUP.md))
+- `deploy.yml` - Auto-deploys backend to Cloud Run on merge to `main`
+- `claude-review.yml` / `claude-fix.yml` - Claude Code integration for on-demand PR reviews and fixes
 - `codex-review.yml` / `codex-fix.yml` - OpenAI Codex integration
 - `cursor-review.yml` / `cursor-fix.yml` - Cursor IDE integration
 - `release-notes.yml` - Automated release notes generation
@@ -227,12 +230,16 @@ These methods improve retrieval relevance by ensuring chunks represent coherent,
 
 The current setup requires manual environment configuration across multiple services. A fully containerized approach would include:
 - **Local Docker Compose stack**: Bundle backend, frontend, and a local Supabase instance (Postgres + pgvector + Storage + Auth) into a single `docker compose up` with no external accounts required
-- **CI testing environment**: GitHub Actions workflow running the full backend and E2E test suites against the containerized stack — requires test doubles or stubs for external APIs (OpenAI, LangSmith, Tavily, Cohere) and a structured logging policy (structured JSON logs, no stdout noise) so CI can parse and assert on output
+- **CI testing environment**: Backend integration tests already run on every PR via `docker exec` into the production image (no reinstall of heavy deps like torch/docling). Remaining enhancements: frontend E2E tests in CI, test doubles or stubs for external APIs (currently uses real OpenAI/Supabase in CI), and structured JSON log assertions
 - **Automated 1-click setup**: Extend `setup.sh` to detect a Docker environment, skip manual Supabase steps, and wire credentials automatically — reducing new-user setup from ~15 manual steps to a single command
 
 ### 5. Hallucination Resistance Scoring
 
 The current RAGAS golden dataset only covers in-distribution questions. Adding out-of-distribution queries (with ground truth "This information is not available") would give RAGAS a quantified hallucination resistance score alongside the existing retrieval quality metrics.
+
+### 6. Security Upgrades
+
+Several known limitations should be addressed before real-user deployment (see [SECURITY.md](./SECURITY.md) for the full list): no prompt injection protection on user inputs passed to the LLM, no rate limiting on API endpoints, no antivirus scanning on uploaded documents, MFA not enforced, secrets passed as plain environment variables, and no continuous dependency auditing. Addressing these would require input sanitization middleware, a reverse proxy or WAF, Supabase MFA enforcement, migration to a secrets manager, and Dependabot/pip-audit integration.
 
 </details>
 

@@ -20,6 +20,7 @@ The following are intentional simplifications acceptable for a template but shou
 
 | Area | Limitation | Recommended Action |
 |---|---|---|
+| Prompt injection | No sanitization or guardrails on user inputs passed to the LLM — malicious prompts can manipulate retrieval queries, override system instructions, or exfiltrate context | Add an input validation layer, output filtering, and consider a guardrails framework (e.g. Guardrails AI, Llama Guard) |
 | Rate limiting | No per-user or global rate limits on API endpoints | Add a reverse proxy (e.g. Nginx, Cloudflare) or middleware |
 | File upload | No antivirus/malware scanning on uploaded documents | Integrate a scanning service before processing |
 | Authentication | Relies entirely on Supabase Auth JWTs — no MFA enforced | Enable MFA in Supabase Auth settings |

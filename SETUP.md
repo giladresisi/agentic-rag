@@ -599,6 +599,68 @@ The project's `.mcp.json` includes the Vercel MCP as a **remote HTTP server** �
 
 This allows Claude to inspect deployments, check build logs, and manage environment variables directly from the Claude Code session.
 
+## CI: Backend Integration Tests (Optional)
+
+The repository ships with a GitHub Actions workflow (`.github/workflows/integration-tests.yml`) that runs the full backend test suite on every PR touching `backend/**`. It is **opt-in** — the job is skipped (not failed) until you enable it.
+
+### How it works
+
+Tests run inside the production Docker container via `docker exec`, so no heavy deps (torch, docling) need to be reinstalled on the CI runner. Docker layer cache (`type=gha`) means the ~500MB Docling model layer is only downloaded on the first cold run; subsequent runs take ~5-8 min.
+
+A dedicated CI Supabase project (isolated from production) is required. Tests use real OpenAI and Supabase — no stubs.
+
+### Setup Steps
+
+**1. Create a CI Supabase project**
+
+Go to https://supabase.com and create a new project (e.g. `your-app-ci`). Free tier works. Wait for provisioning (~2-3 min), then copy:
+- **Project Ref**: Settings → General → Project ID
+- **Anon key** and **Service Role key**: Settings → API → Legacy keys tab
+
+**2. Apply migrations to the CI project**
+
+Link locally and push all migrations (same process as the main project setup):
+
+```bash
+supabase link --project-ref <ci-project-ref>
+# Patch SQL_QUERY_ROLE_PASSWORD in supabase/migrations/013_sql_tool.sql (use a CI-specific password)
+supabase db push
+# Restore *** placeholder after push
+```
+
+**3. Create a test user in the CI project**
+
+In the CI Supabase dashboard: Authentication → Users → Add user. Note the email and password.
+
+**4. Add GitHub repository secrets**
+
+Go to your GitHub repo → **Settings → Secrets and variables → Actions → Secrets** and add:
+
+| Secret | Value |
+|--------|-------|
+| `CI_SUPABASE_URL` | `https://<ci-project-ref>.supabase.co` |
+| `CI_SUPABASE_ANON_KEY` | Anon key from step 1 |
+| `CI_SUPABASE_SERVICE_ROLE_KEY` | Service role key from step 1 |
+| `CI_OPENAI_API_KEY` | An OpenAI key with active quota |
+| `CI_TEST_EMAIL` | Test user email from step 3 |
+| `CI_TEST_PASSWORD` | Test user password from step 3 |
+
+**5. Enable the workflow**
+
+Go to your GitHub repo → **Settings → Secrets and variables → Actions → Variables** and add:
+
+| Variable | Value |
+|----------|-------|
+| `CI_INTEGRATION_TESTS_ENABLED` | `true` |
+
+The workflow will now run on the next PR that touches `backend/**`.
+
+**6. (Optional) Require CI to pass before merging**
+
+After the first successful CI run, go to **Settings → Branches → Add classic branch protection rule** → branch name `main` → enable **"Require status checks to pass before merging"** → search for and add `backend-integration`.
+
+---
+
 ## Troubleshooting
 
 ### Cloud Run Deployment Issues

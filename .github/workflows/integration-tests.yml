@@ -14,6 +14,9 @@ jobs:
   backend-integration:
     name: Backend integration tests
     runs-on: ubuntu-latest
+    # Skip (not fail) when CI secrets haven't been configured.
+    # Set CI_INTEGRATION_TESTS_ENABLED=true in repo Settings -> Variables to opt in.
+    if: vars.CI_INTEGRATION_TESTS_ENABLED == 'true'
 
     steps:
       - uses: actions/checkout@v4
